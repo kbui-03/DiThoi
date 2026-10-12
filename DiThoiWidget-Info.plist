@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- The one key GENERATE_INFOPLIST_FILE cannot supply: INFOPLIST_KEY_*
+	     build settings produce top-level scalars only, and this is nested.
+	     Everything else (bundle id, versions, display name) is still merged in
+	     from the build settings. No principal class and no storyboard: @main on
+	     the WidgetBundle is the entry point. -->
+	<key>NSExtension</key>
+	<dict>
+		<key>NSExtensionPointIdentifier</key>
+		<string>com.apple.widgetkit-extension</string>
+	</dict>
+</dict>
+</plist>

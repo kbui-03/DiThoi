@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400;1,600&family=Lora:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+html,body{margin:0;padding:0;background:#dedbd6}
+body{
+--color-bg:#f3f2f2;--color-surface:#eae9e9;--color-text:#201f1d;
+--color-accent:oklch(0.60 0.056 142);--color-divider:rgba(32,31,29,.16);
+--color-neutral-100:#f8f4f4;--color-neutral-200:#eae7e7;--color-neutral-300:#d7d3d3;--color-neutral-400:#bab6b6;--color-neutral-500:#9b9797;--color-neutral-600:#7d7979;--color-neutral-700:#605d5d;--color-neutral-800:#444141;--color-neutral-900:#2d2b2b;
+--color-accent-100:oklch(0.963 0.020 142);--color-accent-200:oklch(0.912 0.034 142);--color-accent-300:oklch(0.852 0.046 142);--color-accent-400:oklch(0.772 0.052 142);--color-accent-500:oklch(0.682 0.056 142);--color-accent-600:oklch(0.582 0.056 142);--color-accent-700:oklch(0.482 0.052 142);--color-accent-800:oklch(0.382 0.045 142);--color-accent-900:oklch(0.300 0.034 142);
+--font-heading:'Cormorant Garamond',Georgia,serif;--font-body:'Lora',Georgia,serif;
+--space-1:4.6px;--space-2:9.2px;--space-3:13.8px;--space-4:18.4px;--space-6:27.6px;--space-8:36.8px;
+--radius-sm:2px;--radius-md:4px;--radius-lg:7px;
+font-family:var(--font-body);color:var(--color-text)}
+a{color:var(--color-accent-700);text-underline-offset:3px}
+a:hover{color:var(--color-accent-800)}
+</style>
+</helmet>
+
+<section id="g-arrival" style="position:absolute;left:70px;top:70px;width:1800px">
+  <div style="display:flex;align-items:baseline;gap:14px">
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;padding:5px 9px;border:1px solid var(--color-accent);color:var(--color-accent-700);border-radius:var(--radius-md)">A · Arrival</span>
+    <h2 style="font-family:var(--font-heading);font-weight:400;font-size:34px;line-height:1;margin:0;letter-spacing:-.015em">The reveal, 4 April</h2>
+    <span style="font-size:13px;color:var(--color-neutral-700);font-style:italic">She opens it at the gate. Everything is already inside — nothing asks her to sign up.</span>
+  </div>
+  <div style="height:1px;background:var(--color-divider);margin:14px 0 30px"></div>
+  <div style="display:flex;gap:38px;align-items:flex-start">
+
+    <div style="display:flex;flex-direction:column;gap:11px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">A1 · First open</div>
+      <div style="width:414px;height:868px;background:var(--color-neutral-900);border-radius:50px;padding:12px;box-shadow:0 12px 32px rgba(45,43,43,.22)">
+        <div data-screen-label="A1 First open" style="width:390px;height:844px;background:var(--color-bg);border-radius:38px;overflow:hidden;display:flex;flex-direction:column;padding:0 30px">
+          <div style="height:50px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 0 4px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-feature-settings:'tnum'"><span>6:02</span><span style="letter-spacing:.1em;color:var(--color-neutral-600)">BKK gate D4</span></div>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding-bottom:40px">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-accent-700)">Made for two people</div>
+            <h1 style="font-family:var(--font-heading);font-weight:400;font-size:78px;line-height:.94;margin:12px 0 0;letter-spacing:-.03em">Đi<br>Thôi</h1>
+            <div style="width:52px;height:1px;background:var(--color-accent);margin:22px 0"></div>
+            <p style="margin:0 0 var(--space-4);font-size:14.5px;line-height:1.65;text-align:justify;hyphens:auto;text-wrap:pretty">Lynn and Emmie, sixty-one days, three countries. The itinerary is loaded. The maps are downloaded. Twelve letters are sealed inside and they open themselves when you get somewhere.</p>
+            <p style="margin:0 0 var(--space-6);font-size:13px;line-height:1.6;color:var(--color-neutral-700);font-style:italic">You don't need signal, an account, or a password. Just the phone.</p>
+            <button style="width:100%;min-height:52px;font-family:var(--font-heading);font-weight:600;font-size:16px;color:var(--color-accent);background:transparent;border:1px solid var(--color-accent);border-radius:var(--radius-md);cursor:pointer" style-hover="background:var(--color-accent-100)">Open it</button>
+            <div style="margin-top:var(--space-4);font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600);text-align:center">Made at home · April 2027</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:11px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">A2 · What's already inside</div>
+      <div style="width:414px;height:868px;background:var(--color-neutral-900);border-radius:50px;padding:12px;box-shadow:0 12px 32px rgba(45,43,43,.22)">
+        <div data-screen-label="A2 Whats inside" style="width:390px;height:844px;background:var(--color-bg);border-radius:38px;overflow:hidden;display:flex;flex-direction:column">
+          <div style="height:50px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 4px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-feature-settings:'tnum'"><span>6:03</span><span style="letter-spacing:.1em;color:var(--color-neutral-600)">airplane mode</span></div>
+          <div style="flex:1;overflow:hidden;padding:0 26px">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);padding-top:14px">Packed before you left</div>
+            <h1 style="font-family:var(--font-heading);font-weight:400;font-size:40px;line-height:1.02;margin:8px 0 4px;letter-spacing:-.02em">Nothing here<br>needs wifi</h1>
+            <p style="margin:0 0 var(--space-3);font-size:13px;line-height:1.55;color:var(--color-neutral-700);font-style:italic">1.4 GB already on the phone. It will sync when it can and never nag you when it can't.</p>
+            <div style="height:1px;background:var(--color-divider);margin:var(--space-3) 0"></div>
+
+            <div style="display:flex;justify-content:space-between;align-items:baseline;padding:11px 0;border-bottom:1px solid var(--color-divider)"><span style="font-family:var(--font-heading);font-weight:600;font-size:17px">Itinerary</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-accent-700);font-feature-settings:'tnum'">61 days</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;padding:11px 0;border-bottom:1px solid var(--color-divider)"><span style="font-family:var(--font-heading);font-weight:600;font-size:17px">Offline maps</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-accent-700)">9 cities</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;padding:11px 0;border-bottom:1px solid var(--color-divider)"><span style="font-family:var(--font-heading);font-weight:600;font-size:17px">Sealed letters</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-accent-700);font-feature-settings:'tnum'">12</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;padding:11px 0;border-bottom:1px solid var(--color-divider)"><span style="font-family:var(--font-heading);font-weight:600;font-size:17px">Papers</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-600)">Both of you</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;padding:11px 0;border-bottom:1px solid var(--color-divider)"><span style="font-family:var(--font-heading);font-weight:600;font-size:17px">Show-this cards</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-600)">TH · VN · KR</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;padding:11px 0"><span style="font-family:var(--font-heading);font-weight:600;font-size:17px">Meeting-point plan</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-600)">Empty</span></div>
+
+            <div style="border:1px solid var(--color-accent);border-radius:var(--radius-md);padding:14px 16px;margin-top:var(--space-3)">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-accent-700)">One thing to do together</div>
+              <div style="font-family:var(--font-heading);font-weight:600;font-size:19px;margin-top:5px;line-height:1.2">Pick tonight's meeting point</div>
+              <p style="margin:5px 0 0;font-size:12.5px;line-height:1.5;color:var(--color-neutral-700)">Somewhere you can both walk to if the phones die. You'll set a new one each morning — it takes four seconds.</p>
+            </div>
+          </div>
+          <div style="flex:none;padding:0 26px 26px"><button style="width:100%;min-height:48px;font-family:var(--font-heading);font-weight:600;font-size:15px;color:var(--color-accent);background:transparent;border:1px solid var(--color-accent);border-radius:var(--radius-md);cursor:pointer" style-hover="background:var(--color-accent-100)">Start day one</button></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:11px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">A3 · Trip setup</div>
+      <div style="width:414px;height:868px;background:var(--color-neutral-900);border-radius:50px;padding:12px;box-shadow:0 12px 32px rgba(45,43,43,.22)">
+        <div data-screen-label="A3 Trip setup" style="width:390px;height:844px;background:var(--color-bg);border-radius:38px;overflow:hidden;display:flex;flex-direction:column">
+          <div style="height:50px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 4px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-feature-settings:'tnum'"><span>9:41</span><span style="letter-spacing:.1em;color:var(--color-neutral-600)">offline</span></div>
+          <div style="flex:1;overflow:hidden;padding:0 26px">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);padding-top:14px">Set once, then forget</div>
+            <h1 style="font-family:var(--font-heading);font-weight:400;font-size:40px;line-height:1.02;margin:8px 0 var(--space-3);letter-spacing:-.02em">The trip</h1>
+
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:7px">Travellers</div>
+            <div style="display:flex;gap:var(--space-2);margin-bottom:var(--space-3)">
+              <div style="flex:1;border:1px solid var(--color-accent);border-radius:var(--radius-md);padding:11px 13px"><div style="font-family:var(--font-heading);font-weight:600;font-size:18px">Lynn</div><div style="font-size:11px;color:var(--color-neutral-600);font-style:italic">this phone</div></div>
+              <div style="flex:1;border:1px solid var(--color-divider);border-radius:var(--radius-md);padding:11px 13px"><div style="font-family:var(--font-heading);font-weight:600;font-size:18px">Emmie</div><div style="font-size:11px;color:var(--color-neutral-600);font-style:italic">paired · 4 Apr</div></div>
+            </div>
+
+            <div style="height:1px;background:var(--color-divider);margin:var(--space-3) 0"></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--color-divider)"><div><div style="font-family:var(--font-heading);font-weight:600;font-size:16px">Home currency</div><div style="font-size:11.5px;color:var(--color-neutral-600);font-style:italic">Everything converts to this</div></div><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--color-accent-700)">USD</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--color-divider)"><div><div style="font-family:var(--font-heading);font-weight:600;font-size:16px">Journals</div><div style="font-size:11.5px;color:var(--color-neutral-600);font-style:italic">Private to each of you until print</div></div><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-accent-700);border:1px solid var(--color-accent-300);padding:3px 6px;border-radius:var(--radius-sm)">Private</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--color-divider)"><div><div style="font-family:var(--font-heading);font-weight:600;font-size:16px">Money &amp; plans</div><div style="font-size:11.5px;color:var(--color-neutral-600);font-style:italic">Shared both ways</div></div><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-600);border:1px solid var(--color-divider);padding:3px 6px;border-radius:var(--radius-sm)">Shared</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--color-divider)"><div><div style="font-family:var(--font-heading);font-weight:600;font-size:16px">Books to print</div><div style="font-size:11.5px;color:var(--color-neutral-600);font-style:italic">One each, same trip</div></div><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--color-accent-700);font-feature-settings:'tnum'">2</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0"><div><div style="font-family:var(--font-heading);font-weight:600;font-size:16px">Offline maps</div><div style="font-size:11.5px;color:var(--color-neutral-600);font-style:italic">Downloaded 2 Apr</div></div><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--color-accent-700);font-feature-settings:'tnum'">1.4 GB</span></div>
+
+            <div style="height:1px;background:var(--color-divider);margin:var(--space-3) 0"></div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:8px">Letters open when</div>
+            <div style="display:flex;flex-wrap:wrap;gap:var(--space-2)">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:7px 11px;border:1px solid var(--color-accent);color:var(--color-accent-700);border-radius:var(--radius-sm)">you arrive somewhere</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:7px 11px;border:1px solid var(--color-accent);color:var(--color-accent-700);border-radius:var(--radius-sm)">day 30 · day 50</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:7px 11px;border:1px solid var(--color-accent);color:var(--color-accent-700);border-radius:var(--radius-sm)">the last stamp</span>
+            </div>
+            <p style="margin:var(--space-3) 0 0;font-size:12px;line-height:1.5;color:var(--color-neutral-700);font-style:italic">Only he can change these, and he can't see when you read them.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section id="g-everyday" style="position:absolute;left:70px;top:1160px;width:1800px">
+  <div style="display:flex;align-items:baseline;gap:14px">
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;padding:5px 9px;border:1px solid var(--color-accent);color:var(--color-accent-700);border-radius:var(--radius-md)">B · Every day</span>
+    <h2 style="font-family:var(--font-heading);font-weight:400;font-size:34px;line-height:1;margin:0;letter-spacing:-.015em">The four screens they'll actually live in</h2>
+  </div>
+  <div style="height:1px;background:var(--color-divider);margin:14px 0 30px"></div>
+  <div style="display:flex;gap:38px;align-items:flex-start">
+
+    <div style="display:flex;flex-direction:column;gap:11px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">B1 · Today</div>
+      <div style="width:414px;height:868px;background:var(--color-neutral-900);border-radius:50px;padding:12px;box-shadow:0 12px 32px rgba(45,43,43,.22)">
+        <div data-screen-label="B1 Today" style="width:390px;height:844px;background:var(--color-bg);border-radius:38px;overflow:hidden;display:flex;flex-direction:column">
+          <div style="height:50px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 4px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-feature-settings:'tnum'"><span>9:41</span><span style="letter-spacing:.1em;color:var(--color-neutral-600)">offline</span></div>
+          <div style="flex:1;overflow:hidden;padding:0 26px">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;padding-top:14px">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-accent-700);font-feature-settings:'tnum'">Day {{ dayNumber }} of 61</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600)">Chiang Mai</div>
+            </div>
+            <h1 style="font-family:var(--font-heading);font-weight:400;font-size:44px;line-height:1.02;margin:10px 0 2px;letter-spacing:-.02em">Tuesday,<br>13 April</h1>
+            <p style="margin:0 0 var(--space-3);font-size:13px;line-height:1.5;color:var(--color-neutral-700);font-style:italic">Songkran begins. Everything closes at noon and the whole street turns into water.</p>
+            <div style="height:1px;background:var(--color-divider);margin:var(--space-3) 0"></div>
+
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:9px">A letter opened itself here</div>
+            <div style="border:1px solid var(--color-accent);border-radius:var(--radius-md);padding:15px 16px;cursor:pointer" style-hover="background:var(--color-accent-100)" onClick="{{ toggleLetter }}">
+              <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px">
+                <h4 style="font-family:var(--font-heading);font-weight:600;font-size:19px;margin:0;letter-spacing:-.01em">{{ letterHeadline }}</h4>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-accent-700);border:1px solid var(--color-accent-300);border-radius:var(--radius-sm);padding:3px 6px;white-space:nowrap">No. 04</span>
+              </div>
+              <p style="margin:8px 0 0;font-size:13px;line-height:1.55;color:var(--color-neutral-700)">{{ letterBody }}</p>
+              <div style="margin-top:11px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-accent-700)">{{ letterCta }}</div>
+            </div>
+
+            <div style="height:1px;background:var(--color-divider);margin:var(--space-4) 0 var(--space-3)"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)">
+              <div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600)">Spent today</div>
+                <div style="font-family:var(--font-heading);font-weight:400;font-size:30px;line-height:1.1;margin-top:3px;font-feature-settings:'tnum'">฿1,240</div>
+                <div style="font-size:11.5px;color:var(--color-neutral-700);font-style:italic">≈ $34 · under pace</div>
+              </div>
+              <div style="border-left:1px solid var(--color-divider);padding-left:var(--space-3)">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600)">Meeting point</div>
+                <div style="font-family:var(--font-heading);font-weight:600;font-size:17px;line-height:1.2;margin-top:4px">Wat Phra Singh<br>north gate</div>
+                <div style="font-size:11.5px;color:var(--color-neutral-700);font-style:italic">set 08:12</div>
+              </div>
+            </div>
+
+            <div style="height:1px;background:var(--color-divider);margin:var(--space-3) 0"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+              <div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600)">Tonight's entry</div>
+                <div style="font-family:var(--font-heading);font-weight:600;font-size:17px;margin-top:2px">One photo, one line</div>
+              </div>
+              <button style="min-height:44px;display:inline-flex;align-items:center;font-family:var(--font-heading);font-weight:600;font-size:14px;color:var(--color-accent);background:transparent;border:1px solid var(--color-accent);border-radius:var(--radius-md);padding:var(--space-2) 16px;cursor:pointer;white-space:nowrap" style-hover="background:var(--color-accent-100)">Write</button>
+            </div>
+          </div>
+          <dc-import name="TabBar" active="today" hint-size="100%,84px" style="flex:none"></dc-import>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:11px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">B2 · All 61 days</div>
+      <div style="width:414px;height:868px;background:var(--color-neutral-900);border-radius:50px;padding:12px;box-shadow:0 12px 32px rgba(45,43,43,.22)">
+        <div data-screen-label="B2 Itinerary" style="width:390px;height:844px;background:var(--color-bg);border-radius:38px;overflow:hidden;display:flex;flex-direction:column">
+          <div style="height:50px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 4px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-feature-settings:'tnum'"><span>9:41</span><span style="letter-spacing:.1em;color:var(--color-neutral-600)">offline</span></div>
+          <div style="flex:1;overflow:hidden;padding:0 26px">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);padding-top:14px">4 April – 14 June</div>
+            <h1 style="font-family:var(--font-heading);font-weight:400;font-size:38px;line-height:1.02;margin:8px 0 var(--space-3);letter-spacing:-.02em">Sixty-one days</h1>
+
+            <div style="display:flex;align-items:baseline;justify-content:space-between;border-bottom:1px solid var(--color-text);padding-bottom:5px"><span style="font-family:var(--font-heading);font-weight:600;font-size:20px">Thailand</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-600)">20 nights</span></div>
+            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--color-divider);font-size:13px"><span>Bangkok</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--color-neutral-600);font-feature-settings:'tnum'">4 – 8 Apr</span></div>
+            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--color-divider);font-size:13px"><span>Ayutthaya · Pai</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--color-neutral-600);font-feature-settings:'tnum'">8 – 12 Apr</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--color-divider);font-size:13px;background:var(--color-accent-100);margin:0 -8px;padding-left:8px;padding-right:8px"><span style="font-family:var(--font-heading);font-weight:600;font-size:15px">Chiang Mai · Songkran</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--color-accent-700)">you're here</span></div>
+            <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px"><span>Chiang Rai</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--color-neutral-600);font-feature-settings:'tnum'">20 – 24 Apr</span></div>
+
+            <div style="display:flex;align-items:baseline;justify-content:space-between;border-bottom:1px solid var(--color-text);padding-bottom:5px;margin-top:var(--space-3)"><span style="font-family:var(--font-heading);font-weight:600;font-size:20px">Vietnam</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-600)">30 nights</span></div>
+            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--color-divider);font-size:13px"><span>Hanoi · Hà Giang loop</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--color-neutral-600);font-feature-settings:'tnum'">24 Apr – 5 May</span></div>
+            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--color-divider);font-size:13px"><span>Hội An · Đà Nẵng</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--color-neutral-600);font-feature-settings:'tnum'">6 – 14 May</span></div>
+            <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px"><span>Sài Gòn · Mekong</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--color-neutral-600);font-feature-settings:'tnum'">14 – 24 May</span></div>
+
+            <div style="display:flex;align-items:baseline;justify-content:space-between;border-bottom:1px solid var(--color-text);padding-bottom:5px;margin-top:var(--space-3)"><span style="font-family:var(--font-heading);font-weight:600;font-size:20px">South Korea</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-600)">21 nights</span></div>
+            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--color-divider);font-size:13px"><span>Seoul</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--color-neutral-600);font-feature-settings:'tnum'">24 May – 6 Jun</span></div>
+            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--color-divider);font-size:13px"><span>Busan</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--color-neutral-600);font-feature-settings:'tnum'">6 – 10 Jun</span></div>
+            <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px"><span>Jeju</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--color-accent-700);font-feature-settings:'tnum'">10 – 14 Jun</span></div>
+            <p style="margin:var(--space-3) 0 0;font-size:12px;line-height:1.5;color:var(--color-neutral-700);font-style:italic">Nothing here is booked except the flights. Drag a city and the days re-flow.</p>
+          </div>
+          <dc-import name="TabBar" active="today" hint-size="100%,84px" style="flex:none"></dc-import>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:11px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">B3 · One day</div>
+      <div style="width:414px;height:868px;background:var(--color-neutral-900);border-radius:50px;padding:12px;box-shadow:0 12px 32px rgba(45,43,43,.22)">
+        <div data-screen-label="B3 One day" style="width:390px;height:844px;background:var(--color-bg);border-radius:38px;overflow:hidden;display:flex;flex-direction:column">
+          <div style="height:50px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 4px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-feature-settings:'tnum'"><span>9:41</span><span style="letter-spacing:.1em;color:var(--color-neutral-600)">offline</span></div>
+          <div style="flex:1;overflow:hidden;padding:0 26px">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;padding-top:14px">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600)">Day 12 · Chiang Mai</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-accent-700)">Songkran</div>
+            </div>
+            <h1 style="font-family:var(--font-heading);font-weight:400;font-size:38px;line-height:1.02;margin:8px 0 var(--space-2);letter-spacing:-.02em">13 April</h1>
+            <p style="margin:0 0 var(--space-3);font-size:13px;line-height:1.6;text-align:justify;hyphens:auto">Water fight from dawn. The moat is the whole point — walk it anticlockwise and you end up at Tha Phae Gate around dusk, which is where the speakers are.</p>
+            <div style="height:1px;background:var(--color-divider);margin:0 0 var(--space-3)"></div>
+
+            <div style="display:flex;gap:var(--space-3);padding-bottom:var(--space-3);border-bottom:1px solid var(--color-divider)">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--color-accent-700);width:52px;flex:none;font-feature-settings:'tnum';padding-top:3px">07:30</div>
+              <div><div style="font-family:var(--font-heading);font-weight:600;font-size:17px">Khao soi at Khun Yai</div><div style="font-size:12px;color:var(--color-neutral-700);font-style:italic">Closes at 2pm and sells out by 11. Cash only.</div></div>
+            </div>
+            <div style="display:flex;gap:var(--space-3);padding:var(--space-3) 0;border-bottom:1px solid var(--color-divider)">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--color-accent-700);width:52px;flex:none;font-feature-settings:'tnum';padding-top:3px">10:00</div>
+              <div><div style="font-family:var(--font-heading);font-weight:600;font-size:17px">Buy the water guns</div><div style="font-size:12px;color:var(--color-neutral-700);font-style:italic">Not the cheap ones. Bag for the phones.</div></div>
+            </div>
+            <div style="display:flex;gap:var(--space-3);padding:var(--space-3) 0;border-bottom:1px solid var(--color-divider)">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--color-accent-700);width:52px;flex:none;font-feature-settings:'tnum';padding-top:3px">12:00</div>
+              <div><div style="font-family:var(--font-heading);font-weight:600;font-size:17px">The moat, anticlockwise</div><div style="font-size:12px;color:var(--color-neutral-700);font-style:italic">You will be soaked in ninety seconds. Accept it early.</div></div>
+            </div>
+            <div style="display:flex;gap:var(--space-3);padding:var(--space-3) 0;border-bottom:1px solid var(--color-divider)">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--color-accent-700);width:52px;flex:none;font-feature-settings:'tnum';padding-top:3px">19:00</div>
+              <div><div style="font-family:var(--font-heading);font-weight:600;font-size:17px">Tha Phae Gate</div><div style="font-size:12px;color:var(--color-neutral-700);font-style:italic">Loud. Stay together — this is where phones get lost.</div></div>
+            </div>
+
+            <div style="border:1px solid var(--color-divider);border-radius:var(--radius-md);padding:13px 15px;margin-top:var(--space-3)">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600)">Tonight</div>
+              <div style="font-family:var(--font-heading);font-weight:600;font-size:17px;margin-top:4px">Baan Orapin · booking 4471</div>
+              <div style="font-size:12px;color:var(--color-neutral-700);font-style:italic;margin-top:2px">Address card ready in Thai · 8 min walk from the gate</div>
+            </div>
+          </div>
+          <dc-import name="TabBar" active="today" hint-size="100%,84px" style="flex:none"></dc-import>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:11px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">B4 · Add an expense</div>
+      <div style="width:414px;height:868px;background:var(--color-neutral-900);border-radius:50px;padding:12px;box-shadow:0 12px 32px rgba(45,43,43,.22)">
+        <div data-screen-label="B4 Add expense" style="width:390px;height:844px;background:var(--color-bg);border-radius:38px;overflow:hidden;display:flex;flex-direction:column">
+          <div style="height:50px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 4px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-feature-settings:'tnum'"><span>13:52</span><span style="letter-spacing:.1em;color:var(--color-neutral-600)">offline</span></div>
+          <div style="flex:1;overflow:hidden;padding:0 26px">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;padding-top:14px">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600)">New expense</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-accent-700)">Cancel</div>
+            </div>
+
+            <div style="display:flex;align-items:baseline;gap:8px;margin-top:var(--space-4)">
+              <span style="font-family:var(--font-heading);font-weight:400;font-size:34px;color:var(--color-neutral-500)">₫</span>
+              <span style="font-family:var(--font-heading);font-weight:400;font-size:62px;line-height:1;letter-spacing:-.02em;font-feature-settings:'tnum'">840,000</span>
+            </div>
+            <div style="height:1px;background:var(--color-accent);margin:var(--space-2) 0 var(--space-1)"></div>
+            <div style="font-size:12.5px;color:var(--color-neutral-700);font-style:italic">≈ $33 · rate cached 6 hours ago</div>
+
+            <div style="display:flex;gap:6px;margin-top:var(--space-3)">
+              <span style="flex:1;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;padding:9px 0;border:1px solid var(--color-divider);border-radius:var(--radius-sm);color:var(--color-neutral-600)">฿ THB</span>
+              <span style="flex:1;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;padding:9px 0;border:1px solid var(--color-accent);border-radius:var(--radius-sm);color:var(--color-accent-700);background:var(--color-accent-100)">₫ VND</span>
+              <span style="flex:1;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;padding:9px 0;border:1px solid var(--color-divider);border-radius:var(--radius-sm);color:var(--color-neutral-600)">₩ KRW</span>
+            </div>
+
+            <div style="height:1px;background:var(--color-divider);margin:var(--space-4) 0 var(--space-3)"></div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:8px">Who paid</div>
+            <div style="display:flex;gap:var(--space-2)">
+              <div style="flex:1;text-align:center;border:1px solid var(--color-accent);background:var(--color-accent-100);border-radius:var(--radius-md);padding:12px 0;font-family:var(--font-heading);font-weight:600;font-size:17px;color:var(--color-accent-800)">Lynn</div>
+              <div style="flex:1;text-align:center;border:1px solid var(--color-divider);border-radius:var(--radius-md);padding:12px 0;font-family:var(--font-heading);font-weight:600;font-size:17px">Emmie</div>
+              <div style="flex:1;text-align:center;border:1px solid var(--color-divider);border-radius:var(--radius-md);padding:12px 0;font-family:var(--font-heading);font-weight:600;font-size:17px">Both</div>
+            </div>
+
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);margin:var(--space-3) 0 8px">Split</div>
+            <div style="display:flex;gap:var(--space-2)">
+              <div style="flex:1;text-align:center;border:1px solid var(--color-accent);background:var(--color-accent-100);border-radius:var(--radius-md);padding:11px 0;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--color-accent-800)">Evenly</div>
+              <div style="flex:1;text-align:center;border:1px solid var(--color-divider);border-radius:var(--radius-md);padding:11px 0;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--color-neutral-700)">Mine only</div>
+              <div style="flex:1;text-align:center;border:1px solid var(--color-divider);border-radius:var(--radius-md);padding:11px 0;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--color-neutral-700)">Custom</div>
+            </div>
+
+            <div style="border:1px solid var(--color-accent-300);background:var(--color-accent-100);border-radius:var(--radius-md);padding:13px 15px;margin-top:var(--space-4)">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-accent-700)">Is this cheap?</div>
+              <p style="margin:5px 0 0;font-size:12.5px;line-height:1.5;color:var(--color-accent-800)">About six bowls of phở, or one night in Hội An. Fair for a soft-sleeper berth.</p>
+            </div>
+          </div>
+          <div style="flex:none;padding:0 26px 26px"><button style="width:100%;min-height:48px;font-family:var(--font-heading);font-weight:600;font-size:15px;color:var(--color-accent);background:transparent;border:1px solid var(--color-accent);border-radius:var(--radius-md);cursor:pointer" style-hover="background:var(--color-accent-100)">Save · Emmie owes ₫420,000</button></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+
+<section id="g-letters" style="position:absolute;left:70px;top:2200px;width:1800px">
+  <div style="display:flex;align-items:baseline;gap:14px">
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;padding:5px 9px;border:1px solid var(--color-accent);color:var(--color-accent-700);border-radius:var(--radius-md)">C · Letters</span>
+    <h2 style="font-family:var(--font-heading);font-weight:400;font-size:34px;line-height:1;margin:0;letter-spacing:-.015em">Twelve of them, and she can't cheat</h2>
+    <span style="font-size:13px;color:var(--color-neutral-700);font-style:italic">Sealed ones show only their condition. Nothing tells you when she reads them.</span>
+  </div>
+  <div style="height:1px;background:var(--color-divider);margin:14px 0 30px"></div>
+  <div style="display:flex;gap:38px;align-items:flex-start">
+
+    <div style="display:flex;flex-direction:column;gap:11px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">C1 · The letter box</div>
+      <div style="width:414px;height:868px;background:var(--color-neutral-900);border-radius:50px;padding:12px;box-shadow:0 12px 32px rgba(45,43,43,.22)">
+        <div data-screen-label="C1 Letter box" style="width:390px;height:844px;background:var(--color-bg);border-radius:38px;overflow:hidden;display:flex;flex-direction:column">
+          <div style="height:50px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 4px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-feature-settings:'tnum'"><span>9:41</span><span style="letter-spacing:.1em;color:var(--color-neutral-600)">offline</span></div>
+          <div style="flex:1;overflow:hidden;padding:0 26px">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;padding-top:14px">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600)">From home</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-accent-700);font-feature-settings:'tnum'">4 open · 8 sealed</div>
+            </div>
+            <h1 style="font-family:var(--font-heading);font-weight:400;font-size:38px;line-height:1.02;margin:8px 0 var(--space-3);letter-spacing:-.02em">Letters</h1>
+
+            <div style="display:flex;gap:var(--space-3);padding:11px 0;border-top:1px solid var(--color-text);border-bottom:1px solid var(--color-divider)">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--color-accent-700);width:26px;flex:none;font-feature-settings:'tnum';padding-top:4px">04</div>
+              <div style="flex:1"><div style="font-family:var(--font-heading);font-weight:600;font-size:17px">Get completely soaked</div><div style="font-size:11.5px;color:var(--color-neutral-700);font-style:italic">Chiang Mai · opened today</div></div>
+            </div>
+            <div style="display:flex;gap:var(--space-3);padding:11px 0;border-bottom:1px solid var(--color-divider)">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--color-accent-700);width:26px;flex:none;font-feature-settings:'tnum';padding-top:4px">03</div>
+              <div style="flex:1"><div style="font-family:var(--font-heading);font-weight:600;font-size:17px">On sleeping badly in Pai</div><div style="font-size:11.5px;color:var(--color-neutral-700);font-style:italic">Pai · 11 April</div></div>
+            </div>
+            <div style="display:flex;gap:var(--space-3);padding:11px 0;border-bottom:1px solid var(--color-divider)">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--color-accent-700);width:26px;flex:none;font-feature-settings:'tnum';padding-top:4px">02</div>
+              <div style="flex:1"><div style="font-family:var(--font-heading);font-weight:600;font-size:17px">The bit about the tuk-tuk</div><div style="font-size:11.5px;color:var(--color-neutral-700);font-style:italic">Ayutthaya · 8 April</div></div>
+            </div>
+            <div style="display:flex;gap:var(--space-3);padding:11px 0;border-bottom:1px solid var(--color-divider)">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--color-accent-700);width:26px;flex:none;font-feature-settings:'tnum';padding-top:4px">01</div>
+              <div style="flex:1"><div style="font-family:var(--font-heading);font-weight:600;font-size:17px">Before you take off</div><div style="font-size:11.5px;color:var(--color-neutral-700);font-style:italic">Bangkok · 4 April</div></div>
+            </div>
+
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);margin:var(--space-4) 0 var(--space-2)">Still sealed</div>
+
+            <div style="display:flex;gap:var(--space-3);padding:10px 0;border-top:1px solid var(--color-divider);border-bottom:1px dashed var(--color-neutral-300)">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--color-neutral-500);width:26px;flex:none;font-feature-settings:'tnum';padding-top:3px">05</div>
+              <div style="flex:1"><div style="font-family:var(--font-heading);font-weight:600;font-size:16px;color:var(--color-neutral-600)">Opens in Hanoi</div><div style="font-size:11px;color:var(--color-neutral-500);font-style:italic">when you land, whenever that is</div></div>
+            </div>
+            <div style="display:flex;gap:var(--space-3);padding:10px 0;border-bottom:1px dashed var(--color-neutral-300)">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--color-neutral-500);width:26px;flex:none;font-feature-settings:'tnum';padding-top:3px">06</div>
+              <div style="flex:1"><div style="font-family:var(--font-heading);font-weight:600;font-size:16px;color:var(--color-neutral-600)">Opens somewhere on water</div><div style="font-size:11px;color:var(--color-neutral-500);font-style:italic">you'll know it when you're there</div></div>
+            </div>
+            <div style="display:flex;gap:var(--space-3);padding:10px 0;border-bottom:1px dashed var(--color-neutral-300)">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--color-neutral-500);width:26px;flex:none;font-feature-settings:'tnum';padding-top:3px">07</div>
+              <div style="flex:1"><div style="font-family:var(--font-heading);font-weight:600;font-size:16px;color:var(--color-neutral-600)">Opens on day 30</div><div style="font-size:11px;color:var(--color-neutral-500);font-style:italic">3 May · halfway</div></div>
+            </div>
+            <div style="display:flex;gap:var(--space-3);padding:10px 0;border-bottom:1px dashed var(--color-neutral-300)">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--color-neutral-500);width:26px;flex:none;font-feature-settings:'tnum';padding-top:3px">12</div>
+              <div style="flex:1"><div style="font-family:var(--font-heading);font-weight:600;font-size:16px;color:var(--color-neutral-600)">Opens with the last stamp</div><div style="font-size:11px;color:var(--color-neutral-500);font-style:italic">Jeju · the final one</div></div>
+            </div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-neutral-500);margin-top:var(--space-2);text-align:center">+ 4 more you can't see yet</div>
+          </div>
+          <dc-import name="TabBar" active="today" hint-size="100%,84px" style="flex:none"></dc-import>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:11px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">C2 · Reading one</div>
+      <div style="width:414px;height:868px;background:var(--color-neutral-900);border-radius:50px;padding:12px;box-shadow:0 12px 32px rgba(45,43,43,.22)">
+        <div data-screen-label="C2 Reading a letter" style="width:390px;height:844px;background:var(--color-neutral-100);border-radius:38px;overflow:hidden;display:flex;flex-direction:column">
+          <div style="height:50px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 30px 4px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-feature-settings:'tnum'"><span>9:43</span><span style="letter-spacing:.1em;color:var(--color-accent-700)">close</span></div>
+          <div style="flex:1;overflow:hidden;padding:0 30px">
+            <div style="text-align:center;padding-top:var(--space-4)">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-accent-700);font-feature-settings:'tnum'">Letter No. 04</div>
+              <div style="width:34px;height:1px;background:var(--color-accent);margin:12px auto"></div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">written 28 march · opened in chiang mai</div>
+            </div>
+            <h2 style="font-family:var(--font-heading);font-weight:400;font-size:32px;line-height:1.08;margin:var(--space-4) 0 var(--space-3);letter-spacing:-.02em;text-align:center;font-style:italic">Get completely<br>soaked</h2>
+            <p style="margin:0 0 var(--space-3);font-size:14px;line-height:1.72;text-align:justify;hyphens:auto;text-wrap:pretty">Em à, if you're reading this then the phone knew you made it to Chiang Mai, which means the bus didn't fall off the mountain and I can stop refreshing the map.</p>
+            <p style="margin:0 0 var(--space-3);font-size:14px;line-height:1.72;text-align:justify;hyphens:auto;text-wrap:pretty">You told me once you wanted to be somewhere loud enough that you couldn't hear yourself worry. Today is that place. Everyone in that city is going to throw water at you and none of them will apologise.</p>
+            <p style="margin:0 0 var(--space-3);font-size:14px;line-height:1.72;text-align:justify;hyphens:auto;text-wrap:pretty">So: put the phone in the bag. Buy the expensive water gun, not the 20-baht one that breaks. Let Emmie complain about her hair for one hour and then watch her love it more than you do.</p>
+            <p style="margin:0 0 var(--space-4);font-size:14px;line-height:1.72;text-align:justify;hyphens:auto;text-wrap:pretty">I'm not there and that's fine. Two months is nothing. Go be twenty-four.</p>
+            <div style="text-align:right;font-family:var(--font-heading);font-style:italic;font-size:19px;color:var(--color-neutral-800)">— me, obviously</div>
+          </div>
+          <div style="flex:none;padding:var(--space-3) 30px 26px;border-top:1px solid var(--color-divider);display:flex;align-items:center;justify-content:space-between;gap:12px">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-neutral-600);line-height:1.5">Next one opens<br>when you reach Hanoi</div>
+            <button style="min-height:44px;font-family:var(--font-heading);font-weight:600;font-size:14px;color:var(--color-accent);background:transparent;border:1px solid var(--color-accent);border-radius:var(--radius-md);padding:var(--space-2) 16px;cursor:pointer;white-space:nowrap" style-hover="background:var(--color-accent-100)">Keep it</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:11px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">C3 · A stamp unlocks</div>
+      <div style="width:414px;height:868px;background:var(--color-neutral-900);border-radius:50px;padding:12px;box-shadow:0 12px 32px rgba(45,43,43,.22)">
+        <div data-screen-label="C3 Stamp earned" style="width:390px;height:844px;background:var(--color-neutral-900);border-radius:38px;overflow:hidden;display:flex;flex-direction:column;padding:0 30px">
+          <div style="height:50px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 0 4px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-feature-settings:'tnum';color:var(--color-neutral-300)"><span>17:20</span><span style="letter-spacing:.1em">arrived</span></div>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:center;text-align:center;padding-bottom:60px">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-accent-300)">Stamp 07 of 11</div>
+            <div style="width:186px;height:186px;border:1px solid var(--color-accent-400);border-radius:50%;margin:var(--space-6) auto;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--color-accent-300)">
+              <span style="font-family:var(--font-heading);font-weight:400;font-size:44px;line-height:1;letter-spacing:-.01em">HOI</span>
+              <span style="width:44px;height:1px;background:var(--color-accent-400);margin:12px 0"></span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;font-feature-settings:'tnum'">06 MAY 2027</span>
+            </div>
+            <h2 style="font-family:var(--font-heading);font-weight:400;font-size:38px;line-height:1.05;margin:0 0 var(--space-2);color:var(--color-neutral-100);letter-spacing:-.02em">Hội An</h2>
+            <p style="margin:0 auto var(--space-6);font-size:13.5px;line-height:1.6;color:var(--color-neutral-300);font-style:italic;max-width:250px">You're standing in it. This one can't be faked from a hotel in Đà Nẵng.</p>
+            <div style="border:1px solid var(--color-accent-400);border-radius:var(--radius-md);padding:14px 16px;text-align:left">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-accent-300)">Something came with it</div>
+              <div style="font-family:var(--font-heading);font-weight:600;font-size:19px;color:var(--color-neutral-100);margin-top:5px">Letter No. 06 is open</div>
+              <div style="font-size:12.5px;color:var(--color-neutral-300);margin-top:3px;font-style:italic">the one about water — of course it was here</div>
+            </div>
+          </div>
+          <div style="flex:none;padding-bottom:26px;display:flex;gap:10px">
+            <span style="flex:1;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-300);border:1px solid var(--color-neutral-700);border-radius:var(--radius-sm);padding:13px 0">See the trail</span>
+            <span style="flex:1;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-accent-300);border:1px solid var(--color-accent-400);border-radius:var(--radius-sm);padding:13px 0">Read it</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section id="g-ground" style="position:absolute;left:70px;top:3240px;width:1800px">
+  <div style="display:flex;align-items:baseline;gap:14px">
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;padding:5px 9px;border:1px solid var(--color-accent);color:var(--color-accent-700);border-radius:var(--radius-md)">D · Ground truth</span>
+    <h2 style="font-family:var(--font-heading);font-weight:400;font-size:34px;line-height:1;margin:0;letter-spacing:-.015em">Where they are, what it cost</h2>
+  </div>
+  <div style="height:1px;background:var(--color-divider);margin:14px 0 30px"></div>
+  <div style="display:flex;gap:38px;align-items:flex-start">
+
+    <div style="display:flex;flex-direction:column;gap:11px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">D1 · The trail</div>
+      <div style="width:414px;height:868px;background:var(--color-neutral-900);border-radius:50px;padding:12px;box-shadow:0 12px 32px rgba(45,43,43,.22)">
+        <div data-screen-label="D1 Trail" style="width:390px;height:844px;background:var(--color-bg);border-radius:38px;overflow:hidden;display:flex;flex-direction:column">
+          <div style="height:50px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 4px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-feature-settings:'tnum'"><span>9:41</span><span style="letter-spacing:.1em;color:var(--color-neutral-600)">offline</span></div>
+          <div style="flex:1;overflow:hidden;padding:0 26px">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);padding-top:14px">The trail so far</div>
+            <h1 style="font-family:var(--font-heading);font-weight:400;font-size:38px;line-height:1.05;margin:8px 0 12px;letter-spacing:-.02em">1,840 km<br>and counting</h1>
+            <div style="border:6px solid var(--color-surface);outline:1px solid var(--color-divider);height:236px;display:flex;align-items:center;justify-content:center;background:repeating-linear-gradient(45deg,var(--color-neutral-200) 0 7px,var(--color-neutral-100) 7px 14px)">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-neutral-600);text-align:center;line-height:1.6">cached map tile<br>bangkok → chiang mai</span>
+            </div>
+            <div style="font-size:11px;margin-top:var(--space-1);color:var(--color-neutral-600);font-style:italic">38 pins dropped · both of you, one trail</div>
+            <div style="height:1px;background:var(--color-divider);margin:var(--space-4) 0 var(--space-3)"></div>
+            <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600)">Stamps earned</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-feature-settings:'tnum';color:var(--color-accent-700)">04 / 11</div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-2)">
+              <div style="aspect-ratio:1;border:1px solid var(--color-accent);border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--color-accent-700);text-align:center"><span style="font-family:var(--font-heading);font-size:15px;font-weight:600;line-height:1">BKK</span><span style="font-family:'IBM Plex Mono',monospace;font-size:7.5px;letter-spacing:.06em;margin-top:2px">04 APR</span></div>
+              <div style="aspect-ratio:1;border:1px solid var(--color-accent);border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--color-accent-700);text-align:center"><span style="font-family:var(--font-heading);font-size:15px;font-weight:600;line-height:1">AYU</span><span style="font-family:'IBM Plex Mono',monospace;font-size:7.5px;letter-spacing:.06em;margin-top:2px">08 APR</span></div>
+              <div style="aspect-ratio:1;border:1px solid var(--color-accent);border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--color-accent-700);text-align:center"><span style="font-family:var(--font-heading);font-size:15px;font-weight:600;line-height:1">PAI</span><span style="font-family:'IBM Plex Mono',monospace;font-size:7.5px;letter-spacing:.06em;margin-top:2px">11 APR</span></div>
+              <div style="aspect-ratio:1;border:1px solid var(--color-accent);border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--color-accent-800);text-align:center;background:var(--color-accent-100)"><span style="font-family:var(--font-heading);font-size:15px;font-weight:600;line-height:1">CNX</span><span style="font-family:'IBM Plex Mono',monospace;font-size:7.5px;letter-spacing:.06em;margin-top:2px">TODAY</span></div>
+              <div style="aspect-ratio:1;border:1px dashed var(--color-neutral-400);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--color-neutral-500);font-family:var(--font-heading);font-size:15px">HAN</div>
+              <div style="aspect-ratio:1;border:1px dashed var(--color-neutral-400);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--color-neutral-500);font-family:var(--font-heading);font-size:15px">HOI</div>
+              <div style="aspect-ratio:1;border:1px dashed var(--color-neutral-400);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--color-neutral-500);font-family:var(--font-heading);font-size:15px">SGN</div>
+              <div style="aspect-ratio:1;border:1px dashed var(--color-neutral-400);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--color-neutral-500);font-family:var(--font-heading);font-size:15px">SEL</div>
+            </div>
+            <div style="height:1px;background:var(--color-divider);margin:var(--space-3) 0 var(--space-2)"></div>
+            <p style="margin:0;font-size:12px;line-height:1.55;color:var(--color-neutral-700);font-style:italic">Jeju is the last one, and it's the only stamp that opens a letter.</p>
+          </div>
+          <dc-import name="TabBar" active="trail" hint-size="100%,84px" style="flex:none"></dc-import>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:11px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">D2 · Money</div>
+      <div style="width:414px;height:868px;background:var(--color-neutral-900);border-radius:50px;padding:12px;box-shadow:0 12px 32px rgba(45,43,43,.22)">
+        <div data-screen-label="D2 Money" style="width:390px;height:844px;background:var(--color-bg);border-radius:38px;overflow:hidden;display:flex;flex-direction:column">
+          <div style="height:50px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 4px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-feature-settings:'tnum'"><span>9:41</span><span style="letter-spacing:.1em;color:var(--color-neutral-600)">offline</span></div>
+          <div style="flex:1;overflow:hidden;padding:0 26px">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);padding-top:14px">Ledger · ฿ ₫ ₩</div>
+            <h1 style="font-family:var(--font-heading);font-weight:400;font-size:38px;line-height:1.05;margin:8px 0 4px;letter-spacing:-.02em">$1,840 of $6,000</h1>
+            <p style="margin:0 0 var(--space-3);font-size:12.5px;color:var(--color-neutral-700);font-style:italic">Day 12 of 61 — three days ahead of the burn.</p>
+            <div style="height:7px;border:1px solid var(--color-divider);border-radius:var(--radius-sm);display:flex;overflow:hidden"><div style="width:31%;background:var(--color-accent-400)"></div></div>
+            <div style="display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-600);margin-top:var(--space-1);font-feature-settings:'tnum'"><span>31% spent</span><span>$68/day left</span></div>
+
+            <div style="height:1px;background:var(--color-divider);margin:var(--space-4) 0 var(--space-3)"></div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:9px">By country</div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--color-divider)"><span style="font-size:13px">Thailand · 12 days</span><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-feature-settings:'tnum'">฿62,400</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--color-divider)"><span style="font-size:13px;color:var(--color-neutral-500)">Vietnam · not yet</span><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--color-neutral-500)">—</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;padding:8px 0"><span style="font-size:13px;color:var(--color-neutral-500)">Korea · not yet</span><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--color-neutral-500)">—</span></div>
+
+            <div style="border:1px solid var(--color-accent-300);border-radius:var(--radius-md);padding:13px 15px;background:var(--color-accent-100);margin-top:var(--space-3)">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-accent-700)">Korea will hurt</div>
+              <p style="margin:5px 0 0;font-size:12.5px;line-height:1.5;color:var(--color-accent-800)">At this rate you'll arrive in Seoul with $2,100 for 21 days. That's $100/day — tight but fine if you cook twice a week.</p>
+            </div>
+
+            <div style="height:1px;background:var(--color-divider);margin:var(--space-3) 0"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+              <div><div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600)">Between you</div><div style="font-family:var(--font-heading);font-weight:600;font-size:19px;margin-top:2px">Emmie owes $42.10</div></div>
+              <button style="min-height:44px;font-family:var(--font-heading);font-weight:600;font-size:14px;color:var(--color-accent);background:transparent;border:1px solid var(--color-accent);border-radius:var(--radius-md);padding:var(--space-2) 16px;cursor:pointer;white-space:nowrap" style-hover="background:var(--color-accent-100)">Settle</button>
+            </div>
+          </div>
+          <dc-import name="TabBar" active="money" hint-size="100%,84px" style="flex:none"></dc-import>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:11px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">D3 · Settle up</div>
+      <div style="width:414px;height:868px;background:var(--color-neutral-900);border-radius:50px;padding:12px;box-shadow:0 12px 32px rgba(45,43,43,.22)">
+        <div data-screen-label="D3 Settle up" style="width:390px;height:844px;background:var(--color-bg);border-radius:38px;overflow:hidden;display:flex;flex-direction:column">
+          <div style="height:50px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 4px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-feature-settings:'tnum'"><span>21:15</span><span style="letter-spacing:.1em;color:var(--color-neutral-600)">offline</span></div>
+          <div style="flex:1;overflow:hidden;padding:0 26px">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);padding-top:14px">Since Bangkok</div>
+            <h1 style="font-family:var(--font-heading);font-weight:400;font-size:36px;line-height:1.05;margin:8px 0 4px;letter-spacing:-.02em">Emmie owes<br>Lynn $42.10</h1>
+            <p style="margin:0 0 var(--space-3);font-size:12.5px;color:var(--color-neutral-700);font-style:italic">Across three currencies, netted down to one number.</p>
+            <div style="height:1px;background:var(--color-divider);margin:0 0 var(--space-3)"></div>
+
+            <div style="display:flex;justify-content:space-between;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--color-divider)"><div><div style="font-family:var(--font-heading);font-weight:600;font-size:16px">Thai baht</div><div style="font-size:11px;color:var(--color-neutral-600);font-style:italic">18 shared items</div></div><span style="font-family:'IBM Plex Mono',monospace;font-size:13.5px;font-feature-settings:'tnum'">฿1,480</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--color-divider)"><div><div style="font-family:var(--font-heading);font-weight:600;font-size:16px">Vietnamese đồng</div><div style="font-size:11px;color:var(--color-neutral-600);font-style:italic">nothing yet</div></div><span style="font-family:'IBM Plex Mono',monospace;font-size:13.5px;color:var(--color-neutral-500)">—</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--color-divider)"><div><div style="font-family:var(--font-heading);font-weight:600;font-size:16px">Korean won</div><div style="font-size:11px;color:var(--color-neutral-600);font-style:italic">nothing yet</div></div><span style="font-family:'IBM Plex Mono',monospace;font-size:13.5px;color:var(--color-neutral-500)">—</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;padding:11px 0;border-bottom:1px solid var(--color-text)"><span style="font-family:var(--font-heading);font-weight:600;font-size:18px">Net, in dollars</span><span style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-feature-settings:'tnum';color:var(--color-accent-700)">$42.10</span></div>
+
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);margin:var(--space-4) 0 8px">How</div>
+            <div style="border:1px solid var(--color-accent);border-radius:var(--radius-md);padding:13px 15px;margin-bottom:var(--space-2)"><div style="font-family:var(--font-heading);font-weight:600;font-size:17px;color:var(--color-accent-800)">Cash tonight</div><div style="font-size:12px;color:var(--color-neutral-700);font-style:italic;margin-top:2px">฿1,480 · she has it in her sock drawer</div></div>
+            <div style="border:1px solid var(--color-divider);border-radius:var(--radius-md);padding:13px 15px;margin-bottom:var(--space-2)"><div style="font-family:var(--font-heading);font-weight:600;font-size:17px">Roll it into Vietnam</div><div style="font-size:12px;color:var(--color-neutral-700);font-style:italic;margin-top:2px">keep the tab running, settle at the airport</div></div>
+            <div style="border:1px solid var(--color-divider);border-radius:var(--radius-md);padding:13px 15px"><div style="font-family:var(--font-heading);font-weight:600;font-size:17px">Just forget it</div><div style="font-size:12px;color:var(--color-neutral-700);font-style:italic;margin-top:2px">writes it off and clears the ledger to zero</div></div>
+
+            <p style="margin:var(--space-3) 0 0;font-size:12px;line-height:1.5;color:var(--color-neutral-700);font-style:italic">Both phones agree before it clears — no one can settle a tab alone.</p>
+          </div>
+          <dc-import name="TabBar" active="money" hint-size="100%,84px" style="flex:none"></dc-import>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:11px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">D4 · Lock screen · one widget</div>
+      <div style="width:414px;height:868px;background:var(--color-neutral-900);border-radius:50px;padding:12px;box-shadow:0 12px 32px rgba(45,43,43,.22)">
+        <div data-screen-label="D4 Lock screen" style="width:390px;height:844px;background:var(--color-neutral-900);border-radius:38px;overflow:hidden;display:flex;flex-direction:column;padding:0 24px">
+          <div style="height:50px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 6px 4px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-feature-settings:'tnum';color:var(--color-neutral-300)"><span>9:41</span><span style="letter-spacing:.1em">no service</span></div>
+          <div style="text-align:center;padding-top:52px">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-accent-300)">Wednesday 5 May</div>
+            <div style="font-family:var(--font-heading);font-weight:400;font-size:104px;line-height:1;color:var(--color-neutral-100);margin-top:2px;font-feature-settings:'tnum'">10:09</div>
+          </div>
+          <div style="margin-top:56px;border:1px solid var(--color-accent-400);border-radius:var(--radius-md);padding:18px 18px 16px">
+            <div style="display:flex;align-items:baseline;justify-content:space-between"><span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-accent-300)">Sleeper SE1 · car 7</span><span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-400)">on time</span></div>
+            <div style="display:flex;align-items:baseline;justify-content:space-between;margin-top:9px">
+              <div style="font-family:var(--font-heading);font-weight:400;font-size:26px;color:var(--color-neutral-100);letter-spacing:-.01em">Hanoi → Đà Nẵng</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:17px;color:var(--color-accent-300);font-feature-settings:'tnum'">14:20</div>
+            </div>
+            <div style="height:5px;border:1px solid var(--color-neutral-700);border-radius:var(--radius-sm);margin-top:14px;display:flex;overflow:hidden"><div style="width:62%;background:var(--color-accent-400)"></div></div>
+            <div style="display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-400);margin-top:8px"><span>berths 21 &amp; 22</span><span>4h 11m left</span></div>
+          </div>
+          <div style="margin-top:auto;padding-bottom:30px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-500);line-height:1.7">Only ever one thing here.<br>The train, the flight, or nothing.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section id="g-tonight" style="position:absolute;left:70px;top:4280px;width:1800px">
+  <div style="display:flex;align-items:baseline;gap:14px">
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;padding:5px 9px;border:1px solid var(--color-accent);color:var(--color-accent-700);border-radius:var(--radius-md)">E · Tonight</span>
+    <h2 style="font-family:var(--font-heading);font-weight:400;font-size:34px;line-height:1;margin:0;letter-spacing:-.015em">Five minutes, structured so it survives week five</h2>
+    <span style="font-size:13px;color:var(--color-neutral-700);font-style:italic">One photo, one line, three taps. Never a blank page.</span>
+  </div>
+  <div style="height:1px;background:var(--color-divider);margin:14px 0 30px"></div>
+  <div style="display:flex;gap:38px;align-items:flex-start">
+
+    <div style="display:flex;flex-direction:column;gap:11px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">E1 · Tonight's entry</div>
+      <div style="width:414px;height:868px;background:var(--color-neutral-900);border-radius:50px;padding:12px;box-shadow:0 12px 32px rgba(45,43,43,.22)">
+        <div data-screen-label="E1 Tonights entry" style="width:390px;height:844px;background:var(--color-bg);border-radius:38px;overflow:hidden;display:flex;flex-direction:column">
+          <div style="height:50px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 4px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-feature-settings:'tnum'"><span>22:08</span><span style="letter-spacing:.1em;color:var(--color-neutral-600)">offline</span></div>
+          <div style="flex:1;overflow:hidden;padding:0 26px">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;padding-top:14px">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);font-feature-settings:'tnum'">Day 12 · page 24</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-accent-700)">Private</div>
+            </div>
+            <h1 style="font-family:var(--font-heading);font-weight:400;font-size:34px;line-height:1.04;margin:8px 0 var(--space-3);letter-spacing:-.02em">One photo</h1>
+            <div style="border:6px solid var(--color-surface);outline:1px solid var(--color-divider);height:196px;display:flex;align-items:center;justify-content:center;background:repeating-linear-gradient(45deg,var(--color-neutral-200) 0 7px,var(--color-neutral-100) 7px 14px)">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-neutral-600);text-align:center;line-height:1.6">picked from your 61 shots<br>·<br>swap · crop · skip</span>
+            </div>
+
+            <div style="height:1px;background:var(--color-divider);margin:var(--space-4) 0 var(--space-3)"></div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:8px">One line — that's the whole ask</div>
+            <div style="border-bottom:1px solid var(--color-accent);padding-bottom:9px;min-height:62px">
+              <span style="font-family:var(--font-heading);font-weight:400;font-size:23px;line-height:1.28;letter-spacing:-.01em">Emmie got ambushed by a grandmother with a hose</span><span style="color:var(--color-accent);font-weight:400">|</span>
+            </div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-600);margin-top:var(--space-1);text-align:right">48 of 120</div>
+
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);margin:var(--space-4) 0 9px">Three taps</div>
+            <div style="display:flex;gap:var(--space-2);margin-bottom:var(--space-2)">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:9px 12px;border:1px solid var(--color-accent);background:var(--color-accent-100);color:var(--color-accent-800);border-radius:var(--radius-sm)">soaked</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:9px 12px;border:1px solid var(--color-divider);color:var(--color-neutral-700);border-radius:var(--radius-sm)">tired</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:9px 12px;border:1px solid var(--color-divider);color:var(--color-neutral-700);border-radius:var(--radius-sm)">homesick</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:9px 12px;border:1px solid var(--color-divider);color:var(--color-neutral-700);border-radius:var(--radius-sm)">proud</span>
+            </div>
+            <div style="display:flex;gap:var(--space-2)">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:9px 12px;border:1px solid var(--color-accent);background:var(--color-accent-100);color:var(--color-accent-800);border-radius:var(--radius-sm)">khao soi</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:9px 12px;border:1px solid var(--color-accent);background:var(--color-accent-100);color:var(--color-accent-800);border-radius:var(--radius-sm)">strangers</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:9px 12px;border:1px solid var(--color-divider);color:var(--color-neutral-700);border-radius:var(--radius-sm)">+ add</span>
+            </div>
+          </div>
+          <div style="flex:none;padding:0 26px 26px;display:flex;gap:10px;align-items:center">
+            <div style="flex:1;font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-600);line-height:1.5">Nobody reads this<br>until it prints</div>
+            <button style="min-height:48px;font-family:var(--font-heading);font-weight:600;font-size:15px;color:var(--color-accent);background:transparent;border:1px solid var(--color-accent);border-radius:var(--radius-md);padding:0 22px;cursor:pointer;white-space:nowrap" style-hover="background:var(--color-accent-100)">Done · 3 min</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:11px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">E2 · Looking back</div>
+      <div style="width:414px;height:868px;background:var(--color-neutral-900);border-radius:50px;padding:12px;box-shadow:0 12px 32px rgba(45,43,43,.22)">
+        <div data-screen-label="E2 Past entries" style="width:390px;height:844px;background:var(--color-bg);border-radius:38px;overflow:hidden;display:flex;flex-direction:column">
+          <div style="height:50px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 4px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-feature-settings:'tnum'"><span>9:41</span><span style="letter-spacing:.1em;color:var(--color-neutral-600)">offline</span></div>
+          <div style="flex:1;overflow:hidden;padding:0 26px">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;padding-top:14px">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600)">Your book, so far</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-accent-700);font-feature-settings:'tnum'">24 pages</div>
+            </div>
+            <h1 style="font-family:var(--font-heading);font-weight:400;font-size:38px;line-height:1.02;margin:8px 0 4px;letter-spacing:-.02em">Twelve days in</h1>
+            <p style="margin:0 0 var(--space-3);font-size:12.5px;color:var(--color-neutral-700);font-style:italic">You've missed two nights. Nobody minds; the book skips them.</p>
+            <div style="height:1px;background:var(--color-divider);margin:0 0 var(--space-2)"></div>
+
+            <div style="display:flex;gap:var(--space-3);padding:11px 0;border-bottom:1px solid var(--color-divider);align-items:flex-start">
+              <div style="width:52px;height:66px;flex:none;border:4px solid var(--color-surface);outline:1px solid var(--color-divider);background:repeating-linear-gradient(45deg,var(--color-neutral-200) 0 5px,var(--color-neutral-100) 5px 10px)"></div>
+              <div style="flex:1"><div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-accent-700);font-feature-settings:'tnum'">Day 12 · Chiang Mai</div><div style="font-family:var(--font-heading);font-weight:600;font-size:16px;line-height:1.25;margin-top:3px">Emmie got ambushed by a grandmother with a hose</div></div>
+            </div>
+            <div style="display:flex;gap:var(--space-3);padding:11px 0;border-bottom:1px solid var(--color-divider);align-items:flex-start">
+              <div style="width:52px;height:66px;flex:none;border:4px solid var(--color-surface);outline:1px solid var(--color-divider);background:repeating-linear-gradient(45deg,var(--color-neutral-200) 0 5px,var(--color-neutral-100) 5px 10px)"></div>
+              <div style="flex:1"><div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-neutral-600);font-feature-settings:'tnum'">Day 11 · Pai</div><div style="font-family:var(--font-heading);font-weight:600;font-size:16px;line-height:1.25;margin-top:3px">Slept twelve hours and woke up in fog</div></div>
+            </div>
+            <div style="display:flex;gap:var(--space-3);padding:11px 0;border-bottom:1px solid var(--color-divider);align-items:flex-start">
+              <div style="width:52px;height:66px;flex:none;border:4px solid var(--color-surface);outline:1px solid var(--color-divider);background:repeating-linear-gradient(45deg,var(--color-neutral-200) 0 5px,var(--color-neutral-100) 5px 10px)"></div>
+              <div style="flex:1"><div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-neutral-600);font-feature-settings:'tnum'">Day 10 · the bus</div><div style="font-family:var(--font-heading);font-weight:600;font-size:16px;line-height:1.25;margin-top:3px">762 curves. Emmie counted out loud until 40</div></div>
+            </div>
+            <div style="display:flex;gap:var(--space-3);padding:11px 0;border-bottom:1px solid var(--color-divider);align-items:center">
+              <div style="width:52px;height:66px;flex:none;border:1px dashed var(--color-neutral-400);display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.08em;color:var(--color-neutral-500);text-align:center;line-height:1.4">NO<br>PAGE</div>
+              <div style="flex:1"><div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-neutral-500);font-feature-settings:'tnum'">Day 9</div><div style="font-size:12.5px;color:var(--color-neutral-600);font-style:italic;margin-top:3px">Skipped. Add it later if you feel like it.</div></div>
+            </div>
+            <div style="display:flex;gap:var(--space-3);padding:11px 0;border-bottom:1px solid var(--color-divider);align-items:flex-start">
+              <div style="width:52px;height:66px;flex:none;border:4px solid var(--color-surface);outline:1px solid var(--color-divider);background:repeating-linear-gradient(45deg,var(--color-neutral-200) 0 5px,var(--color-neutral-100) 5px 10px)"></div>
+              <div style="flex:1"><div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-neutral-600);font-feature-settings:'tnum'">Day 8 · Ayutthaya</div><div style="font-family:var(--font-heading);font-weight:600;font-size:16px;line-height:1.25;margin-top:3px">Rented bicycles with no brakes</div></div>
+            </div>
+
+            <div style="border:1px solid var(--color-divider);border-radius:var(--radius-md);padding:13px 15px;margin-top:var(--space-3);display:flex;gap:var(--space-3);align-items:center">
+              <div style="width:8px;height:8px;border-radius:50%;background:var(--color-accent);flex:none"></div>
+              <div><div style="font-family:var(--font-heading);font-weight:600;font-size:16px">Emmie is writing hers too</div><div style="font-size:12px;color:var(--color-neutral-700);font-style:italic;margin-top:2px">You'll both read them for the first time on paper.</div></div>
+            </div>
+          </div>
+          <dc-import name="TabBar" active="book" hint-size="100%,84px" style="flex:none"></dc-import>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section id="g-papers" style="position:absolute;left:70px;top:5320px;width:1800px">
+  <div style="display:flex;align-items:baseline;gap:14px">
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;padding:5px 9px;border:1px solid var(--color-accent);color:var(--color-accent-700);border-radius:var(--radius-md)">F · Papers &amp; panic</span>
+    <h2 style="font-family:var(--font-heading);font-weight:400;font-size:34px;line-height:1;margin:0;letter-spacing:-.015em">The part you'll be glad about at 2am</h2>
+  </div>
+  <div style="height:1px;background:var(--color-divider);margin:14px 0 30px"></div>
+  <div style="display:flex;gap:38px;align-items:flex-start">
+
+    <div style="display:flex;flex-direction:column;gap:11px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">F1 · The vault</div>
+      <div style="width:414px;height:868px;background:var(--color-neutral-900);border-radius:50px;padding:12px;box-shadow:0 12px 32px rgba(45,43,43,.22)">
+        <div data-screen-label="F1 Vault" style="width:390px;height:844px;background:var(--color-bg);border-radius:38px;overflow:hidden;display:flex;flex-direction:column">
+          <div style="height:50px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 4px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-feature-settings:'tnum'"><span>9:41</span><span style="letter-spacing:.1em;color:var(--color-neutral-600)">offline</span></div>
+          <div style="flex:1;overflow:hidden;padding:0 26px">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);padding-top:14px">Works with no signal</div>
+            <h1 style="font-family:var(--font-heading);font-weight:400;font-size:38px;line-height:1.05;margin:8px 0 var(--space-3);letter-spacing:-.02em">Papers</h1>
+            <div style="border:1px solid var(--color-accent);border-radius:var(--radius-md);padding:14px 15px">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-accent-700)">If you're separated today</div>
+              <div style="font-family:var(--font-heading);font-weight:600;font-size:20px;margin-top:5px;line-height:1.2">Wat Phra Singh, north gate</div>
+              <p style="margin:5px 0 0;font-size:12px;line-height:1.5;color:var(--color-neutral-700)">Agreed at breakfast. Emmie's Thai SIM 06 2451 8890. Shows on both lock screens without unlocking.</p>
+            </div>
+            <div style="height:1px;background:var(--color-divider);margin:var(--space-4) 0 var(--space-3)"></div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:2px">Documents</div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--color-divider)"><div><div style="font-family:var(--font-heading);font-weight:600;font-size:16px">Passport · Lynn</div><div style="font-size:11px;color:var(--color-neutral-600);font-style:italic">expires 2031</div></div><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-accent-700)">2 scans</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--color-divider)"><div><div style="font-family:var(--font-heading);font-weight:600;font-size:16px">Passport · Emmie</div><div style="font-size:11px;color:var(--color-neutral-600);font-style:italic">expires 2029</div></div><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-accent-700)">2 scans</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--color-divider)"><div><div style="font-family:var(--font-heading);font-weight:600;font-size:16px">Vietnam e-visa</div><div style="font-size:11px;color:var(--color-neutral-600);font-style:italic">90 days, single entry</div></div><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-accent-700)">valid</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--color-divider)"><div><div style="font-family:var(--font-heading);font-weight:600;font-size:16px">K-ETA · Korea</div><div style="font-size:11px;color:var(--color-neutral-600);font-style:italic">approved 12 Mar</div></div><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-accent-700)">valid</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--color-divider)"><div><div style="font-family:var(--font-heading);font-weight:600;font-size:16px">Insurance</div><div style="font-size:11px;color:var(--color-neutral-600);font-style:italic">claim line, 24h</div></div><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-600)">pdf</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;padding:9px 0"><div><div style="font-family:var(--font-heading);font-weight:600;font-size:16px">Embassies</div><div style="font-size:11px;color:var(--color-neutral-600);font-style:italic">Bangkok · Hanoi · Seoul</div></div><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-600)">call</span></div>
+            <div style="height:1px;background:var(--color-divider);margin:var(--space-3) 0"></div>
+            <p style="margin:0;font-size:12px;line-height:1.5;color:var(--color-neutral-700);font-style:italic">Stored on the phone only. Never uploaded, never in anyone's cloud — including his.</p>
+          </div>
+          <dc-import name="TabBar" active="papers" hint-size="100%,84px" style="flex:none"></dc-import>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:11px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">F2 · One document</div>
+      <div style="width:414px;height:868px;background:var(--color-neutral-900);border-radius:50px;padding:12px;box-shadow:0 12px 32px rgba(45,43,43,.22)">
+        <div data-screen-label="F2 One document" style="width:390px;height:844px;background:var(--color-bg);border-radius:38px;overflow:hidden;display:flex;flex-direction:column">
+          <div style="height:50px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 4px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-feature-settings:'tnum'"><span>9:41</span><span style="letter-spacing:.1em;color:var(--color-accent-700)">back</span></div>
+          <div style="flex:1;overflow:hidden;padding:0 26px">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);padding-top:14px">Lynn · document 1 of 2</div>
+            <h1 style="font-family:var(--font-heading);font-weight:400;font-size:34px;line-height:1.05;margin:8px 0 var(--space-3);letter-spacing:-.02em">Passport</h1>
+            <div style="border:6px solid var(--color-surface);outline:1px solid var(--color-divider);height:216px;display:flex;align-items:center;justify-content:center;background:repeating-linear-gradient(45deg,var(--color-neutral-200) 0 7px,var(--color-neutral-100) 7px 14px)">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-neutral-600);text-align:center;line-height:1.6">scan of the photo page<br>·<br>pinch to read the numbers</span>
+            </div>
+            <div style="height:1px;background:var(--color-divider);margin:var(--space-4) 0 var(--space-2)"></div>
+            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--color-divider)"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">Number</span><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-feature-settings:'tnum'">C4419 8823</span></div>
+            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--color-divider)"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">Expires</span><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-feature-settings:'tnum'">14 Aug 2031</span></div>
+            <div style="display:flex;justify-content:space-between;padding:8px 0"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">Blank pages</span><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-feature-settings:'tnum'">9</span></div>
+
+            <div style="border:1px solid var(--color-divider);border-radius:var(--radius-md);padding:13px 15px;margin-top:var(--space-4)">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600)">Next document</div>
+              <div style="font-family:var(--font-heading);font-weight:600;font-size:18px;margin-top:4px">Vietnam e-visa · E12-4471</div>
+              <div style="font-size:12px;color:var(--color-neutral-700);font-style:italic;margin-top:2px">Print isn't required at Nội Bài, but border guards prefer paper. There's a copy in your backpack.</div>
+            </div>
+
+            <div style="display:flex;gap:var(--space-2);margin-top:var(--space-4)">
+              <button style="flex:1;min-height:48px;font-family:var(--font-heading);font-weight:600;font-size:14px;color:var(--color-accent);background:transparent;border:1px solid var(--color-accent);border-radius:var(--radius-md);cursor:pointer" style-hover="background:var(--color-accent-100)">Full screen</button>
+              <button style="flex:1;min-height:48px;font-family:var(--font-heading);font-weight:600;font-size:14px;color:var(--color-text);background:transparent;border:1px solid var(--color-divider);border-radius:var(--radius-md);cursor:pointer" style-hover="background:var(--color-neutral-200)">Send to Emmie</button>
+            </div>
+            <p style="margin:var(--space-3) 0 0;font-size:12px;line-height:1.5;color:var(--color-neutral-700);font-style:italic">Sending copies both ways means one lost bag isn't a crisis.</p>
+          </div>
+          <dc-import name="TabBar" active="papers" hint-size="100%,84px" style="flex:none"></dc-import>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:11px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">F3 · Hand the phone over</div>
+      <div style="width:414px;height:868px;background:var(--color-neutral-900);border-radius:50px;padding:12px;box-shadow:0 12px 32px rgba(45,43,43,.22)">
+        <div data-screen-label="F3 Show this" style="width:390px;height:844px;background:var(--color-neutral-100);border-radius:38px;overflow:hidden;display:flex;flex-direction:column;padding:0 26px">
+          <div style="height:50px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 0 4px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-feature-settings:'tnum'"><span>13:02</span><span style="letter-spacing:.1em;color:var(--color-accent-700)">brightness max</span></div>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:center">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-neutral-600);text-align:center">Show this · card 2 of 5</div>
+            <div style="width:40px;height:1px;background:var(--color-accent);margin:var(--space-4) auto var(--space-6)"></div>
+            <div style="font-family:var(--font-heading);font-weight:600;font-size:44px;line-height:1.34;text-align:center;letter-spacing:-.01em">ฉันแพ้ถั่วลิสง<br>อย่างรุนแรง</div>
+            <div style="width:40px;height:1px;background:var(--color-accent);margin:var(--space-6) auto var(--space-4)"></div>
+            <p style="margin:0;font-size:14px;line-height:1.6;text-align:center;color:var(--color-neutral-700);font-style:italic">I have a severe peanut allergy.<br>Please, no peanuts or peanut oil.</p>
+            <div style="margin-top:var(--space-8);border:1px solid var(--color-divider);border-radius:var(--radius-md);padding:13px 15px;text-align:center">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600)">If it goes wrong</div>
+              <div style="font-family:var(--font-heading);font-weight:600;font-size:19px;margin-top:4px">EpiPen · left hip pocket</div>
+              <div style="font-size:12px;color:var(--color-neutral-700);font-style:italic;margin-top:2px">Emmie carries the spare · ambulance 1669</div>
+            </div>
+          </div>
+          <div style="flex:none;padding-bottom:26px;display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">
+            <span>← address</span><span style="color:var(--color-accent-700)">vegetarian →</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:11px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">F4 · Separated</div>
+      <div style="width:414px;height:868px;background:var(--color-neutral-900);border-radius:50px;padding:12px;box-shadow:0 12px 32px rgba(45,43,43,.22)">
+        <div data-screen-label="F4 Separated" style="width:390px;height:844px;background:var(--color-neutral-900);border-radius:38px;overflow:hidden;display:flex;flex-direction:column;padding:0 26px">
+          <div style="height:50px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 0 4px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-feature-settings:'tnum';color:var(--color-neutral-300)"><span>19:48</span><span style="letter-spacing:.1em">1 bar · no data</span></div>
+          <div style="flex:1;overflow:hidden;padding-top:var(--space-4)">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-accent-300)">Separated · started 19:41</div>
+            <h1 style="font-family:var(--font-heading);font-weight:400;font-size:40px;line-height:1.02;margin:10px 0 var(--space-3);color:var(--color-neutral-100);letter-spacing:-.02em">Go to the<br>north gate</h1>
+            <div style="border:1px solid var(--color-accent-400);border-radius:var(--radius-md);padding:16px 17px">
+              <div style="font-family:var(--font-heading);font-weight:600;font-size:22px;color:var(--color-neutral-100);line-height:1.2">Wat Phra Singh</div>
+              <div style="font-size:12.5px;color:var(--color-neutral-300);font-style:italic;margin-top:3px">north gate, by the ticket booth · 700 m from you</div>
+              <div style="height:1px;background:var(--color-neutral-700);margin:var(--space-3) 0"></div>
+              <div style="font-family:var(--font-heading);font-weight:600;font-size:17px;color:var(--color-accent-300);line-height:1.35">วัดพระสิงห์ ประตูทางเหนือ</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-neutral-400);margin-top:5px">show this to a driver</div>
+            </div>
+            <div style="border:1px solid var(--color-neutral-700);border-radius:var(--radius-md);padding:14px 16px;margin-top:var(--space-3)">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-400)">Emmie, last seen 19:39</div>
+              <div style="font-family:var(--font-heading);font-weight:600;font-size:19px;color:var(--color-neutral-100);margin-top:5px">400 m north-east, moving</div>
+              <div style="font-size:12px;color:var(--color-neutral-300);font-style:italic;margin-top:2px">Her phone shares position only while this is on.</div>
+            </div>
+            <div style="display:flex;gap:var(--space-2);margin-top:var(--space-3)">
+              <div style="flex:1;border:1px solid var(--color-neutral-700);border-radius:var(--radius-md);padding:12px 14px"><div style="font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-400)">Emmie</div><div style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--color-neutral-100);margin-top:3px;font-feature-settings:'tnum'">06 2451 8890</div></div>
+              <div style="flex:1;border:1px solid var(--color-neutral-700);border-radius:var(--radius-md);padding:12px 14px"><div style="font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-400)">Guesthouse</div><div style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--color-neutral-100);margin-top:3px;font-feature-settings:'tnum'">053 243 677</div></div>
+            </div>
+            <div style="border:1px solid var(--color-neutral-700);border-radius:var(--radius-md);padding:12px 14px;margin-top:var(--space-2);display:flex;justify-content:space-between;align-items:center">
+              <div><div style="font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-400)">Emergency · Thailand</div><div style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--color-neutral-100);margin-top:3px;font-feature-settings:'tnum'">191 police · 1669 medical</div></div>
+              <div style="width:9px;height:9px;border-radius:50%;background:var(--color-accent-400);flex:none"></div>
+            </div>
+            <p style="margin:var(--space-3) 0 0;font-size:12px;line-height:1.55;color:var(--color-neutral-400);font-style:italic">Turning this on also texts him your city — not your street. He can't watch you walk home.</p>
+          </div>
+          <div style="flex:none;padding-bottom:26px"><button style="width:100%;min-height:50px;font-family:var(--font-heading);font-weight:600;font-size:15px;color:var(--color-accent-300);background:transparent;border:1px solid var(--color-accent-400);border-radius:var(--radius-md);cursor:pointer">We found each other</button></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section id="g-emmie" style="position:absolute;left:70px;top:6360px;width:1800px">
+  <div style="display:flex;align-items:baseline;gap:14px">
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;padding:5px 9px;border:1px solid var(--color-accent);color:var(--color-accent-700);border-radius:var(--radius-md)">G · Emmie's phone</span>
+    <h2 style="font-family:var(--font-heading);font-weight:400;font-size:34px;line-height:1;margin:0;letter-spacing:-.015em">Same app, no letters, her own book</h2>
+    <span style="font-size:13px;color:var(--color-neutral-700);font-style:italic">She's a best friend, not a plus-one — the letters aren't hers and the app never pretends otherwise.</span>
+  </div>
+  <div style="height:1px;background:var(--color-divider);margin:14px 0 30px"></div>
+  <div style="display:flex;gap:38px;align-items:flex-start">
+
+    <div style="display:flex;flex-direction:column;gap:11px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">G1 · Emmie's today</div>
+      <div style="width:414px;height:868px;background:var(--color-neutral-900);border-radius:50px;padding:12px;box-shadow:0 12px 32px rgba(45,43,43,.22)">
+        <div data-screen-label="G1 Emmie today" style="width:390px;height:844px;background:var(--color-bg);border-radius:38px;overflow:hidden;display:flex;flex-direction:column">
+          <div style="height:50px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 4px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-feature-settings:'tnum'"><span>9:41</span><span style="letter-spacing:.1em;color:var(--color-neutral-600)">offline</span></div>
+          <div style="flex:1;overflow:hidden;padding:0 26px">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;padding-top:14px">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-accent-700);font-feature-settings:'tnum'">Day 12 of 61</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600)">Emmie</div>
+            </div>
+            <h1 style="font-family:var(--font-heading);font-weight:400;font-size:44px;line-height:1.02;margin:10px 0 2px;letter-spacing:-.02em">Tuesday,<br>13 April</h1>
+            <p style="margin:0 0 var(--space-3);font-size:13px;line-height:1.5;color:var(--color-neutral-700);font-style:italic">Songkran begins. Everything closes at noon and the whole street turns into water.</p>
+            <div style="height:1px;background:var(--color-divider);margin:var(--space-3) 0"></div>
+
+            <div style="border:1px solid var(--color-divider);border-radius:var(--radius-md);padding:15px 16px">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600)">Today together</div>
+              <div style="font-family:var(--font-heading);font-weight:600;font-size:19px;margin-top:5px;line-height:1.2">The moat, anticlockwise, from noon</div>
+              <p style="margin:5px 0 0;font-size:12.5px;line-height:1.5;color:var(--color-neutral-700)">Lynn added this. Meeting point set at Wat Phra Singh's north gate if you lose each other.</p>
+            </div>
+
+            <div style="height:1px;background:var(--color-divider);margin:var(--space-4) 0 var(--space-3)"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)">
+              <div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600)">Spent today</div>
+                <div style="font-family:var(--font-heading);font-weight:400;font-size:30px;line-height:1.1;margin-top:3px;font-feature-settings:'tnum'">฿1,240</div>
+                <div style="font-size:11.5px;color:var(--color-neutral-700);font-style:italic">same ledger, both ways</div>
+              </div>
+              <div style="border-left:1px solid var(--color-divider);padding-left:var(--space-3)">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600)">You owe</div>
+                <div style="font-family:var(--font-heading);font-weight:400;font-size:30px;line-height:1.1;margin-top:3px;font-feature-settings:'tnum'">฿310</div>
+                <div style="font-size:11.5px;color:var(--color-neutral-700);font-style:italic">→ Lynn</div>
+              </div>
+            </div>
+
+            <div style="height:1px;background:var(--color-divider);margin:var(--space-3) 0"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+              <div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600)">Your page tonight</div>
+                <div style="font-family:var(--font-heading);font-weight:600;font-size:17px;margin-top:2px">Page 19 · yours alone</div>
+              </div>
+              <button style="min-height:44px;font-family:var(--font-heading);font-weight:600;font-size:14px;color:var(--color-accent);background:transparent;border:1px solid var(--color-accent);border-radius:var(--radius-md);padding:var(--space-2) 16px;cursor:pointer;white-space:nowrap" style-hover="background:var(--color-accent-100)">Write</button>
+            </div>
+
+            <div style="height:1px;background:var(--color-divider);margin:var(--space-3) 0"></div>
+            <p style="margin:0;font-size:12px;line-height:1.55;color:var(--color-neutral-700);font-style:italic">No letters on this phone, and no mention of them. What Lynn gets from home is Lynn's business.</p>
+          </div>
+          <dc-import name="TabBar" active="today" hint-size="100%,84px" style="flex:none"></dc-import>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:11px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">G2 · What Emmie shares</div>
+      <div style="width:414px;height:868px;background:var(--color-neutral-900);border-radius:50px;padding:12px;box-shadow:0 12px 32px rgba(45,43,43,.22)">
+        <div data-screen-label="G2 Emmie privacy" style="width:390px;height:844px;background:var(--color-bg);border-radius:38px;overflow:hidden;display:flex;flex-direction:column">
+          <div style="height:50px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 4px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-feature-settings:'tnum'"><span>9:41</span><span style="letter-spacing:.1em;color:var(--color-neutral-600)">offline</span></div>
+          <div style="flex:1;overflow:hidden;padding:0 26px">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);padding-top:14px">Emmie's settings</div>
+            <h1 style="font-family:var(--font-heading);font-weight:400;font-size:36px;line-height:1.04;margin:8px 0 4px;letter-spacing:-.02em">What Lynn<br>can see</h1>
+            <p style="margin:0 0 var(--space-3);font-size:12.5px;color:var(--color-neutral-700);font-style:italic">Set on day one and never asked about again.</p>
+            <div style="height:1px;background:var(--color-divider);margin:0 0 var(--space-2)"></div>
+
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--color-divider)"><div><div style="font-family:var(--font-heading);font-weight:600;font-size:17px">Money</div><div style="font-size:11.5px;color:var(--color-neutral-600);font-style:italic">every expense, both ways</div></div><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-accent-700);border:1px solid var(--color-accent);padding:4px 8px;border-radius:var(--radius-sm)">shared</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--color-divider)"><div><div style="font-family:var(--font-heading);font-weight:600;font-size:17px">Plans &amp; itinerary</div><div style="font-size:11.5px;color:var(--color-neutral-600);font-style:italic">either of you can change them</div></div><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-accent-700);border:1px solid var(--color-accent);padding:4px 8px;border-radius:var(--radius-sm)">shared</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--color-divider)"><div><div style="font-family:var(--font-heading);font-weight:600;font-size:17px">Pins on the trail</div><div style="font-size:11.5px;color:var(--color-neutral-600);font-style:italic">one shared trail, both of you</div></div><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-accent-700);border:1px solid var(--color-accent);padding:4px 8px;border-radius:var(--radius-sm)">shared</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--color-divider)"><div><div style="font-family:var(--font-heading);font-weight:600;font-size:17px">Your journal</div><div style="font-size:11.5px;color:var(--color-neutral-600);font-style:italic">until the books are printed</div></div><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-700);border:1px solid var(--color-divider);padding:4px 8px;border-radius:var(--radius-sm)">private</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--color-divider)"><div><div style="font-family:var(--font-heading);font-weight:600;font-size:17px">Live location</div><div style="font-size:11.5px;color:var(--color-neutral-600);font-style:italic">only while Separated is on</div></div><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-700);border:1px solid var(--color-divider);padding:4px 8px;border-radius:var(--radius-sm)">on demand</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:11px 0"><div><div style="font-family:var(--font-heading);font-weight:600;font-size:17px">Anything with him</div><div style="font-size:11.5px;color:var(--color-neutral-600);font-style:italic">Lynn's boyfriend sees none of this</div></div><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-700);border:1px solid var(--color-divider);padding:4px 8px;border-radius:var(--radius-sm)">never</span></div>
+
+            <div style="border:1px solid var(--color-accent);border-radius:var(--radius-md);padding:14px 16px;margin-top:var(--space-4)">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-accent-700)">Her book</div>
+              <div style="font-family:var(--font-heading);font-weight:600;font-size:19px;margin-top:5px;line-height:1.25">Page 19 · prints 14 June</div>
+              <p style="margin:5px 0 0;font-size:12.5px;line-height:1.5;color:var(--color-neutral-700)">Two books, same trip, different halves of it. They arrive on the same day and that's when the reading starts.</p>
+            </div>
+          </div>
+          <dc-import name="TabBar" active="papers" hint-size="100%,84px" style="flex:none"></dc-import>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<div style="position:absolute;left:70px;top:7400px;width:1000px;font-size:13px;line-height:1.7;color:var(--color-neutral-700)">
+  <div style="font-family:'IBM Plex Mono',monospace;font-weight:500;letter-spacing:.12em;text-transform:uppercase;font-size:11px;color:var(--color-neutral-600);margin-bottom:9px">Open questions for you</div>
+  <p style="margin:0 0 var(--space-3)">Two safety calls I made without asking, both worth arguing about. <em>One,</em> Separated mode texts you their city but never their street — a compromise between you sleeping at night and them not being tracked. <em>Two,</em> the letters are invisible on Emmie's phone entirely, including the fact that they exist.</p>
+  <div style="height:1px;background:var(--color-divider);margin:0 0 var(--space-3)"></div>
+  <div style="font-family:'IBM Plex Mono',monospace;font-weight:500;letter-spacing:.12em;text-transform:uppercase;font-size:11px;color:var(--color-neutral-600);margin-bottom:9px">Try next</div>
+  <p style="margin:0">“Make it tappable so I can walk through the flow” · “Add the writing side — the app I use from home” · “Design the book itself” · “Show the day-61 ending” · “The green is too soft, push it darker”</p>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;dayNumber&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:12,&quot;min&quot;:1,&quot;max&quot;:61,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Trip&quot;}}">
+class Component extends DCLogic {
+  state = { letterOpen: true };
+  toggleLetter = () => this.setState(s => ({ letterOpen: !s.letterOpen }));
+  renderVals() {
+    const open = this.state.letterOpen;
+    return {
+      dayNumber: this.props.dayNumber ?? 12,
+      letterHeadline: open ? 'Get completely soaked' : 'A letter from home',
+      letterBody: open
+        ? 'You told me once you wanted to be somewhere loud enough that you couldn\u2019t hear yourself worry. I hope today is that. Emmie will complain about her hair for one hour and then love it more than you do.'
+        : 'Opened itself when you reached Chiang Mai \u00b7 written 28 March',
+      letterCta: open ? 'Read the whole thing · 8 still sealed' : 'Tap to open',
+      toggleLetter: this.toggleLetter,
+    };
+  }
+}
+
+</script>
+</body>
+</html>

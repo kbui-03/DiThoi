@@ -1,0 +1,487 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		D1000001000000000000A01A /* DiThoiWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D1000001000000000000A010 /* DiThoiWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		D1000001000000000000A022 /* TripMark.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000001000000000000A01E /* TripMark.swift */; };
+		D1000001000000000000A023 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000001000000000000A01F /* WidgetSnapshot.swift */; };
+		D1000001000000000000A024 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000001000000000000A020 /* Theme.swift */; };
+		D1000001000000000000A025 /* TripMarkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000001000000000000A021 /* TripMarkView.swift */; };
+		D1000001000000000000A026 /* TripMark.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000001000000000000A01E /* TripMark.swift */; };
+		D1000001000000000000A027 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000001000000000000A01F /* WidgetSnapshot.swift */; };
+		D1000001000000000000A028 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000001000000000000A020 /* Theme.swift */; };
+		D1000001000000000000A029 /* TripMarkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000001000000000000A021 /* TripMarkView.swift */; };
+		D1000001000000000000A02E /* DayWidgetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000001000000000000A02D /* DayWidgetView.swift */; };
+		D1000001000000000000A02F /* DayWidgetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000001000000000000A02D /* DayWidgetView.swift */; };
+		D1000001000000000000A032 /* QuickAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000001000000000000A030 /* QuickAction.swift */; };
+		D1000001000000000000A033 /* MarkMomentIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000001000000000000A031 /* MarkMomentIntent.swift */; };
+		D1000001000000000000A034 /* QuickAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000001000000000000A030 /* QuickAction.swift */; };
+		D1000001000000000000A035 /* MarkMomentIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000001000000000000A031 /* MarkMomentIntent.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		D1000001000000000000A01B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D1000001000000000000A00A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D1000001000000000000A012;
+			remoteInfo = DiThoiWidget;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		D1000001000000000000A019 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				D1000001000000000000A01A /* DiThoiWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		D1000001000000000000A001 /* DiThoi.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DiThoi.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D1000001000000000000A010 /* DiThoiWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DiThoiWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		D1000001000000000000A01E /* TripMark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripMark.swift; sourceTree = "<group>"; };
+		D1000001000000000000A01F /* WidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshot.swift; sourceTree = "<group>"; };
+		D1000001000000000000A020 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		D1000001000000000000A021 /* TripMarkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripMarkView.swift; sourceTree = "<group>"; };
+		D1000001000000000000A02A /* DiThoiWidget-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "DiThoiWidget-Info.plist"; sourceTree = "<group>"; };
+		D1000001000000000000A02B /* DiThoi.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DiThoi.entitlements; sourceTree = "<group>"; };
+		D1000001000000000000A02C /* DiThoiWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DiThoiWidget.entitlements; sourceTree = "<group>"; };
+		D1000001000000000000A02D /* DayWidgetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayWidgetView.swift; sourceTree = "<group>"; };
+		D1000001000000000000A030 /* QuickAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickAction.swift; sourceTree = "<group>"; };
+		D1000001000000000000A031 /* MarkMomentIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkMomentIntent.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		D1000001000000000000A002 /* DiThoi */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = DiThoi;
+			sourceTree = "<group>";
+		};
+		D1000001000000000000A011 /* DiThoiWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = DiThoiWidget;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		D1000001000000000000A003 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D1000001000000000000A017 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		D1000001000000000000A004 = {
+			isa = PBXGroup;
+			children = (
+				D1000001000000000000A01D /* Shared */,
+				D1000001000000000000A002 /* DiThoi */,
+				D1000001000000000000A011 /* DiThoiWidget */,
+				D1000001000000000000A02A /* DiThoiWidget-Info.plist */,
+				D1000001000000000000A02B /* DiThoi.entitlements */,
+				D1000001000000000000A02C /* DiThoiWidget.entitlements */,
+				D1000001000000000000A005 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		D1000001000000000000A005 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				D1000001000000000000A001 /* DiThoi.app */,
+				D1000001000000000000A010 /* DiThoiWidget.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		D1000001000000000000A01D /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				D1000001000000000000A01E /* TripMark.swift */,
+				D1000001000000000000A01F /* WidgetSnapshot.swift */,
+				D1000001000000000000A020 /* Theme.swift */,
+				D1000001000000000000A021 /* TripMarkView.swift */,
+				D1000001000000000000A02D /* DayWidgetView.swift */,
+				D1000001000000000000A030 /* QuickAction.swift */,
+				D1000001000000000000A031 /* MarkMomentIntent.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		D1000001000000000000A006 /* DiThoi */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D1000001000000000000A007 /* Build configuration list for PBXNativeTarget "DiThoi" */;
+			buildPhases = (
+				D1000001000000000000A008 /* Sources */,
+				D1000001000000000000A003 /* Frameworks */,
+				D1000001000000000000A009 /* Resources */,
+				D1000001000000000000A019 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D1000001000000000000A01C /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				D1000001000000000000A002 /* DiThoi */,
+			);
+			name = DiThoi;
+			packageProductDependencies = (
+			);
+			productName = DiThoi;
+			productReference = D1000001000000000000A001 /* DiThoi.app */;
+			productType = "com.apple.product-type.application";
+		};
+		D1000001000000000000A012 /* DiThoiWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D1000001000000000000A013 /* Build configuration list for PBXNativeTarget "DiThoiWidget" */;
+			buildPhases = (
+				D1000001000000000000A016 /* Sources */,
+				D1000001000000000000A017 /* Frameworks */,
+				D1000001000000000000A018 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				D1000001000000000000A011 /* DiThoiWidget */,
+			);
+			name = DiThoiWidget;
+			packageProductDependencies = (
+			);
+			productName = DiThoiWidget;
+			productReference = D1000001000000000000A010 /* DiThoiWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		D1000001000000000000A00A /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1620;
+				LastUpgradeCheck = 1620;
+				TargetAttributes = {
+					D1000001000000000000A006 = {
+						CreatedOnToolsVersion = 16.2;
+					};
+					D1000001000000000000A012 = {
+						CreatedOnToolsVersion = 16.2;
+					};
+				};
+			};
+			buildConfigurationList = D1000001000000000000A00B /* Build configuration list for PBXProject "DiThoi" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = D1000001000000000000A004;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = D1000001000000000000A005 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				D1000001000000000000A006 /* DiThoi */,
+				D1000001000000000000A012 /* DiThoiWidget */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		D1000001000000000000A009 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D1000001000000000000A018 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		D1000001000000000000A008 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D1000001000000000000A022 /* TripMark.swift in Sources */,
+				D1000001000000000000A023 /* WidgetSnapshot.swift in Sources */,
+				D1000001000000000000A024 /* Theme.swift in Sources */,
+				D1000001000000000000A025 /* TripMarkView.swift in Sources */,
+				D1000001000000000000A02E /* DayWidgetView.swift in Sources */,
+				D1000001000000000000A032 /* QuickAction.swift in Sources */,
+				D1000001000000000000A033 /* MarkMomentIntent.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D1000001000000000000A016 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D1000001000000000000A026 /* TripMark.swift in Sources */,
+				D1000001000000000000A027 /* WidgetSnapshot.swift in Sources */,
+				D1000001000000000000A028 /* Theme.swift in Sources */,
+				D1000001000000000000A029 /* TripMarkView.swift in Sources */,
+				D1000001000000000000A02F /* DayWidgetView.swift in Sources */,
+				D1000001000000000000A034 /* QuickAction.swift in Sources */,
+				D1000001000000000000A035 /* MarkMomentIntent.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		D1000001000000000000A01C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D1000001000000000000A012 /* DiThoiWidget */;
+			targetProxy = D1000001000000000000A01B /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		D1000001000000000000A00C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		D1000001000000000000A00D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_VERSION = 5.0;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		D1000001000000000000A00E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = DiThoi.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
+				DEVELOPMENT_TEAM = 6U6Y487HT5;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "DiThoi-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Đi Thôi";
+				INFOPLIST_KEY_NSCameraUsageDescription = "To take a photo for a moment or a page, and to photograph your passport and visas. Scans are encrypted on this phone and never leave it.";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "To open your passport and visa scans, so handing the phone over doesn't hand those over too.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "To place a moment or a stamp where you're standing, to notice when you've reached the next stop, and in Separated to say how far you are from the meeting point. Only while the app is open, never in the background.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "To save photos you take in the app to your library as well.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDarkContent;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lovedones.dithoi;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		D1000001000000000000A00F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = DiThoi.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
+				DEVELOPMENT_TEAM = 6U6Y487HT5;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "DiThoi-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Đi Thôi";
+				INFOPLIST_KEY_NSCameraUsageDescription = "To take a photo for a moment or a page, and to photograph your passport and visas. Scans are encrypted on this phone and never leave it.";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "To open your passport and visa scans, so handing the phone over doesn't hand those over too.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "To place a moment or a stamp where you're standing, to notice when you've reached the next stop, and in Separated to say how far you are from the meeting point. Only while the app is open, never in the background.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "To save photos you take in the app to your library as well.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDarkContent;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lovedones.dithoi;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		D1000001000000000000A014 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = DiThoiWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6U6Y487HT5;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "DiThoiWidget-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Đi Thôi";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lovedones.dithoi.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		D1000001000000000000A015 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = DiThoiWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6U6Y487HT5;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "DiThoiWidget-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Đi Thôi";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lovedones.dithoi.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		D1000001000000000000A007 /* Build configuration list for PBXNativeTarget "DiThoi" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D1000001000000000000A00E /* Debug */,
+				D1000001000000000000A00F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D1000001000000000000A00B /* Build configuration list for PBXProject "DiThoi" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D1000001000000000000A00C /* Debug */,
+				D1000001000000000000A00D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D1000001000000000000A013 /* Build configuration list for PBXNativeTarget "DiThoiWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D1000001000000000000A014 /* Debug */,
+				D1000001000000000000A015 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = D1000001000000000000A00A /* Project object */;
+}

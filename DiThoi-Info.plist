@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Whether this build was signed with the iCloud container, and therefore
+	     whether `CloudKitZone.isEnabled` may hand out the real transports.
+
+	     It lives in a physical file rather than in `INFOPLIST_KEY_…` because
+	     that mechanism only injects keys Xcode already knows about: a custom
+	     one is dropped, silently, with the build still reporting success. The
+	     setting sat in the project reading `INFOPLIST_KEY_DiThoiCloudKitEnabled
+	     = NO` and the key was not in the built Info.plist at all — so
+	     `isEnabled` was answering off a key that could never exist, and turning
+	     it to YES would have changed nothing. `actool` dropping sixteen icon
+	     renditions with exit code 0, one build phase over.
+
+	     Everything else the app needs from Info.plist is still generated:
+	     `GENERATE_INFOPLIST_FILE` merges into this file rather than replacing
+	     it, which is the same arrangement the widget target already has.
+
+	     Turning it to `<true/>` is the last step of switching CloudKit on — the
+	     entitlement has to be real first, or the app asks `CKContainer` for a
+	     container it was not signed for.
+
+	     Note for anyone editing with `plutil`: it rewrites the file and drops
+	     every comment here. Edit it by hand. -->
+	<key>DiThoiCloudKitEnabled</key>
+	<false/>
+
+	<!-- Without this, tapping a `CKShare` link does not open the app at all —
+	     iOS hands it to the browser and the invitation dead-ends on a web page
+	     about iCloud. It is what makes the system deliver the share to
+	     `AppDelegate.application(_:userDidAcceptCloudKitShareWith:)` — the app
+	     delegate and not a scene delegate, for the reason written down in
+	     `ShareAcceptance.swift` — which is the only way into
+	     `TripStore.acceptInvitation`, and that is the only thing that moves a
+	     `tripID` between two phones.
+
+	     It is on regardless of `DiThoiCloudKitEnabled`, and that is deliberate:
+	     the flag decides whether this build can *act* on an invitation, and a
+	     build that cannot should still be able to say so out loud. Silently not
+	     opening looks like a broken link on the sender's side. -->
+	<key>CKSharingSupported</key>
+	<true/>
+</dict>
+</plist>

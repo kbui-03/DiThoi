@@ -1,0 +1,21 @@
+# macOS
+.DS_Store
+
+# Xcode per-user state
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+DerivedData/
+build/
+
+# Signing material, should any ever land here
+*.p12
+*.cer
+*.mobileprovision
+*.provisionprofile
+
+# Local tool settings
+.claude/settings.local.json
+
+# Large binaries: uncomment to keep screenshots out of history
+# Screenshots/
