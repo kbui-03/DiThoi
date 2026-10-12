@@ -1,18 +1,11 @@
-# Expansion
+# Expansion — the shipped phases
 
-Where this goes next, and why. For whoever decides what gets built.
-
-Every idea below is scored on the same two axes — **effort** (dev-weeks, one
-person) and **payoff** — and, more importantly, judged against a single
-question:
-
-> Does it survive week five?
-
-That's the bar the prototype set for itself. On day three everything is
-delightful; on day thirty-five they're tired, the novelty is gone, and the app
-gets used at 11pm in a hostel bunk or not at all. Features that only work when
-someone is enthusiastic are features that quietly stop being used. This document
-is biased hard toward things that hold up when nobody can be bothered.
+> **Archived.** These are the parts of [expansion.md](../expansion.md) about
+> work that is now built: how Phases 1 and 2 were scoped, what each changed
+> about the plan, the order they were done in, and the honest-state summary as
+> it stood before the October 2026 review. What is built today and what is
+> wrong with it is in [CHANGELOG.md](../CHANGELOG.md); what comes next is in
+> [expansion.md](../expansion.md).
 
 ---
 
@@ -26,8 +19,10 @@ set rather than from D4, once the mark gave it something to draw.
 What's real today: the ledger, the budget maths, the letter gating, the journal
 with actual photographs, the trip dates, live rates, an itinerary you can
 rearrange, a map of where they've been, passport scans encrypted on the phone,
-a real distance to the meeting point, and a merge that two phones converge
-through — including a settlement neither can clear alone.
+and a merge that two phones converge through — including a settlement neither
+can clear alone. (Separated's distance to the meeting point is built but has
+nothing to measure to: a typed meeting point has no position. See the known
+issues in [CHANGELOG.md](../CHANGELOG.md#known-issues).)
 
 **The trail is the travellers' now.** Waypoints are made and edited on the
 itinerary stop they belong to — so a trip nobody packed can have a trail at all,
@@ -64,25 +59,26 @@ What is still not real:
   still missing is any feedback when the observer addresses one wrongly — and
   that stays missing on purpose, because the only thing that could report it is
   a delivery receipt.
-- **There is no pairing.** Who is holding the phone is now the *first* question
-  onboarding asks — traveller or observer — and the slots carry names each phone
-  sets for itself, merged per slot so neither can clobber the other. The merge,
-  the handshake and the one-way letter channel are real; identity still isn't.
-  Nothing stops two phones claiming the same slot, and that is what CloudKit
-  sharing (`CKShare`) would fix.
-- **A blank trip is reachable but not shipped.** `TripStore(seed:)` and the
-  `origin == .blank` branch of onboarding are built and driven by the checks;
-  the app still defaults to `.packed`, because this build is one packed trip.
-  A wider release flips one default and gets a real setup flow for free.
-- **Nothing has been printed.** The PDF is generated at spec and has been
-  inspected on a phone; no physical proof has come back from Blurb or Lulu, and
-  the handoff stops at a confirmation screen rather than their API.
-- **The trail on the book's country openers is still a placeholder.** Every
-  other hatched panel from Phase 1 got a real asset behind it; this one didn't.
+- **Pairing is built and has never run.** Onboarding ends by offering a
+  `CKShare` link that carries the trip and the other traveller's slot, and
+  `TripStore.joinTrip` is the one thing that moves a `tripID` between phones.
+  Everything on this side of the wire is checked; minting the share, accepting
+  it and reading the owner's zone need two iCloud accounts and a paid team.
+- **The app ships blank.** Every trip, the first included, starts empty and is
+  set up through onboarding; `SampleTrip` is commented out.
+- **Nothing has been printed.** The interior and cover PDFs are generated to
+  Lulu's own templates and inspected on a phone; no physical proof has come
+  back. The app exports the files and deliberately does not order prints.
+- **Until 2.0 lands, this is a one-phone app that says "synced".** The loopback
+  transport reports success, so the sync line reads "synced just now" while
+  nothing leaves the phone, and settling up and home mode cannot complete. That
+  wording is the first known issue to fix, and the cheapest.
 
 Phase 1 was "make the two-person premise true". Phase 2 was "make it worth
-opening on day thirty-five, and give it an ending". Phase 3 is a list of things
-worth trying, and none of them should be started before 2.0.
+opening on day thirty-five, and give it an ending". A review in October 2026
+found a set of bugs in what is built — they are §2.6 below, and they come
+before anything new. Phase 3 is a list of things worth trying, and none of them
+should be started before 2.0 and 2.6.
 
 ---
 
@@ -131,7 +127,7 @@ It opens with the item Phase 1 created rather than closed.
 |---|---|---|
 | 2.0 | **Still blocking** | Needs a developer team; nothing about it is code |
 | 2.1 | ✅ shipped | Learned hour, pre-loaded composer, one backfill offer |
-| 2.2 | ✅ shipped | Page-turn preview, PDF at print spec, handoff, the ending |
+| 2.2 | ✅ shipped, then reworked | Page-turn preview, reader, PDF and cover to Lulu's spec, the ending · the print handoff was removed |
 | 2.3 | ✅ shipped, then reworked | Shelf, finish (shelve or discard), between trips, next trip through onboarding |
 | 2.4 | ✅ shipped | Home mode, compose/condition/seal, the board, J9 and J10 |
 | 2.5 | ✅ shipped | Categories, spend-by-category, per-country day rates, repeats |
@@ -156,43 +152,6 @@ photo "from 84 today", which needs read access to the whole camera roll — and
 the Papers screen promises the app holds nothing it doesn't need. The composer
 pre-loads the line and the tags and leaves the photo one tap. That was the only
 place the design and the built app disagreed, and the app won, as instructed.
-
-### 2.0 Make sync real — 1 week · blocking
-
-Attach a developer team, create the container, flip the flag — then spend the
-week on everything the loopback transport cannot simulate: partial failure, the
-user signing out of iCloud mid-trip, a first-run race where both phones push an
-empty trip at once, and whether `CKShare` acceptance behaves the way the invite
-flow assumes.
-
-**This item was scoped wrong twice, and both corrections are now in the code.**
-
-- *"`CKShare` so pairing is real"* read as a nice-to-have. It isn't: the
-  transport wrote to `privateCloudDatabase`, which is scoped to one iCloud
-  account, so flipping the flag would have given one person sync across their
-  own devices and **nothing at all between two people**. Sharing needs a custom
-  zone, a share on a root record, and reads through `sharedCloudDatabase`. That
-  is now written, keyed off `tripID` the way `SyncPayload` always claimed, with
-  `.ifServerRecordUnchanged` and a coordinator that re-merges on conflict —
-  which also closes the pull→merge→push lost-update window that was never
-  anybody's item.
-- **The letters had no transport at all, and that was not on this list.**
-  `LetterDropTransport` had one conformer, file-backed, same device. Home mode —
-  all of §2.4 — could not deliver a letter to another phone, and 2.0 as
-  originally written would not have changed that. `CloudKitLetterDropTransport`
-  now exists, keyed on `(tripID, recipient)` with the address in the record
-  name, so a phone cannot request a box it isn't on.
-
-Both are inert and neither has executed. What pins them is
-`TransportConformance` — one written-down set of semantics that the loopback
-implementations are run against on every `./Tools/run-checks.sh`, and that the
-CloudKit ones are waiting to be run against. That is weaker than testing them
-and it is not pretending otherwise; what it buys is that the two can't quietly
-come to mean different things, which is precisely how the old transport ended up
-meaning "the trip" where every caller meant "this trip".
-
-*Why first:* Phase 1 delivered the hard, testable half. This is the untestable
-half, and until it's done every sharing claim in the UI is still aspirational.
 
 ### 2.1 The evening ritual — ✅ shipped
 
@@ -222,6 +181,11 @@ handoff (Blurb or Lulu have APIs). Then the closing moment the prototype's own
 
 *Why:* it's the ending. Without it the app just stops on day 61.
 
+*Reworked since.* The handoff is gone. It set an order flag on this phone,
+reached no printer, and announced both books ordered when the other book's
+pages are only on the other phone. The app exports an interior and a cover per
+volume, sized to Lulu's templates, through the share sheet.
+
 ### 2.3 A second trip — ✅ shipped (reworked)
 
 Right now there is one trip, seeded from `SampleTrip`. Generalise to many:
@@ -244,9 +208,10 @@ no itinerary or invite step, and reset whoever held the phone. It is gone:
   cards carried over.
 - Templates are not asked any more, and the feature switches live in settings.
 
+Since built: planning the next trip while the current one is still live, as a
+dashed "planned" spine that becomes the next trip when this one is shelved.
+
 Left for later:
-- Planning the next trip while the current one is still live, as a "planned"
-  spine that becomes live on close.
 - Re-pairing the phones in one tap. The new `tripID` means the invite step
   asks again.
 
@@ -276,70 +241,7 @@ okay, who owes whom). This is refinement, not a gap.
 
 ---
 
-## Phase 3 — Things worth trying (unscheduled)
-
-Ideas with real upside and real risk of being gimmicks. Prototype before
-committing.
-
-**Offline peer sync over Multipeer Connectivity — 1.5 weeks.** Two phones in the
-same room reconciling the ledger with no signal at all. Deeply on-brand for an
-offline-first app and genuinely useful on a night bus. Risk: a second sync path
-to keep correct, for a case CloudKit mostly covers on the next café wifi.
-
-**Voice notes as journal entries — 0.5 weeks.** Some nights nobody wants to
-type. Thirty seconds of audio, transcribed on-device, transcript editable. Risk:
-audio doesn't print, so it needs a clear story about what reaches the book.
-
-**"What did we do on day 12?" — 1 week.** On-device search across journal,
-ledger and trail. Cheap and quietly valuable a year later.
-
-**Postcards — 1 week.** Turn a journal page into a physical postcard, printed
-and mailed from a service. Sends the trip *outward*, which nothing currently
-does.
-
-**Widgets beyond the day — 0.5 weeks.** Day and next-stop ship in all four
-families. What's missing is spend-today, which is the one figure somebody would
-plausibly want without unlocking — and the one that would need a second number
-in the App Group. Low effort, modest payoff, and it costs a little of the
-promise that the group holds a day, a place and a distance and nothing else.
-
-**Per-trip hue on the shelf — 0.5 weeks.** The icon set rotates archived trips'
-hue at the same lightness and chroma so spines are distinguishable without a
-second design. It needs an exact `oklch → sRGB` conversion in Swift — eyeballed
-hexes would drift off the ramp — and it is the one part of the set that isn't
-about the icon or the widget, which is why it was left.
-
-**Apple Watch companion — 3 weeks.** Tempting and probably wrong. The two
-plausible cases — logging cash spend at a stall, and Separated mode on a wrist —
-are real but narrow, and a Watch app is a permanent maintenance tax. Revisit
-only if usage data shows people reaching for the phone specifically for those.
-
-### Explicitly not doing
-
-- **Social features, sharing, feeds.** The app's whole posture is that this is
-  private between two people and one person at home. A "share your trip" button
-  would contradict every privacy line in the design.
-- **Gamification of the journal.** Streaks, badges, completion percentages. See
-  §2.1 — the design deliberately forgives missed nights and it's right to.
-- **Ads or analytics SDKs.** "Never uploaded, never in anyone's cloud —
-  including his" is on the Papers screen. Believe it.
-- **Android/web ports.** Not until there's evidence anyone but these two want
-  it.
-
----
-
-## Roadmap at a glance
-
-| Phase | Weeks | Ships | Unlocks |
-|---|---|---|---|
-| **1 · Make it real** | ~8 | ✅ Sync engine, editable itinerary, photos, maps, encrypted scans, location | Two people *could* take it on a trip — once 2.0 lands |
-| **2 · Worth opening** | ~9 | ✅ The evening ritual, the book, multi-trip, the writing side, smarter money · ⛔ real CloudKit + pairing | It survives week five and ends properly — for one phone |
-| **2.5 · The travellers' trail** | — | ✅ Editable waypoints, moments, the book's last section · ✅ marking from anywhere, the explorable map, "you are here", undo, grouping | A blank trip can have a trail; spontaneous things get kept, in seconds |
-| **3 · Worth trying** | — | Peer sync, voice, search, postcards | Prototype first |
-
-**Critical path:** 2.0 Real CloudKit is now the whole of it. Everything else in
-Phase 2 is built, and every sharing claim in the UI is still the one thing that
-has never executed.
+## How it was sequenced
 
 ### Sequencing logic
 
@@ -373,23 +275,3 @@ environmental reasons, look for the seam that lets most of it be tested anyway.
 not catch a debug flag that silently reused stale state, an off-by-one in the
 overrun warning, or a map framed on the wrong region. All three were obvious in
 a picture. Budget time to *look* at every screen after a change of this size.
-
-### What to measure
-
-Vanity metrics will lie here — a two-month trip has a tiny, committed user base.
-The only numbers that answer "does it survive week five?":
-
-- **Journal completion by trip week.** If week 5 is much below week 1, §2.1
-  didn't work.
-- **Expenses logged within an hour of being spent.** Delay is the leading
-  indicator of the ledger being abandoned.
-- **Meeting point set per day.** The design's one daily shared ritual.
-- **Books actually ordered at the end.** The single number that says whether any
-  of this mattered.
-
-And one Phase 1 added:
-
-- **Sync rounds that merge something.** If two phones are genuinely both in use,
-  a meaningful fraction of rounds should be pulling in the other person's
-  changes. If nearly none do, only one of them is actually using the app — which
-  is a product problem wearing a technical disguise.
