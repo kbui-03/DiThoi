@@ -143,6 +143,7 @@ final class PhotoStore {
         guard let names = try? FileManager.default.contentsOfDirectory(atPath: directory.path) else {
             return 0
         }
+        let ids = ids.union(heldNow)
         var removed = 0
         for name in names {
             // "<uuid>.jpg" and "<uuid>-thumb.jpg" both belong to one id.
@@ -154,6 +155,34 @@ final class PhotoStore {
             removed += 1
         }
         return removed
+    }
+
+    // MARK: - Held by an open composer
+
+    /// Photographs a composer has written to disk and not yet saved into
+    /// anything.
+    ///
+    /// The prune runs on every return to the foreground and keeps only what
+    /// the trip names, so a photo picked into tonight's page was deleted by
+    /// an app switch, or by the Photos permission alert, before "Done" saved
+    /// a page pointing at it. In memory on purpose: a hold outlives nothing
+    /// but the sheet, and after a relaunch the prune is right to take it.
+    private var held: Set<String> = []
+    private let holdLock = NSLock()
+
+    func hold(_ id: String) {
+        holdLock.lock(); defer { holdLock.unlock() }
+        held.insert(id)
+    }
+
+    func release(_ ids: some Sequence<String>) {
+        holdLock.lock(); defer { holdLock.unlock() }
+        held.subtract(ids)
+    }
+
+    private var heldNow: Set<String> {
+        holdLock.lock(); defer { holdLock.unlock() }
+        return held
     }
 
     /// Everything in the folder right now, whether anything points at it.

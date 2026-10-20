@@ -487,7 +487,12 @@ private struct AddStopView: View {
     @State private var code = ""
     @State private var city = ""
     @State private var arrivalNote = ""
+    @State private var askingToDiscard = false
     @FocusState private var focused: Bool
+
+    /// What somebody typed. The stamp's code and city seed themselves off the
+    /// title, so they are not counted on their own.
+    private var isDirty: Bool { !title.isEmpty || !arrivalNote.isEmpty }
 
     private var trimmedTitle: String { title.trimmingCharacters(in: .whitespaces) }
     private var trimmedCode: String { code.trimmingCharacters(in: .whitespaces).uppercased() }
@@ -505,7 +510,9 @@ private struct AddStopView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            SheetHeader(title: "New stop", trailing: "Cancel") { dismiss() }
+            SheetHeader(title: "New stop", trailing: "Cancel") {
+                if isDirty { askingToDiscard = true } else { dismiss() }
+            }
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
@@ -552,6 +559,7 @@ private struct AddStopView: View {
                 .padding(.bottom, Space.gutter)
         }
         .background(Palette.bg)
+        .guardsUnsavedWork(isDirty: isDirty, isAsking: $askingToDiscard) { dismiss() }
         .onAppear { focused = true }
     }
 
@@ -571,11 +579,17 @@ private struct AddCountryView: View {
 
     @State private var country = ""
     @State private var firstStop = ""
-    @State private var currency: Currency = .thb
+    /// The likely currency once the country is typed, until somebody picks
+    /// one. It was baht for every new country.
+    @State private var currency: Currency = .eur
+    @State private var currencyChosen = false
     @State private var nights = 7
     @State private var code = ""
     @State private var city = ""
     @State private var arrivalNote = ""
+    @State private var askingToDiscard = false
+
+    private var isDirty: Bool { !country.isEmpty || !firstStop.isEmpty || !arrivalNote.isEmpty }
 
     private var trimmedCode: String { code.trimmingCharacters(in: .whitespaces).uppercased() }
 
@@ -585,7 +599,9 @@ private struct AddCountryView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            SheetHeader(title: "New country", trailing: "Cancel") { dismiss() }
+            SheetHeader(title: "New country", trailing: "Cancel") {
+                if isDirty { askingToDiscard = true } else { dismiss() }
+            }
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
@@ -604,12 +620,11 @@ private struct AddCountryView: View {
                         .padding(.top, Space.s3)
                         .padding(.bottom, 7)
                     // Only currencies the app can get a rate for.
-                    FlowRow(spacing: Space.s2) {
-                        ForEach(Currency.allCases) { option in
-                            Chip(text: "\(option.symbol) \(option.code)", selected: currency == option) {
-                                currency = option
-                            }
-                        }
+                    CurrencyChips(selected: currency,
+                                  suggested: [Currency.likely(forCountry: country),
+                                              store.localCurrency, store.homeCurrency]) {
+                        currency = $0
+                        currencyChosen = true
                     }
 
                     HStack {
@@ -642,6 +657,14 @@ private struct AddCountryView: View {
                 .padding(.bottom, Space.gutter)
         }
         .background(Palette.bg)
+        .guardsUnsavedWork(isDirty: isDirty, isAsking: $askingToDiscard) { dismiss() }
+        .onAppear { currency = store.localCurrency }
+        // A suggestion, like the destination step's: it follows the country
+        // until a chip is tapped, and is never applied behind a choice.
+        .onChange(of: country) { _, typed in
+            guard !currencyChosen, let likely = Currency.likely(forCountry: typed) else { return }
+            currency = likely
+        }
     }
 
     /// A leg may go in without a stamp on its first stop. What it may not do is
@@ -685,8 +708,16 @@ private struct WaypointEditorView: View {
     @State private var city = ""
     @State private var arrivalNote = ""
     @State private var confirmingRemoval = false
+    @State private var askingToDiscard = false
 
     private var isNew: Bool { stamp == nil }
+
+    /// A new stamp's code and city seed themselves, so only the note counts
+    /// as typed; an existing one is dirty when any field moved.
+    private var isDirty: Bool {
+        guard let stamp else { return !arrivalNote.isEmpty }
+        return code != stamp.code || city != stamp.city || arrivalNote != stamp.arrivalNote
+    }
 
     private var trimmedCode: String {
         code.trimmingCharacters(in: .whitespaces).uppercased()
@@ -700,7 +731,9 @@ private struct WaypointEditorView: View {
     var body: some View {
         VStack(spacing: 0) {
             SheetHeader(title: isNew ? "A stamp for this stop" : "This stop's stamp",
-                        trailing: "Cancel") { dismiss() }
+                        trailing: "Cancel") {
+                if isDirty { askingToDiscard = true } else { dismiss() }
+            }
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
@@ -766,6 +799,7 @@ private struct WaypointEditorView: View {
         }
         .background(Palette.bg)
         .task(id: stamp?.id) { load() }
+        .guardsUnsavedWork(isDirty: isDirty, isAsking: $askingToDiscard) { dismiss() }
         .confirmationDialog("Remove this stamp?", isPresented: $confirmingRemoval,
                             titleVisibility: .visible) {
             Button("Remove it", role: .destructive) {

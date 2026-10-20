@@ -20,6 +20,7 @@ struct DiThoiApp: App {
         #if DEBUG
         if DebugScreen.wantsReset { DebugScreen.reset() }
         #endif
+        Storage.sweepStrayLoopbackFiles()
         _store = StateObject(wrappedValue: TripStore())
     }
 

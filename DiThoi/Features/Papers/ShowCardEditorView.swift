@@ -196,7 +196,16 @@ struct ShowCardEditorView: View {
     @State private var footerNote = ""
     @State private var showingFooter = false
     @State private var confirmingDelete = false
+    @State private var askingToDiscard = false
     @FocusState private var focused: Bool
+
+    private var isDirty: Bool {
+        let typed: [String] = [native, english, shortName, footerTitle, footerBody, footerNote]
+        let saved: [String] = [editing?.native ?? "", editing?.english ?? "",
+                               editing?.shortName ?? "", editing?.footerTitle ?? "",
+                               editing?.footerBody ?? "", editing?.footerNote ?? ""]
+        return typed != saved
+    }
 
     /// A card that reads in only one language is the one thing it must not be:
     /// half of it is for the stranger and half is for the person holding it out,
@@ -230,7 +239,9 @@ struct ShowCardEditorView: View {
     var body: some View {
         VStack(spacing: 0) {
             SheetHeader(title: editing == nil ? "New card" : "Edit card",
-                        trailing: "Cancel") { dismiss() }
+                        trailing: "Cancel") {
+                if isDirty { askingToDiscard = true } else { dismiss() }
+            }
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
@@ -343,6 +354,7 @@ struct ShowCardEditorView: View {
         }
         .background(Palette.bg)
         .onAppear(perform: load)
+        .guardsUnsavedWork(isDirty: isDirty, isAsking: $askingToDiscard) { dismiss() }
         .confirmationDialog("Delete this card?", isPresented: $confirmingDelete,
                             titleVisibility: .visible) {
             Button("Delete it", role: .destructive) {

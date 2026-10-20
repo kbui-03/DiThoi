@@ -733,6 +733,29 @@ struct MeetingPointPicker: View {
     /// so the script follows the place: change what's in "Where" and the script
     /// is whatever this trip knows about *that* place, or nothing.
     @State private var scriptPlace = ""
+    @State private var askingToDiscard = false
+
+    private var isDirty: Bool {
+        typed != store.meeting.place
+            || detail.trimmingCharacters(in: .whitespaces) != store.meeting.detail
+            || script.trimmingCharacters(in: .whitespacesAndNewlines) != store.meeting.localScript
+    }
+
+    private var typedPoint: MeetingPoint {
+        MeetingPoint(place: typed,
+                     detail: detail.trimmingCharacters(in: .whitespaces),
+                     localScript: script.trimmingCharacters(in: .whitespacesAndNewlines),
+                     setAt: store.now)
+    }
+
+    /// "Done" used to be a bare `dismiss()`, so typing a place and tapping
+    /// the word that says you are finished threw the place away. It keeps
+    /// what was typed now; with "Where" emptied there is nothing to keep, and
+    /// it asks.
+    private func done() {
+        guard isDirty else { dismiss(); return }
+        if typed.isEmpty { askingToDiscard = true } else { save(typedPoint) }
+    }
 
     /// Everywhere this trip has met, most recent first. A trip suggests nothing
     /// until it has a history of its own.
@@ -779,7 +802,7 @@ struct MeetingPointPicker: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            SheetHeader(title: "Tonight's meeting point", trailing: "Done") { dismiss() }
+            SheetHeader(title: "Tonight's meeting point", trailing: "Done") { done() }
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
@@ -846,10 +869,7 @@ struct MeetingPointPicker: View {
             }
 
             OutlineButton(title: "That's where", minHeight: 50, size: 15) {
-                save(MeetingPoint(place: typed,
-                                  detail: detail.trimmingCharacters(in: .whitespaces),
-                                  localScript: script.trimmingCharacters(in: .whitespacesAndNewlines),
-                                  setAt: store.now))
+                save(typedPoint)
             }
             .opacity(typed.isEmpty ? 0.4 : 1)
             .disabled(typed.isEmpty)
@@ -857,6 +877,10 @@ struct MeetingPointPicker: View {
             .padding(.bottom, Space.gutter)
         }
         .background(Palette.bg)
+        .guardsUnsavedWork(isDirty: isDirty, isAsking: $askingToDiscard,
+                           whatGoes: "Tonight's point stays as it was.") {
+            dismiss()
+        }
         .onAppear {
             place = store.meeting.place
             detail = store.meeting.detail

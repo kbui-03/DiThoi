@@ -21,6 +21,9 @@ struct ComposeLetterView: View {
     @State private var pickingCondition = false
     @State private var confirmingSeal = false
     @State private var sealed = false
+    @State private var confirmingDiscard = false
+    /// Set by Discard, so leaving doesn't save what was just thrown away.
+    @State private var discarded = false
     @FocusState private var bodyFocused: Bool
 
     private var letter: Letter? { store.letters.first { $0.id == letterID } }
@@ -35,6 +38,15 @@ struct ComposeLetterView: View {
         }
         .background(Palette.n100)
         .onAppear(perform: load)
+        // A letter keeps itself. A swipe down used to keep the empty draft
+        // "Write a letter" made and drop everything typed into it; now leaving
+        // any way but Discard saves the draft, and a draft with nothing in it
+        // goes rather than piling up as numbered blanks.
+        .onDisappear {
+            guard !sealed, !discarded else { return }
+            persist()
+            store.discardDraftIfEmpty(letterID)
+        }
         .sheet(isPresented: $pickingCondition) {
             ConditionPickerView(number: letter?.number ?? store.nextLetterNumber,
                                 selected: condition) { chosen in
@@ -48,7 +60,7 @@ struct ComposeLetterView: View {
         VStack(spacing: 0) {
             SheetHeader(title: "Letter No. \(numberLabel)",
                         leading: "Discard", trailing: "Save draft",
-                        onLeading: { discard() }, onTrailing: { saveAndClose() })
+                        onLeading: { askToDiscard() }, onTrailing: { saveAndClose() })
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
@@ -169,6 +181,13 @@ struct ComposeLetterView: View {
             .padding(.top, Space.s3)
             .padding(.bottom, Space.gutter)
         }
+        .confirmationDialog("Throw this letter away?", isPresented: $confirmingDiscard,
+                            titleVisibility: .visible) {
+            Button("Throw it away", role: .destructive) { discard() }
+            Button("Keep editing", role: .cancel) {}
+        } message: {
+            Text("Letter No. \(numberLabel) and everything in it go. \"Save draft\" keeps it for later.")
+        }
         .confirmationDialog("Seal letter No. \(numberLabel)?",
                             isPresented: $confirmingSeal, titleVisibility: .visible) {
             Button("Seal it") { seal() }
@@ -195,6 +214,11 @@ struct ComposeLetterView: View {
     }
 
     private var travelNote: String {
+        // Their phone's wifi is beside the point when the letter can't leave
+        // this one. `lastSyncedAt` is this phone's round, and it is nil then.
+        if store.lettersAreStuck, let why = store.letterPostProblem {
+            return "\(why) A letter only fires once it reaches their phone, so a place they have already passed never will."
+        }
         let synced = store.sync.lastSyncedAt.map { "Their phone last reached wifi \(age(of: $0))." }
             ?? "Their phone hasn't reached wifi yet."
         return "\(synced) A new letter only lands the next time they're online, so a place they have already passed will never fire."
@@ -255,7 +279,16 @@ struct ComposeLetterView: View {
         dismiss()
     }
 
+    private var hasWords: Bool {
+        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !paragraphs.isEmpty
+    }
+
+    private func askToDiscard() {
+        if hasWords { confirmingDiscard = true } else { discard() }
+    }
+
     private func discard() {
+        discarded = true
         store.discardDraft(letterID)
         dismiss()
     }

@@ -57,6 +57,36 @@ struct TonightEntryView: View {
     @State private var prompt = ""
     @State private var finishing: Moment?
     @FocusState private var lineFocused: Bool
+    /// What the page was when the sheet opened, so leaving can tell an
+    /// untouched page from one with work on it.
+    @State private var opened = PageFields()
+    @State private var askingToDiscard = false
+
+    private struct PageFields: Equatable {
+        var line = ""
+        var tags: Set<String> = []
+        var photoID: String?
+        var extraPhotoIDs: [String] = []
+        var note = ""
+    }
+
+    private var current: PageFields {
+        PageFields(line: line, tags: tags, photoID: photoID,
+                   extraPhotoIDs: extraPhotoIDs, note: note)
+    }
+
+    private var isDirty: Bool { saved == nil && !didSave && current != opened }
+
+    private func close() {
+        if isDirty { askingToDiscard = true } else { dismiss() }
+    }
+
+    /// Written to disk ahead of the save, so held against the prune until the
+    /// sheet knows what the page kept.
+    private func made(_ id: String) {
+        madeHere.insert(id)
+        PhotoStore.shared.hold(id)
+    }
 
     private let limit = JournalEntry.lineLimit
 
@@ -70,6 +100,11 @@ struct TonightEntryView: View {
                               minutes: minutesTaken) { dismiss() }
             } else {
                 composer
+                    .guardsUnsavedWork(isDirty: isDirty, isAsking: $askingToDiscard,
+                                       whatGoes: "The line, the tags and any photos you added go.") {
+                        // `onDisappear` deletes what this sheet wrote.
+                        dismiss()
+                    }
             }
         }
         .background(Palette.bg)
@@ -78,6 +113,7 @@ struct TonightEntryView: View {
             prompt = pickPrompt()
         }
         .onDisappear {
+            defer { PhotoStore.shared.release(madeHere) }
             guard !didSave else { return }
             for id in madeHere { PhotoStore.shared.delete(id) }
         }
@@ -96,7 +132,7 @@ struct TonightEntryView: View {
         }
         .photoIntake(isPresented: $pickingPhoto) { square in
             if let saved = PhotoStore.shared.save(square) {
-                madeHere.insert(saved)
+                made(saved)
                 if pickingExtra {
                     if extraPhotoIDs.count < JournalEntry.extraPhotoLimit { extraPhotoIDs.append(saved) }
                 } else {
@@ -128,7 +164,7 @@ struct TonightEntryView: View {
     /// that can go on the page as a picture, one row of tags, the button.
     private var composer: some View {
         VStack(spacing: 0) {
-            SheetHeader(title: headerTitle, trailing: "Close") { dismiss() }
+            SheetHeader(title: headerTitle, trailing: "Close") { close() }
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
@@ -552,7 +588,7 @@ struct TonightEntryView: View {
             return
         }
         if let source = moment.photoID, hasPhotoRoom, let copy = PhotoStore.shared.duplicate(source) {
-            madeHere.insert(copy)
+            made(copy)
             borrowed[moment.id] = copy
             if photoID == nil { photoID = copy } else { extraPhotoIDs.append(copy) }
         }
@@ -586,6 +622,7 @@ struct TonightEntryView: View {
             // Nothing pre-selects itself on a page that already exists —
             // that would be the app arguing with what was written.
             tags = Set(suggested)
+            opened = current
             return
         }
         line = existing.line
@@ -593,10 +630,13 @@ struct TonightEntryView: View {
         photoID = existing.photoID
         extraPhotoIDs = existing.extraPhotoIDs
         note = existing.note
+        opened = current
     }
 
     private func save() {
-        guard canSave else { dismiss(); return }
+        // "Skip tonight" with photos or tags chosen is leaving with work on
+        // the page, and asks the same question Close does.
+        guard canSave else { close(); return }
         let entry = JournalEntry(
             dayNumber: targetDay,
             date: store.date(forDay: targetDay),

@@ -213,15 +213,38 @@ enum SyncMerge {
     static func merge(local: SyncPayload, remote: SyncPayload, as role: Traveller)
         -> (payload: SyncPayload, notices: [SyncNotice]) {
 
-        var notices: [SyncNotice] = []
-        var merged = local
-
         // Two trips are two trips. Merging a payload from a different one would
         // pour somebody else's ledger into this book, so the round is a no-op
         // and says so.
         guard remote.tripID == local.tripID else {
             return (local, [SyncNotice(text: "That's a different trip — nothing was merged.")])
         }
+
+        // One calendar before anything is compared.
+        //
+        // Every dated record in a payload is measured from that payload's own
+        // `settings.start`: `setStart` moves them together. When the two
+        // phones disagree about the start, the side whose settings lose has
+        // its dates moved into the winner's frame here, before the union.
+        // `updatedAt` is left alone, so an edit or a delete on either phone
+        // still wins or loses on its own merits. The obvious fix, re-stamping
+        // every shifted record in `setStart`, would let one date move override
+        // the other phone's unsynced edits and bring its deleted lines back.
+        //
+        // Without this the other phone took the new start and kept its own
+        // unshifted copies (a tie keeps the local one), so every expense sat
+        // N days off on one phone for good.
+        var local = local
+        var remote = remote
+        let remoteWinsSettings = remote.settings.updatedAt > local.settings.updatedAt
+        if remoteWinsSettings {
+            local.shiftDates(by: TripShift.days(from: local.settings.start, to: remote.settings.start))
+        } else {
+            remote.shiftDates(by: TripShift.days(from: remote.settings.start, to: local.settings.start))
+        }
+
+        var notices: [SyncNotice] = []
+        var merged = local
 
         merged.expenses = local.expenses.merged(with: remote.expenses)
         merged.stamps = local.stamps.merged(with: remote.stamps)
@@ -242,7 +265,7 @@ enum SyncMerge {
         merged.letterKeys = local.letterKeys.merged(with: remote.letterKeys)
         let theirName = merged.names[role.other]
 
-        if remote.settings.updatedAt > local.settings.updatedAt {
+        if remoteWinsSettings {
             merged.settings = remote.settings
             if local.settings.updatedAt > .distantPast, remote.settings != local.settings {
                 notices.append(SyncNotice(text: "\(theirName) changed the dates or the budget."))
@@ -275,6 +298,54 @@ enum SyncMerge {
         }
 
         return (merged, notices)
+    }
+}
+
+// MARK: - Moving the calendar
+
+/// A start-date move, as arithmetic.
+///
+/// One place for both callers: `TripStore.setStart`, which moves this phone's
+/// records, and `SyncMerge`, which moves the losing payload's records into the
+/// winning start's frame. A new dated collection joins here (§3.2).
+enum TripShift {
+    /// Whole trip days between two starts.
+    static func days(from old: Date, to new: Date) -> Int {
+        Calendar.trip.days(from: Calendar.trip.startOfDay(for: old),
+                           to: Calendar.trip.startOfDay(for: new))
+    }
+
+    static func move(_ date: Date, by days: Int) -> Date {
+        guard days != 0 else { return date }
+        return Calendar.trip.date(byAdding: .day, value: days, to: date) ?? date
+    }
+
+    static func expenses(_ list: [Expense], by days: Int) -> [Expense] {
+        guard days != 0 else { return list }
+        return list.map { var c = $0; c.date = move($0.date, by: days); return c }
+    }
+
+    static func stamps(_ list: [Stamp], by days: Int) -> [Stamp] {
+        guard days != 0 else { return list }
+        return list.map { var c = $0; c.earnedOn = $0.earnedOn.map { move($0, by: days) }; return c }
+    }
+
+    static func meetingPlaces(_ list: [MeetingPoint], by days: Int) -> [MeetingPoint] {
+        guard days != 0 else { return list }
+        return list.map { var c = $0; c.setAt = move($0.setAt, by: days); return c }
+    }
+}
+
+extension SyncPayload {
+    /// The shared half of `TripStore.setStart`: every dated record this payload
+    /// carries, moved by whole days. Settings are not touched; the caller
+    /// decides which start the dates now belong to.
+    mutating func shiftDates(by days: Int) {
+        guard days != 0 else { return }
+        expenses = TripShift.expenses(expenses, by: days)
+        stamps = TripShift.stamps(stamps, by: days)
+        meetingPoint.value.setAt = TripShift.move(meetingPoint.value.setAt, by: days)
+        meetingPlaces = TripShift.meetingPlaces(meetingPlaces, by: days)
     }
 }
 

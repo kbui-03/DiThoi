@@ -21,17 +21,25 @@ final class SyncCoordinator: ObservableObject {
     /// path has to name it, and naming it twice is how they drift.
     nonisolated static let stampKey = "dithoi.sync.lastSyncedAt"
 
+    /// CloudKit, always, unless a check hands in a box.
+    ///
+    /// This used to fall back to `LoopbackSyncTransport` when the build had no
+    /// iCloud container. The loopback is available and succeeds, so every
+    /// screen said "synced just now" about a round that wrote a file on this
+    /// phone and read it back. With the flag off, `CloudKitSyncTransport` is
+    /// already the honest answer: unavailable, with a reason. Turning sync on
+    /// is then the flag and nothing else.
     init(transport: SyncTransport? = nil) {
-        let chosen: SyncTransport
-        if let transport {
-            chosen = transport
-        } else {
-            let cloud = CloudKitSyncTransport()
-            chosen = cloud.isAvailable ? cloud : LoopbackSyncTransport()
-        }
+        let chosen = transport ?? CloudKitSyncTransport()
         self.transport = chosen
         state = chosen.isAvailable ? .idle : .unavailable(reason: chosen.unavailableReason ?? "")
-        lastSyncedAt = Storage.defaults.object(forKey: Self.stampKey) as? Date
+        // A stamp a past build's loopback wrote is a claim about a round that
+        // never left the phone. Nothing reaches `round()` on this transport, so
+        // nothing will replace it.
+        if !chosen.isAvailable { Storage.defaults.removeObject(forKey: Self.stampKey) }
+        lastSyncedAt = chosen.isAvailable
+            ? Storage.defaults.object(forKey: Self.stampKey) as? Date
+            : nil
     }
 
     var isSyncing: Bool { state == .syncing }
@@ -177,9 +185,12 @@ final class SyncCoordinator: ObservableObject {
 
     // MARK: - How it reads on screen
 
+    /// The few words the context row has room for. An unavailable transport
+    /// is "on this phone", which is true whether the build has no container or
+    /// iCloud has signed out; `detail` says which.
     var summary: String {
         switch state {
-        case .unavailable(let reason): reason
+        case .unavailable: "on this phone"
         case .syncing: "syncing…"
         case .failed(let why): "couldn't sync · \(why.lowercased())"
         case .idle:
@@ -189,6 +200,22 @@ final class SyncCoordinator: ObservableObject {
                 "not synced yet"
             }
         }
+    }
+
+    /// The sentence behind `summary`, for Settings. Nil when the short form is
+    /// the whole story.
+    var detail: String? {
+        switch state {
+        case .unavailable(let reason): reason.isEmpty ? nil : reason
+        case .failed(let why): why
+        case .idle, .syncing: nil
+        }
+    }
+
+    /// What the transport is, said only when it is there to be said. A switched
+    /// off CloudKit transport is not "iCloud, shared with the other phone".
+    var transportName: String {
+        transport.isAvailable ? transport.name : "Only on this phone"
     }
 
     private static func age(of date: Date) -> String {

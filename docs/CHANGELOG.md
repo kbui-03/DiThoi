@@ -10,7 +10,34 @@ change gets its own line under **Unreleased**.
 
 ## [Unreleased]
 
-Nothing yet.
+### Fixed
+- The sync line no longer says "synced just now" when nothing has left the
+  phone. With CloudKit off, sync and letters use CloudKit's switched-off
+  transports instead of the loopback, so screens read "on this phone",
+  Settings gives the reason, and "Sync now" is gone until there is something
+  to sync with.
+- No plaintext copies outside the protected store. The app stopped writing
+  `loopback-shared.json` and `letters-*.json`; every launch deletes copies an
+  older build left in the container root. The loopbacks the checks use now
+  write to `Loopback/`, protected and excluded from backups.
+- Moving the start date reaches the other phone. The merge moves the losing
+  side's dates into the winning start's frame instead of leaving one ledger
+  N days off, and the receiving phone moves its own journal, moments and
+  letters. Concurrent edits and deletes keep their usual last-writer-wins.
+- About forty currencies instead of six: every country the country card knows
+  (Japan, Laos, Cambodia, most of Europe outside the euro, and more), each
+  with a built-in rate. Pickers show the likely and home currencies, with the
+  rest by name behind "another…"; the home currency can be any of them. A
+  fetched table missing one minor currency still updates the rest.
+- A new country suggests its likely currency instead of baht.
+- No composer throws work away on a swipe or Close. New work asks "Throw it
+  away?" first; the day plan keeps its occasion and lodging; a letter saves
+  itself as a draft, and an empty one leaves nothing behind. The meeting
+  point's "Done" keeps what was typed.
+- A photograph picked into tonight's page or a moment survives an app switch
+  before saving. The foreground prune used to delete it.
+- A document being edited no longer reverts to the saved one after the vault
+  re-locks and unlocks.
 
 ## [1.0 (build 1)] — 2026-10-12 — first commit
 
@@ -149,18 +176,6 @@ something the app promises; **should** means it is wrong or rough, but nothing
 is lost.
 
 ### Everywhere
-- **Must:** the sync line reads "synced just now" when nothing has left the
-  phone. With CloudKit off, the loopback stand-in reports success.
-- **Must:** the loopback stand-ins write `loopback-shared.json` (the ledger,
-  itinerary and meeting point) and `letters-*.json` (every sealed letter, in
-  full) unprotected to the app container, and both are included in backups.
-- **Must:** moving the start date shifts records without re-stamping them. The
-  other phone takes the new date but not the shift, so the two ledgers end up
-  N days apart.
-- **Must:** only six currencies (EUR, USD, GBP, THB, VND, KRW). Japan, Laos,
-  Cambodia and most of the world can't record local spending.
-- **Must:** a swipe down or "Close" discards tonight's page, a letter in
-  progress, or a day plan's occasion and lodging, with no warning.
 - **Should:** location copy still says it is only read in Separated. Moments,
   pins, the trail and the arrival nudge read it too.
 - **Should:** toggling a feature re-stamps the shared settings, so a local
@@ -173,7 +188,6 @@ is lost.
 - **Should:** the meeting line reads "set at The bridge's  if you lose each
   other" when there is no detail.
 - **Should:** "under pace" and "over pace" are shown with no budget set.
-- **Should:** the meeting-point picker's "Done" discards the edit.
 
 ### Itinerary and day
 - **Must:** removing a stop orphans its unearned stamps. They stay "next" on the
@@ -181,7 +195,6 @@ is lost.
 - **Should:** before departure, the first stop says "you're here".
 - **Should:** there is no way to rename a stop or country, change a country's
   currency, or remove a whole country.
-- **Should:** a new country defaults to baht instead of the likely currency.
 - **Should:** day plans are keyed by day number, so dragging a stop leaves its
   plans behind.
 

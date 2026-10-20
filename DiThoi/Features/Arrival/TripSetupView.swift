@@ -524,15 +524,36 @@ struct TripSetupView: View {
                 .padding(.bottom, 7)
 
             HStack(spacing: Space.s2) {
-                ForEach(Currency.homeOptions) { option in
-                    SegmentTile(text: "\(option.symbol) \(option.code)",
+                ForEach(homeTiles) { option in
+                    SegmentTile(text: option.chipLabel,
                                 selected: store.homeCurrency == option, serif: false) {
-                        store.homeCurrency = option
-                        budgetText = wholeNumber(store.budget)
+                        setHome(option)
                     }
                 }
             }
+            // Three tiles were the whole of the choice. Anybody who thinks in
+            // yen or Australian dollars picks it here, by name.
+            Menu {
+                ForEach(Currency.byName) { option in
+                    Button("\(option.name) · \(option.code)") { setHome(option) }
+                }
+            } label: {
+                Mono("another currency…", size: 10, trackingRatio: 0.08, color: Palette.a700)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
+            }
         }
+    }
+
+    /// The common three, and whichever other one is already chosen.
+    private var homeTiles: [Currency] {
+        let common = Array(Currency.homeOptions.prefix(3))
+        return common.contains(store.homeCurrency) ? common : common + [store.homeCurrency]
+    }
+
+    private func setHome(_ option: Currency) {
+        store.homeCurrency = option
+        budgetText = wholeNumber(store.budget)
     }
 
     // MARK: - Rates
@@ -597,19 +618,25 @@ struct TripSetupView: View {
             }
             .padding(.bottom, 8)
 
-            DetailRow(title: store.sync.transport.name,
-                      subtitle: store.sync.summary, titleSize: 16, showsRule: false) {
+            DetailRow(title: store.sync.transportName,
+                      subtitle: store.sync.detail ?? store.sync.summary,
+                      titleSize: 16, showsRule: false) {
                 if store.sync.isSyncing {
                     ProgressView().controlSize(.mini).tint(Palette.a700)
                 }
             }
 
-            OutlineButton(title: store.sync.isSyncing ? "Syncing…" : "Sync now",
-                          minHeight: 46, size: 15) {
-                Task { await store.syncNow() }
+            // Absent rather than disabled when there is nothing to sync with:
+            // a button that "succeeds" at a round going nowhere is how the
+            // sync line came to say "synced just now" about nothing.
+            if store.sync.transport.isAvailable {
+                OutlineButton(title: store.sync.isSyncing ? "Syncing…" : "Sync now",
+                              minHeight: 46, size: 15) {
+                    Task { await store.syncNow() }
+                }
+                .disabled(store.sync.isSyncing)
+                .padding(.top, Space.s2)
             }
-            .disabled(store.sync.isSyncing)
-            .padding(.top, Space.s2)
 
             // The second place somebody looks for "get the other phone on
             // this", after Papers — this block is already titled with the other
