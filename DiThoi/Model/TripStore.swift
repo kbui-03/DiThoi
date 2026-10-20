@@ -1072,6 +1072,22 @@ final class TripStore: ObservableObject {
         return "\(counted). It's all already on the phone."
     }
 
+    /// The sentence under "Today together": who can find whom, and where.
+    ///
+    /// Asked of the store, so its branches can be checked. Written as one
+    /// interpolation it read "set at The bridge's  if you lose each other"
+    /// whenever "Which bit of it" was left empty — the possessive belongs to
+    /// the detail, not to the line.
+    var meetingLine: String {
+        guard meeting.isSet else {
+            return "No meeting point yet. Pick somewhere you can both walk to if the phones die."
+        }
+        let place = meeting.place.trimmingCharacters(in: .whitespacesAndNewlines)
+        let detail = meeting.detail.trimmingCharacters(in: .whitespacesAndNewlines)
+        let spot = detail.isEmpty ? place : "\(place)'s \(detail)"
+        return "Meeting point set at \(spot) if you lose each other."
+    }
+
     // MARK: - Money
 
     /// Only real spending counts against the budget — settlements between the
@@ -1139,6 +1155,40 @@ final class TripStore: ObservableObject {
 
     var spentTodayHome: Double {
         expenses(onDay: dayNumber).reduce(0) { $0 + inHome($1) }
+    }
+
+    /// Whether today's home figure needed a rate.
+    var spentTodayHomeIsConverted: Bool {
+        expenses(onDay: dayNumber).contains { $0.currency != homeCurrency }
+    }
+
+    /// The line under "Spent today": today in home money, and whether that
+    /// keeps them on the budget's pace. Nil when there is nothing to say.
+    ///
+    /// The verdict needs a budget. With none — nought is allowed — it read
+    /// "≈ €0 · under pace", and anything spent was "over pace" against a
+    /// day worth nothing. Without one the line is only the conversion, and
+    /// only when there was one: a day spent in home money is already the
+    /// figure above it.
+    ///
+    /// The "≈" follows the same rule as `spentTodayText`: drawn only when a
+    /// rate was used. When nothing was converted and the money in hand is
+    /// the home money, the figure would repeat the 30pt one, so only the
+    /// verdict is left.
+    var paceNote: String? {
+        let home = spentTodayHome
+        let converted = spentTodayHomeIsConverted
+        let figure: String?
+        if converted, home > 0 {
+            figure = "≈ \(homeTextRounded(home))"
+        } else if localCurrency != homeCurrency, home > 0 {
+            figure = homeText(home)
+        } else {
+            figure = nil
+        }
+        guard budget > 0 else { return figure }
+        let verdict = home <= budgetPerDay ? "under pace" : "over pace"
+        return [figure, verdict].compactMap { $0 }.joined(separator: " · ")
     }
 
     /// Every country the itinerary visits, once each, in the order they are
@@ -1416,6 +1466,19 @@ final class TripStore: ObservableObject {
     /// else.
     var hiddenLetterCount: Int {
         letters.filter { !$0.isOpen && $0.isSealed && $0.secretCondition }.count
+    }
+
+    /// "1 open · 2 sealed", with each clause dropped when it would be a nought.
+    ///
+    /// Hidden letters count as sealed: the count is all the reader is allowed
+    /// of them. Nil with no letters, which is never drawn anyway.
+    var letterTally: String? {
+        let open = openLetters.count
+        let sealed = sealedLetters.count + hiddenLetterCount
+        var clauses: [String] = []
+        if open > 0 { clauses.append("\(open) open") }
+        if sealed > 0 { clauses.append("\(sealed) sealed") }
+        return clauses.isEmpty ? nil : clauses.joined(separator: " · ")
     }
 
     var newestOpenLetter: Letter? {

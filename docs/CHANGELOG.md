@@ -74,6 +74,12 @@ team.
 - A countdown before departure, "home again" with a way to finish the trip
   after it, a nudge when a country has just ended, "a year ago today" from the
   shelf, and an arrival nudge near the next stop.
+- "Today together" is on every phone, with tonight's lodging in it. A phone
+  holding letters gets the newest open one above it and an "All 3 · 3 sealed"
+  row into the letters whether or not one has opened.
+- The meeting sentence drops the possessive when there is no detail, and the
+  pace line gives no verdict on a trip with no budget. Its "≈" shows only when
+  a rate was used.
 
 **The plan**
 - An itinerary of countries and stops stored as day offsets, so moving the
@@ -190,13 +196,6 @@ is lost.
 - **Should:** toggling a feature re-stamps the shared settings, so a local
   switch can override the other phone's budget change.
 - **Should:** "1 nights", "1 days" and "1 places" in a few places.
-
-### Today
-- **Must:** a phone holding sealed letters but none opened has no way into
-  them, and loses the "Today together" panel.
-- **Should:** the meeting line reads "set at The bridge's  if you lose each
-  other" when there is no detail.
-- **Should:** "under pace" and "over pace" are shown with no budget set.
 
 ### Itinerary and day
 - **Must:** removing a stop orphans its unearned stamps. They stay "next" on the

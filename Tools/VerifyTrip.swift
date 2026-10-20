@@ -4236,6 +4236,127 @@ struct Verify {
                   athome.spentTodayText)
         }
 
+        print("— the pace line, with and without a budget —")
+        do {
+            // A budget of nought is allowed, and the line under "Spent today"
+            // used to judge against it anyway: "≈ €0 · under pace" on an
+            // empty day, and "over pace" for anything at all against a day
+            // worth nothing.
+            let fixture = CheckTrip.snapshot()
+            func onDayTwelve(budget: Double, legs keep: Bool = true) -> TripStore {
+                var snapshot = fixture
+                if !keep { snapshot.itinerary = ItineraryDocument(legs: []) }
+                let made = TripStore(storeKey: nil, snapshot: snapshot,
+                                     clock: { Calendar.trip.date(byAdding: .day, value: 11,
+                                                                 to: fixture.start)! },
+                                     ritual: SilentRitualScheduler())
+                made.expenses.removeAll()
+                made.budget = budget
+                return made
+            }
+            func spend(_ store: TripStore, _ amount: Double, _ currency: Currency) {
+                store.add(Expense(date: store.now, amount: amount, currency: currency, payer: .one,
+                                  split: .evenly, note: "pace", country: "Thailand"))
+            }
+
+            let budgeted = onDayTwelve(budget: 8_000)
+            check("the fixture's home money is not the baht in hand",
+                  budgeted.homeCurrency != budgeted.localCurrency, budgeted.homeCurrency.code)
+            check("an empty day on a budget is only the verdict",
+                  budgeted.paceNote == "under pace", budgeted.paceNote ?? "nil")
+            spend(budgeted, 250, .thb)
+            check("baht on a budget is converted, and says so",
+                  budgeted.paceNote?.hasPrefix("≈ ") == true
+                      && budgeted.paceNote?.hasSuffix(" · under pace") == true,
+                  budgeted.paceNote ?? "nil")
+            spend(budgeted, 200_000, .thb)
+            check("and a day past what a day is worth is over",
+                  budgeted.paceNote?.hasSuffix(" · over pace") == true, budgeted.paceNote ?? "nil")
+
+            let byCard = onDayTwelve(budget: 8_000)
+            spend(byCard, 20, .eur)
+            check("home money spent abroad needs no rate, so no ≈",
+                  byCard.paceNote == "\(byCard.homeText(20)) · under pace", byCard.paceNote ?? "nil")
+
+            let unbudgeted = onDayTwelve(budget: 0)
+            check("no budget and nothing spent says nothing", unbudgeted.paceNote == nil,
+                  unbudgeted.paceNote ?? "nil")
+            spend(unbudgeted, 250, .thb)
+            check("no budget is never a verdict",
+                  unbudgeted.paceNote?.contains("pace") == false
+                      && unbudgeted.paceNote?.hasPrefix("≈ ") == true,
+                  unbudgeted.paceNote ?? "nil")
+
+            let atHome = onDayTwelve(budget: 0, legs: false)
+            spend(atHome, 20, .eur)
+            check("no budget, in home money, repeats nothing",
+                  atHome.paceNote == nil, atHome.paceNote ?? "nil")
+            atHome.budget = 8_000
+            check("and with one it is the verdict alone",
+                  atHome.paceNote == "under pace", atHome.paceNote ?? "nil")
+        }
+
+        print("— the meeting sentence —")
+        do {
+            // "Meeting point set at The bridge's  if you lose each other."
+            // The possessive belonged to the detail, and was drawn without one.
+            let meeting = TripStore(storeKey: nil, ritual: SilentRitualScheduler())
+            check("nowhere agreed asks for somewhere",
+                  meeting.meetingLine.hasPrefix("No meeting point yet"), meeting.meetingLine)
+
+            meeting.setMeetingPoint(MeetingPoint(place: "The bridge", detail: "", localScript: "",
+                                                 setAt: meeting.now))
+            check("a place with no detail reads as a sentence",
+                  meeting.meetingLine == "Meeting point set at The bridge if you lose each other.",
+                  meeting.meetingLine)
+
+            meeting.setMeetingPoint(MeetingPoint(place: "The bridge", detail: "   ", localScript: "",
+                                                 setAt: meeting.now))
+            check("and spaces are no detail",
+                  meeting.meetingLine == "Meeting point set at The bridge if you lose each other.",
+                  meeting.meetingLine)
+
+            meeting.setMeetingPoint(MeetingPoint(place: "The bridge", detail: "north end",
+                                                 localScript: "", setAt: meeting.now))
+            check("a detail takes the possessive",
+                  meeting.meetingLine == "Meeting point set at The bridge's north end if you lose each other.",
+                  meeting.meetingLine)
+        }
+
+        print("— letters on Today, before any has opened —")
+        do {
+            // A phone holding sealed letters and none opened drew no letter
+            // card, no way into the letters, and lost "Today together" too —
+            // the screen keyed the panel's absence on `lettersVisible` and the
+            // way in on `newestOpenLetter`. The model half: the box is
+            // visible, nothing has opened, and the tally says so in words.
+            let box = TripStore(storeKey: nil, snapshot: CheckTrip.snapshot(),
+                                ritual: SilentRitualScheduler())
+            let sealed = box.start
+            func letter(_ number: Int, hidden: Bool = false) -> Letter {
+                Letter(number: number, title: "No. \(number)", writtenOn: sealed,
+                       condition: .day(40 + number), hint: "", paragraphs: ["…"],
+                       signature: "— me", sealedAt: sealed, secretCondition: hidden)
+            }
+            box.letters = [letter(1), letter(2), letter(3, hidden: true)]
+            check("three sealed letters make a letterbox", box.lettersVisible)
+            check("with none of them open", box.newestOpenLetter == nil)
+            check("which the tally says without a nought",
+                  box.letterTally == "3 sealed", box.letterTally ?? "nil")
+
+            box.letters[0].openedOn = box.now
+            check("one open, and the hidden one still counts as sealed",
+                  box.letterTally == "1 open · 2 sealed", box.letterTally ?? "nil")
+
+            box.letters[1].openedOn = box.now
+            box.letters[2].openedOn = box.now
+            check("all open drops the sealed clause",
+                  box.letterTally == "3 open", box.letterTally ?? "nil")
+
+            box.letters = []
+            check("and no letters is no tally", box.letterTally == nil && !box.lettersVisible)
+        }
+
         print("— the stop Today's panel opens —")
         do {
             // `todaySegment` is the lenient lookup B1's panel pushes to.

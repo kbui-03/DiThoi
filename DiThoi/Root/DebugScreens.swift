@@ -56,6 +56,51 @@ enum DebugScreen {
         ProcessInfo.processInfo.arguments.contains("-seedSpending")
     }
 
+    /// `-seedLetters` puts three sealed letters on the phone, one with its
+    /// condition withheld; `-openLetter` opens the first of them as well.
+    /// Their conditions are day 10 and later, so on an early `-day n` none
+    /// opens itself.
+    ///
+    /// Nothing else puts a letter on the phone, which is how Today on a phone
+    /// with sealed letters and none opened went unseen: it drew no letter
+    /// card, no way into the letters, and no "Today together" either.
+    static var wantsLetters: Bool {
+        ProcessInfo.processInfo.arguments.contains("-seedLetters")
+    }
+
+    static var wantsOpenLetter: Bool {
+        ProcessInfo.processInfo.arguments.contains("-openLetter")
+    }
+
+    /// `-noBudget` zeroes the budget after the other seeds, so the pace
+    /// line's no-budget branch can be photographed with money in the day.
+    static var wantsNoBudget: Bool {
+        ProcessInfo.processInfo.arguments.contains("-noBudget")
+    }
+
+    @MainActor
+    static func seedLetters(into store: TripStore) {
+        guard store.letters.isEmpty else { return }
+        let written = Calendar.trip.date(byAdding: .day, value: -10, to: store.start) ?? store.start
+        store.letters = [
+            Letter(number: 1, title: "For the first night", writtenOn: written,
+                   condition: .day(10), hint: "when you've put the bags down",
+                   paragraphs: ["You made it. Eat something before you sleep, even if it's only rice."],
+                   signature: "— me", sealedAt: written),
+            Letter(number: 2, title: "Opens in Hanoi", writtenOn: written,
+                   condition: .place("Hanoi"), hint: "when you land, whenever that is",
+                   paragraphs: ["Second country. Walk into the traffic slowly and it goes around you."],
+                   signature: "— me", sealedAt: written),
+            Letter(number: 3, title: "Not saying", writtenOn: written,
+                   condition: .day(30), hint: "",
+                   paragraphs: ["Thirty days. From here every one is a day closer."],
+                   signature: "— me", sealedAt: written, secretCondition: true),
+        ]
+        if wantsOpenLetter {
+            store.open(letterNumber: 1, place: store.currentCity)
+        }
+    }
+
     @MainActor
     static func seedSpending(into store: TripStore) {
         guard store.expenses.live.isEmpty, store.dayNumber >= 1 else { return }
@@ -779,6 +824,8 @@ struct DebugScreenHost: View {
                 DebugScreen.seedMoments(into: store)
             }
             if DebugScreen.wantsSpending { DebugScreen.seedSpending(into: store) }
+            if DebugScreen.wantsLetters { DebugScreen.seedLetters(into: store) }
+            if DebugScreen.wantsNoBudget { store.budget = 0 }
             if DebugScreen.wantsJournal {
                 DebugScreen.nameTheTravellers(in: store)
                 if DebugScreen.wantsItinerary { DebugScreen.seedWaypoints(into: store) }
