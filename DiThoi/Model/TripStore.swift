@@ -536,12 +536,23 @@ final class TripStore: ObservableObject {
         let normalised = Calendar.trip.startOfDay(for: newStart)
         let shift = Calendar.trip.days(from: start, to: normalised)
         guard shift != 0 else { return }
+        shiftDates(by: shift)
+        start = normalised
+        touchSettings()
+    }
 
-        func moved(_ date: Date) -> Date {
-            Calendar.trip.date(byAdding: .day, value: shift, to: date) ?? date
-        }
+    /// Every dated record on this phone, moved by whole days.
+    ///
+    /// Shared by `setStart` and `apply`. The other phone's start winning a
+    /// round is the same move made somewhere else: the shared records arrive
+    /// already in the new frame (`SyncMerge` converts them), but the journal,
+    /// the moments and the letters never travel, so this phone has to move its
+    /// own. `apply` used to assign `start` and nothing else.
+    private func shiftDates(by shift: Int) {
+        guard shift != 0 else { return }
+        func moved(_ date: Date) -> Date { TripShift.move(date, by: shift) }
 
-        expenses = expenses.map { var c = $0; c.date = moved($0.date); return c }
+        expenses = TripShift.expenses(expenses, by: shift)
         journal = journal.map { var c = $0; c.date = moved($0.date); return c }
         // `capturedAt` moves and `dayNumber` doesn't, the same split the
         // journal makes: the day is trip-relative and already correct.
@@ -552,12 +563,10 @@ final class TripStore: ObservableObject {
             c.openedOn = letter.openedOn.map(moved)
             return c
         }
-        stamps = stamps.map { var c = $0; c.earnedOn = $0.earnedOn.map(moved); return c }
+        stamps = TripShift.stamps(stamps, by: shift)
         meetingPoint.value.setAt = moved(meetingPoint.value.setAt)
-        meetingPlaces = meetingPlaces.map { var c = $0; c.setAt = moved($0.setAt); return c }
+        meetingPlaces = TripShift.meetingPlaces(meetingPlaces, by: shift)
         separatedSince = separatedSince.map(moved)
-        start = normalised
-        touchSettings()
     }
 
     /// The travellers pick a return date; the length follows from it.
@@ -1496,6 +1505,21 @@ final class TripStore: ObservableObject {
 
     func discardDraft(_ id: UUID) {
         letters.removeAll { $0.id == id && $0.isDraft }
+    }
+
+    /// For the composer on its way out: a draft with no title and no words is
+    /// not a draft anybody wrote. "Write a letter" makes one before the sheet
+    /// opens, and every swipe away used to leave another numbered blank behind.
+    ///
+    /// - Returns: whether it went.
+    @discardableResult
+    func discardDraftIfEmpty(_ id: UUID) -> Bool {
+        guard let letter = letters.first(where: { $0.id == id }), letter.isDraft,
+              letter.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              letter.paragraphs.allSatisfy({ $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })
+        else { return false }
+        discardDraft(id)
+        return true
     }
 
     /// J2/J4 · sealing is one-way, and it is what makes the condition binding.
@@ -3039,6 +3063,10 @@ final class TripStore: ObservableObject {
         names = TripNames(one: payload.names.one, two: payload.names.two,
                           observer: names.observer)
         if payload.settings.updatedAt > settingsUpdatedAt {
+            // Before anything below compares against this phone's copies: the
+            // meeting point that loses on `updatedAt` stays, and has to stay
+            // in the new frame.
+            shiftDates(by: TripShift.days(from: start, to: payload.settings.start))
             start = payload.settings.start
             dayCount = payload.settings.dayCount
             budget = payload.settings.budget

@@ -53,7 +53,7 @@ check: `Features/` and `Root/` aren't compiled by the checks.
 ## Before you change anything
 
 ```bash
-./Tools/run-checks.sh          # 1,304 model assertions, macOS, no simulator
+./Tools/run-checks.sh          # 1,505 model assertions, macOS, no simulator
 ./Tools/render-icons.sh        # regenerates the icon set and re-tests actool
 ```
 
@@ -173,8 +173,10 @@ The general lessons behind them are §11; the debt kept on purpose is §7.
 
 ### The trip's shape
 - The itinerary is day offsets; dates come from `date(forDay:)`. (§3.1)
-- `setStart(_:)` shifts every dated record. A new dated collection joins it.
-  Known issue: the shift isn't re-stamped for sync. (§3.2)
+- `setStart(_:)` shifts every dated record through `TripShift`. A new dated
+  collection joins both. Never re-stamp a shift: `SyncMerge` moves the losing
+  payload's dates into the winning start's frame, and `apply` moves this
+  phone's own. (§3.2)
 - Itinerary edits are a mutation plus `reflow()`. Order and nights are the
   authority. (§3.1)
 - `city(forDay:)` and `todaySegment` fall through to the last stop on the way
@@ -241,6 +243,11 @@ The general lessons behind them are §11; the debt kept on purpose is §7.
   `isPresented:`. (§5.1)
 - Empty states compute their own promises. Separators belong to the clause,
   not the line ("12 Jan · "). (§5.1, §3.11)
+- Every editable sheet keeps its work. New work uses `guardsUnsavedWork`; an
+  edit to something that exists commits on `onDisappear`; a letter saves as a
+  draft, and an empty one goes. (§5.1)
+- A composer holds what it writes to disk (`PhotoStore.hold`) until it knows
+  what was kept, or the foreground prune takes it. (§5.1)
 
 ### The meeting point
 - Ask `MeetingPoint.isSet`. A blank trip's meeting point exists and is not an
@@ -290,8 +297,12 @@ The general lessons behind them are §11; the debt kept on purpose is §7.
 - `Expense.isEditable` refuses fractional transfers. (§3.4)
 - No rate is baked into logic. Every converted figure gets a `RateStamp`.
   (§3.3)
-- A fetched rate must sit within ×4 of `RateSnapshot.builtIn`. The jsDelivr
-  endpoint can't be pinned. (§3.3)
+- A fetched rate must sit within ×4 of `RateSnapshot.builtIn`, or of the last
+  rate for a `drifting` currency. A bad minor currency holds its last rate; a
+  bad major refuses the table. The jsDelivr endpoint can't be pinned. (§3.3)
+- `Currency` is a curated enum: a new case needs a `faces` row and a built-in
+  rate, and no case has three decimals. No symbol but USD's is a bare "$".
+  (§3.1, §3.3)
 - Numbers go through `Formatting.decimal`; formatters live in `FormatterBox`.
   (§3.3)
 

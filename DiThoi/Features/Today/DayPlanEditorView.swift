@@ -150,6 +150,10 @@ struct DayPlanEditorView: View {
         // named a different one — which is exactly what `-screen dayplan
         // -day 20` showed: Chiang Mai's Songkran under "Day 20 · Chiang Rai".
         .task(id: day) { load() }
+        // Done isn't the only way out. A swipe down used to lose the
+        // occasion and the lodging, which only `commit()` writes; this is the
+        // setup screens' rule (§5.4), and `commit()` writes only what changed.
+        .onDisappear { commit() }
         // Committed as the field is left, not per keystroke.
         .onChange(of: blurbFocused) { _, focused in
             if !focused { store.setBlurb(blurb, forDay: day) }
@@ -277,14 +281,22 @@ private struct PlanItemEditorView: View {
     @State private var time = ""
     @State private var title = ""
     @State private var note = ""
+    @State private var askingToDiscard = false
     @FocusState private var focused: Bool
 
     private var isComplete: Bool { !title.trimmingCharacters(in: .whitespaces).isEmpty }
 
+    private var isDirty: Bool {
+        time != (editing?.time ?? "") || title != (editing?.title ?? "")
+            || note != (editing?.note ?? "")
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             SheetHeader(title: editing == nil ? "New hour" : "Edit hour",
-                        trailing: "Cancel") { dismiss() }
+                        trailing: "Cancel") {
+                if isDirty { askingToDiscard = true } else { dismiss() }
+            }
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
@@ -341,6 +353,7 @@ private struct PlanItemEditorView: View {
             .padding(.bottom, Space.gutter)
         }
         .background(Palette.bg)
+        .guardsUnsavedWork(isDirty: isDirty, isAsking: $askingToDiscard) { dismiss() }
         .onAppear {
             if let editing {
                 time = editing.time

@@ -37,8 +37,26 @@ struct MomentComposerView: View {
     /// "Just keep the spot", waiting a moment for a fix before it gives up.
     @State private var keepingSpot = false
     @FocusState private var noteFocused: Bool
+    /// What the moment was as the sheet opened, so leaving can tell whether
+    /// anything would be lost.
+    @State private var openedNote = ""
+    @State private var openedPhotoID: String?
+    /// Photographs this sheet wrote and nothing has kept yet. Held against
+    /// the prune while the sheet is open, and deleted if it closes unkept:
+    /// they used to sit orphaned until the next wake.
+    @State private var madeHere: Set<String> = []
+    @State private var didKeep = false
+    @State private var askingToDiscard = false
 
     private let limit = 120
+
+    private var isDirty: Bool {
+        !didKeep && (note != openedNote || photoID != openedPhotoID)
+    }
+
+    private func close() {
+        if isDirty { askingToDiscard = true } else { dismiss() }
+    }
 
     private var isNew: Bool { editing == nil }
 
@@ -49,7 +67,7 @@ struct MomentComposerView: View {
     var body: some View {
         VStack(spacing: 0) {
             SheetHeader(title: isNew ? "Here, now" : "That moment",
-                        trailing: "Close") { dismiss() }
+                        trailing: "Close") { close() }
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
@@ -190,9 +208,21 @@ struct MomentComposerView: View {
                      onSavedToLibrary: { libraryRefused = !$0 }) { square in
             let previous = photoID
             if let saved = PhotoStore.shared.save(square) {
+                madeHere.insert(saved)
+                PhotoStore.shared.hold(saved)
                 photoID = saved
                 remove(previous)
             }
+        }
+        .guardsUnsavedWork(isDirty: isDirty, isAsking: $askingToDiscard,
+                           whatGoes: isNew ? "The words and the photo go." : "Your changes go.") {
+            dismiss()
+        }
+        .onDisappear {
+            defer { PhotoStore.shared.release(madeHere) }
+            // Whatever this sheet wrote that the moment didn't keep.
+            let kept = didKeep ? photoID : nil
+            for id in madeHere where id != kept { PhotoStore.shared.delete(id) }
         }
     }
 
@@ -244,6 +274,8 @@ struct MomentComposerView: View {
         if let editing {
             note = editing.note
             photoID = editing.photoID
+            openedNote = editing.note
+            openedPhotoID = editing.photoID
         } else {
             // Asked for here, at the moment it is needed — never at launch.
             store.location.requestOnce()
@@ -251,6 +283,7 @@ struct MomentComposerView: View {
     }
 
     private func keep() {
+        didKeep = true
         if var moment = editing {
             moment.note = note.trimmingCharacters(in: .whitespacesAndNewlines)
             moment.photoID = photoID
@@ -277,6 +310,7 @@ struct MomentComposerView: View {
             }
             store.addMoment(note: "", latitude: fix?.latitude ?? 0, longitude: fix?.longitude ?? 0,
                             city: arrivedAt?.city)
+            didKeep = true
             dismiss()
         }
     }

@@ -348,6 +348,50 @@ struct Chip: View {
     }
 }
 
+/// A currency choice that fits on a phone.
+///
+/// It was every case as a chip, which was fine at six and is a wall at forty.
+/// Now the few that are likely right are chips, and the rest are one menu
+/// away, by name, because nobody remembers that the Lao kip is LAK.
+struct CurrencyChips: View {
+    let selected: Currency?
+    /// Offered as chips, in this order. Nils and repeats are dropped, and the
+    /// selection is always among them.
+    let suggested: [Currency?]
+    let onPick: (Currency) -> Void
+
+    private var shown: [Currency] {
+        var seen: [Currency] = []
+        for case let option? in suggested + [selected] where !seen.contains(option) {
+            seen.append(option)
+        }
+        return seen
+    }
+
+    var body: some View {
+        FlowRow(spacing: Space.s2) {
+            ForEach(shown) { option in
+                Chip(text: option.chipLabel, selected: selected == option) {
+                    onPick(option)
+                }
+            }
+            Menu {
+                ForEach(Currency.byName) { option in
+                    Button("\(option.name) · \(option.code)") { onPick(option) }
+                }
+            } label: {
+                Mono("another…", size: 10, trackingRatio: 0.08, color: Palette.a700)
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: 34)
+                    .overlay(RoundedRectangle(cornerRadius: Radius.sm)
+                        .strokeBorder(Palette.divider, lineWidth: 1))
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel("Another currency")
+        }
+    }
+}
+
 /// Larger segmented choice — "who paid", "split".
 struct SegmentTile: View {
     let text: String
@@ -637,5 +681,106 @@ struct UndoBanner: View {
         .padding(.bottom, Space.s2)
         .background(Palette.bg)
         .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
+}
+
+// MARK: - Unsaved work
+
+/// What a composer does when somebody leaves it with something typed.
+///
+/// A swipe down used to throw away tonight's page, its photographs and a
+/// letter in progress with no word said, and `interactiveDismissDisabled` was
+/// used exactly once in the app. This is for *new* work, the kind with nowhere
+/// to go but the thing being composed. An edit to something that already
+/// exists commits on `onDisappear` instead (the day plan, the setup fields),
+/// and a letter keeps itself as a draft; see §5.1.
+///
+/// While `isDirty`, the swipe is held and raises the same question Close does.
+/// The sheet's own Close should call `askOrDismiss` from the view, so both
+/// ways out ask the one question in the one wording.
+struct UnsavedWorkGuard: ViewModifier {
+    let isDirty: Bool
+    @Binding var isAsking: Bool
+    /// What goes. A few words: "The line and the photos." Nil asks plainly.
+    var whatGoes: String?
+    /// Runs before the sheet closes, for anything the composer wrote to disk
+    /// ahead of saving.
+    let onDiscard: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .interactiveDismissDisabled(isDirty)
+            .background(DismissAttemptObserver { if isDirty { isAsking = true } })
+            .confirmationDialog("Throw it away?", isPresented: $isAsking,
+                                titleVisibility: .visible) {
+                Button("Throw it away", role: .destructive) { onDiscard() }
+                Button("Keep editing", role: .cancel) {}
+            } message: {
+                Text(whatGoes.map { "\($0) Nothing here has been saved." }
+                     ?? "Nothing here has been saved.")
+            }
+    }
+}
+
+extension View {
+    /// See `UnsavedWorkGuard`. `onDiscard` must dismiss the sheet itself.
+    func guardsUnsavedWork(isDirty: Bool, isAsking: Binding<Bool>,
+                           whatGoes: String? = nil,
+                           onDiscard: @escaping () -> Void) -> some View {
+        modifier(UnsavedWorkGuard(isDirty: isDirty, isAsking: isAsking,
+                                  whatGoes: whatGoes, onDiscard: onDiscard))
+    }
+}
+
+/// Hears a swipe that `interactiveDismissDisabled` held back.
+///
+/// SwiftUI has no hook for it, so this joins the sheet's presentation
+/// controller as its delegate and forwards everything else to the delegate
+/// SwiftUI put there, which is what keeps `isPresented` and
+/// `interactiveDismissDisabled` working. Without it a held swipe just bounces,
+/// which reads as the app being stuck.
+private struct DismissAttemptObserver: UIViewControllerRepresentable {
+    let onAttempt: () -> Void
+
+    func makeUIViewController(context: Context) -> Observer { Observer() }
+
+    func updateUIViewController(_ controller: Observer, context: Context) {
+        controller.onAttempt = onAttempt
+        controller.attach()
+    }
+
+    final class Observer: UIViewController, UIAdaptivePresentationControllerDelegate {
+        var onAttempt: (() -> Void)?
+        private weak var forwarded: UIAdaptivePresentationControllerDelegate?
+
+        override func viewDidAppear(_ animated: Bool) {
+            super.viewDidAppear(animated)
+            attach()
+        }
+
+        /// The sheet's presentation controller, found from the top of this
+        /// controller's parent chain.
+        func attach() {
+            var top: UIViewController = self
+            while let parent = top.parent { top = parent }
+            guard let presentation = top.presentationController,
+                  presentation.delegate !== self else { return }
+            forwarded = presentation.delegate
+            presentation.delegate = self
+        }
+
+        func presentationControllerDidAttemptToDismiss(_ presentationController: UIPresentationController) {
+            onAttempt?()
+            forwarded?.presentationControllerDidAttemptToDismiss?(presentationController)
+        }
+
+        override func responds(to selector: Selector!) -> Bool {
+            super.responds(to: selector) || (forwarded?.responds(to: selector) ?? false)
+        }
+
+        override func forwardingTarget(for selector: Selector!) -> Any? {
+            if let forwarded, forwarded.responds(to: selector) { return forwarded }
+            return super.forwardingTarget(for: selector)
+        }
     }
 }

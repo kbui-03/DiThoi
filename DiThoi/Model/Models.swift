@@ -74,50 +74,104 @@ struct TripNames: Codable, Equatable {
 // MARK: - Money
 
 enum Currency: String, Codable, CaseIterable, Identifiable {
-    case eur, usd, gbp, thb, vnd, krw
+    // Raw values are lowercase ISO 4217 codes and are persisted: on expenses,
+    // legs, settings, settlements and the shelf. Add a case; never rename one.
+    // An unknown raw value throws and wipes the trip (§5.3).
+    //
+    // Six of these were the whole list, so Japan, Laos, Cambodia and most of
+    // Europe outside the euro could not record what they spent. The set is
+    // curated rather than every code the rate feed has: each case needs a
+    // built-in rate to be judged against (`RateSnapshot.builtIn`), and none of
+    // them has three decimals, because the keypad and `Expense.isEditable`
+    // deal in whole units. Bulgaria joined the euro in 2026.
+    case eur, usd, gbp, thb, vnd, krw, jpy, cny, hkd, twd, lak, khr, mmk, myr, sgd,
+         idr, php, inr, npr, lkr, aed, chf, czk, pln, huf, ron, dkk, sek, nok, isk,
+         `try`, cad, mxn, pen, clp, cop, brl, ars, aud, nzd, zar, mad, egp
     var id: String { rawValue }
 
     var code: String { rawValue.uppercased() }
 
-    var symbol: String {
-        switch self {
-        case .eur: "€"
-        case .usd: "$"
-        case .gbp: "£"
-        case .thb: "฿"
-        case .vnd: "₫"
-        case .krw: "₩"
-        }
+    /// How a currency is written. One table rather than three switches, so a
+    /// new case is one line and a check can ask that every case has one.
+    struct Face {
+        let symbol: String
+        let name: String
+        /// What a traveller actually writes down. Nobody records satang.
+        let decimals: Int
     }
 
-    var name: String {
-        switch self {
-        case .eur: "Euro"
-        case .usd: "US dollar"
-        case .gbp: "Pound sterling"
-        case .thb: "Thai baht"
-        case .vnd: "Vietnamese đồng"
-        case .krw: "Korean won"
-        }
+    static let faces: [Currency: Face] = [
+        .eur: Face(symbol: "€", name: "Euro", decimals: 2),
+        .usd: Face(symbol: "$", name: "US dollar", decimals: 2),
+        .gbp: Face(symbol: "£", name: "Pound sterling", decimals: 2),
+        .thb: Face(symbol: "฿", name: "Thai baht", decimals: 0),
+        .vnd: Face(symbol: "₫", name: "Vietnamese đồng", decimals: 0),
+        .krw: Face(symbol: "₩", name: "Korean won", decimals: 0),
+        .jpy: Face(symbol: "¥", name: "Japanese yen", decimals: 0),
+        .cny: Face(symbol: "CN¥", name: "Chinese yuan", decimals: 2),
+        .hkd: Face(symbol: "HK$", name: "Hong Kong dollar", decimals: 2),
+        .twd: Face(symbol: "NT$", name: "New Taiwan dollar", decimals: 0),
+        .lak: Face(symbol: "₭", name: "Lao kip", decimals: 0),
+        .khr: Face(symbol: "៛", name: "Cambodian riel", decimals: 0),
+        .mmk: Face(symbol: "K", name: "Myanmar kyat", decimals: 0),
+        .myr: Face(symbol: "RM", name: "Malaysian ringgit", decimals: 2),
+        .sgd: Face(symbol: "S$", name: "Singapore dollar", decimals: 2),
+        .idr: Face(symbol: "Rp", name: "Indonesian rupiah", decimals: 0),
+        .php: Face(symbol: "₱", name: "Philippine peso", decimals: 0),
+        .inr: Face(symbol: "₹", name: "Indian rupee", decimals: 0),
+        .npr: Face(symbol: "रू", name: "Nepalese rupee", decimals: 0),
+        .lkr: Face(symbol: "Rs", name: "Sri Lankan rupee", decimals: 0),
+        .aed: Face(symbol: "AED", name: "UAE dirham", decimals: 2),
+        .chf: Face(symbol: "CHF", name: "Swiss franc", decimals: 2),
+        .czk: Face(symbol: "Kč", name: "Czech koruna", decimals: 0),
+        .pln: Face(symbol: "zł", name: "Polish złoty", decimals: 2),
+        .huf: Face(symbol: "Ft", name: "Hungarian forint", decimals: 0),
+        .ron: Face(symbol: "lei", name: "Romanian leu", decimals: 2),
+        .dkk: Face(symbol: "kr", name: "Danish krone", decimals: 2),
+        .sek: Face(symbol: "kr", name: "Swedish krona", decimals: 0),
+        .nok: Face(symbol: "kr", name: "Norwegian krone", decimals: 0),
+        .isk: Face(symbol: "kr", name: "Icelandic króna", decimals: 0),
+        .`try`: Face(symbol: "₺", name: "Turkish lira", decimals: 0),
+        .cad: Face(symbol: "C$", name: "Canadian dollar", decimals: 2),
+        .mxn: Face(symbol: "MX$", name: "Mexican peso", decimals: 0),
+        .pen: Face(symbol: "S/", name: "Peruvian sol", decimals: 2),
+        .clp: Face(symbol: "CLP$", name: "Chilean peso", decimals: 0),
+        .cop: Face(symbol: "COL$", name: "Colombian peso", decimals: 0),
+        .brl: Face(symbol: "R$", name: "Brazilian real", decimals: 2),
+        .ars: Face(symbol: "AR$", name: "Argentine peso", decimals: 0),
+        .aud: Face(symbol: "A$", name: "Australian dollar", decimals: 2),
+        .nzd: Face(symbol: "NZ$", name: "New Zealand dollar", decimals: 2),
+        .zar: Face(symbol: "R", name: "South African rand", decimals: 0),
+        .mad: Face(symbol: "DH", name: "Moroccan dirham", decimals: 0),
+        .egp: Face(symbol: "E£", name: "Egyptian pound", decimals: 0),
+    ]
+
+    private var face: Face {
+        Self.faces[self] ?? Face(symbol: code, name: code, decimals: 0)
     }
 
-    /// What a traveller actually writes down. Nobody records satang.
-    var decimals: Int {
-        switch self {
-        case .eur, .usd, .gbp: 2
-        case .thb, .vnd, .krw: 0
-        }
-    }
+    /// Never a bare "$" for anything but the US dollar: a trip through two
+    /// dollar countries would otherwise print both ledgers in one sign.
+    var symbol: String { face.symbol }
+    var name: String { face.name }
+    var decimals: Int { face.decimals }
 
-    /// The currency a country most likely spends, among the six the app can
+    /// "฿ THB", or just "CHF" where the symbol is the code.
+    var chipLabel: String { symbol == code ? code : "\(symbol) \(code)" }
+
+    /// Every case, alphabetical by name, for the "another…" menus.
+    static var byName: [Currency] { allCases.sorted { $0.name < $1.name } }
+
+    /// The currency a country most likely spends, among the ones the app can
     /// get a rate for — or nil.
     ///
     /// A suggestion drawn on a chip, never a choice made silently: a leg's
     /// currency drives every conversion on it, and a wrong guess applied
     /// without asking is money filed in the wrong unit. Nil is the ordinary
-    /// answer — Japan, Laos, Peru — and means no chip is preselected, not that
-    /// the country is unknown. Keyed through `CountryFacts.normalise`, so
-    /// "south korea" and "Việt Nam" find their row the way the card does.
+    /// answer for a country the table doesn't know, and means no chip is
+    /// preselected, not that the country is unknown. Keyed through
+    /// `CountryFacts.normalise`, so "south korea" and "Việt Nam" find their
+    /// row the way the card does.
     static func likely(forCountry country: String) -> Currency? {
         likelyByCountry[CountryFacts.normalise(country)]
     }
@@ -130,10 +184,47 @@ enum Currency: String, Codable, CaseIterable, Identifiable {
             (.gbp, ["United Kingdom", "UK", "England", "Scotland", "Wales",
                     "Northern Ireland", "Great Britain"]),
             (.usd, ["United States", "USA", "US", "America", "United States of America"]),
-            (.eur, ["Austria", "Belgium", "Croatia", "Cyprus", "Estonia", "Finland",
-                    "France", "Germany", "Greece", "Ireland", "Italy", "Latvia",
-                    "Lithuania", "Luxembourg", "Malta", "Netherlands", "Portugal",
-                    "Slovakia", "Slovenia", "Spain"])
+            (.eur, ["Austria", "Belgium", "Bulgaria", "Croatia", "Cyprus", "Estonia",
+                    "Finland", "France", "Germany", "Greece", "Ireland", "Italy",
+                    "Latvia", "Lithuania", "Luxembourg", "Malta", "Netherlands",
+                    "Portugal", "Slovakia", "Slovenia", "Spain"]),
+            (.jpy, ["Japan"]),
+            (.cny, ["China", "People's Republic of China", "PRC"]),
+            (.hkd, ["Hong Kong"]),
+            (.twd, ["Taiwan"]),
+            (.lak, ["Laos", "Lao PDR"]),
+            (.khr, ["Cambodia"]),
+            (.mmk, ["Myanmar", "Burma"]),
+            (.myr, ["Malaysia"]),
+            (.sgd, ["Singapore"]),
+            (.idr, ["Indonesia", "Bali"]),
+            (.php, ["Philippines"]),
+            (.inr, ["India"]),
+            (.npr, ["Nepal"]),
+            (.lkr, ["Sri Lanka"]),
+            (.aed, ["United Arab Emirates", "UAE", "Dubai"]),
+            (.chf, ["Switzerland", "Liechtenstein"]),
+            (.czk, ["Czechia", "Czech Republic"]),
+            (.pln, ["Poland"]),
+            (.huf, ["Hungary"]),
+            (.ron, ["Romania"]),
+            (.dkk, ["Denmark"]),
+            (.sek, ["Sweden"]),
+            (.nok, ["Norway"]),
+            (.isk, ["Iceland"]),
+            (.`try`, ["Turkey", "Türkiye"]),
+            (.cad, ["Canada"]),
+            (.mxn, ["Mexico"]),
+            (.pen, ["Peru"]),
+            (.clp, ["Chile"]),
+            (.cop, ["Colombia"]),
+            (.brl, ["Brazil"]),
+            (.ars, ["Argentina"]),
+            (.aud, ["Australia"]),
+            (.nzd, ["New Zealand"]),
+            (.zar, ["South Africa"]),
+            (.mad, ["Morocco"]),
+            (.egp, ["Egypt"])
         ]
         var table: [String: Currency] = [:]
         for (currency, names) in rows {
@@ -142,16 +233,24 @@ enum Currency: String, Codable, CaseIterable, Identifiable {
         return table
     }()
 
-    /// Currencies you can hold a trip budget in.
+    /// Currencies you can hold a trip budget in: any of them, the common
+    /// three first.
     static let homeOptions: [Currency] = [.eur, .gbp, .usd]
+        + byName.filter { ![.eur, .gbp, .usd].contains($0) }
 
     func format(_ amount: Double) -> String {
-        symbol + Formatting.decimal(amount, places: decimals)
+        prefix + Formatting.decimal(amount, places: decimals)
     }
 
     /// Whole units only — for headlines where the cents are noise.
     func formatRounded(_ amount: Double) -> String {
-        symbol + Formatting.decimal(amount.rounded(), places: 0)
+        prefix + Formatting.decimal(amount.rounded(), places: 0)
+    }
+
+    /// A symbol that ends in a letter ("Rp", "CHF", "kr") gets a space before
+    /// the number, or "Rp15000" reads as one word.
+    private var prefix: String {
+        symbol.last?.isLetter == true ? symbol + " " : symbol
     }
 }
 

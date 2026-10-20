@@ -25,7 +25,44 @@ struct RateSnapshot: Codable, Equatable {
             "GBP": 0.854,
             "THB": 38.35,
             "VND": 29_900,
-            "KRW": 1_666
+            "KRW": 1_666,
+            "JPY": 172,
+            "CNY": 8.2,
+            "HKD": 8.9,
+            "TWD": 35,
+            "LAK": 25_000,
+            "KHR": 4_650,
+            "MMK": 2_400,
+            "MYR": 4.95,
+            "SGD": 1.49,
+            "IDR": 18_900,
+            "PHP": 66,
+            "INR": 99,
+            "NPR": 158,
+            "LKR": 345,
+            "AED": 4.2,
+            "CHF": 0.94,
+            "CZK": 24.4,
+            "PLN": 4.25,
+            "HUF": 395,
+            "RON": 5.07,
+            "DKK": 7.46,
+            "SEK": 11.0,
+            "NOK": 11.7,
+            "ISK": 143,
+            "TRY": 47,
+            "CAD": 1.6,
+            "MXN": 21.5,
+            "PEN": 4.1,
+            "CLP": 1_090,
+            "COP": 4_600,
+            "BRL": 6.3,
+            "ARS": 1_500,
+            "AUD": 1.75,
+            "NZD": 1.95,
+            "ZAR": 20.5,
+            "MAD": 10.6,
+            "EGP": 56
         ],
         updatedAt: nil,
         source: .builtIn
@@ -158,8 +195,8 @@ final class RatesService: ObservableObject {
                 return nil
             }
             return switch endpoint {
-            case .erAPI: Self.decodeERAPI(data)
-            case .currencyAPI: Self.decodeCurrencyAPI(data)
+            case .erAPI: Self.decodeERAPI(data, previous: snapshot)
+            case .currencyAPI: Self.decodeCurrencyAPI(data, previous: snapshot)
             }
         } catch {
             return nil
@@ -167,7 +204,7 @@ final class RatesService: ObservableObject {
     }
 
     /// `{"result":"success","time_last_update_unix":…,"rates":{"USD":1.08,…}}`
-    private static func decodeERAPI(_ data: Data) -> RateSnapshot? {
+    private static func decodeERAPI(_ data: Data, previous: RateSnapshot) -> RateSnapshot? {
         struct Payload: Decodable {
             let result: String
             let time_last_update_unix: Double?
@@ -176,11 +213,12 @@ final class RatesService: ObservableObject {
         guard let payload = try? JSONDecoder().decode(Payload.self, from: data),
               payload.result == "success" else { return nil }
         return make(from: payload.rates,
-                    updatedAt: payload.time_last_update_unix.map { Date(timeIntervalSince1970: $0) })
+                    updatedAt: payload.time_last_update_unix.map { Date(timeIntervalSince1970: $0) },
+                    previous: previous)
     }
 
     /// `{"date":"2027-04-15","eur":{"usd":1.08,…}}` — lowercase codes.
-    private static func decodeCurrencyAPI(_ data: Data) -> RateSnapshot? {
+    private static func decodeCurrencyAPI(_ data: Data, previous: RateSnapshot) -> RateSnapshot? {
         guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let table = object["eur"] as? [String: Any] else { return nil }
 
@@ -196,7 +234,7 @@ final class RatesService: ObservableObject {
             formatter.dateFormat = "yyyy-MM-dd"
             updatedAt = formatter.date(from: day)
         }
-        return make(from: rates, updatedAt: updatedAt)
+        return make(from: rates, updatedAt: updatedAt, previous: previous)
     }
 
     /// How far a fetched rate may sit from the figure the app shipped with
@@ -214,16 +252,40 @@ final class RatesService: ObservableObject {
     ///
     /// Not private, and its own function, because it is the thing worth
     /// checking: `make` is otherwise unreachable from a test without a network.
-    static func isPlausible(_ rate: Double, for currency: Currency) -> Bool {
+    ///
+    /// - Parameter previous: the last rate that got through, for the
+    ///   currencies in `drifting`. Nil judges against the built-in figure.
+    static func isPlausible(_ rate: Double, for currency: Currency,
+                            previous: Double? = nil) -> Bool {
         guard rate > 0, rate.isFinite else { return false }
-        let anchor = RateSnapshot.builtIn.perEuro(currency)
+        var anchor = RateSnapshot.builtIn.perEuro(currency)
+        if drifting.contains(currency), let previous, previous > 0, previous.isFinite {
+            anchor = previous
+        }
         guard anchor > 0 else { return true }     // nothing to compare against
         return rate >= anchor / plausibleFactor && rate <= anchor * plausibleFactor
     }
 
-    /// Keeps only the currencies the app knows about, and refuses a payload
-    /// that is missing *or implausible* in any of them rather than
-    /// half-updating the table.
+    /// Currencies whose bad decade is faster than four times in a few years.
+    ///
+    /// Judged against the last rate that reached the phone rather than the
+    /// built-in one, so a year of inflation doesn't freeze them on the figure
+    /// the app shipped with. Still ×4 per step, and a step is at most an hour,
+    /// so a decimal point in the wrong place is refused all the same.
+    static let drifting: Set<Currency> = [.ars, .`try`, .lak, .egp, .mmk]
+
+    /// The two a table must get right to be believed at all. A table that is
+    /// inverted or has lost its thousands is wrong about these too.
+    static let majors: [Currency] = [.usd, .gbp]
+
+    /// Keeps only the currencies the app knows about. A payload wrong about
+    /// the majors is refused whole; one missing or implausible in a minor
+    /// currency keeps the rest and holds that one at the last rate the phone
+    /// had (or, failing that, `perEuro` falls back to the built-in one).
+    ///
+    /// It used to refuse the payload over any single currency, which was
+    /// right at six and wrong at forty: one odd kyat would have stopped every
+    /// rate on the phone updating.
     ///
     /// `rate > 0` was the whole of the validation, which is not validation: a
     /// rate wrong by a factor of a thousand passed, and every number downstream
@@ -232,13 +294,24 @@ final class RatesService: ObservableObject {
     /// between two people — are all computed from this table. Refusing the
     /// payload falls through to the next endpoint, and failing that to the
     /// cached or built-in rates, which the disclaimer already dates honestly.
-    private static func make(from rates: [String: Double], updatedAt: Date?) -> RateSnapshot? {
+    ///
+    /// Not private, for `isPlausible`'s reason: it is the half of the fetch a
+    /// check can reach without a network.
+    static func make(from rates: [String: Double], updatedAt: Date?,
+                     previous: RateSnapshot = .builtIn) -> RateSnapshot? {
         var table: [String: Double] = ["EUR": 1]
-        for currency in Currency.allCases where currency != .eur {
+        for currency in majors {
             guard let rate = rates[currency.code], isPlausible(rate, for: currency) else {
                 return nil
             }
-            table[currency.code] = rate
+        }
+        for currency in Currency.allCases where currency != .eur {
+            let last = previous.perEuro[currency.code]
+            if let rate = rates[currency.code], isPlausible(rate, for: currency, previous: last) {
+                table[currency.code] = rate
+            } else if let last, isPlausible(last, for: currency, previous: last) {
+                table[currency.code] = last
+            }
         }
         return RateSnapshot(perEuro: table, updatedAt: updatedAt ?? Date(), source: .live)
     }

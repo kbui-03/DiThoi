@@ -104,6 +104,68 @@ struct Verify {
                   RatesService.isPlausible(anchor * 1.4, for: currency)
                   && RatesService.isPlausible(anchor * 0.7, for: currency))
         }
+        // Forty currencies, so the per-currency facts are a table now. Every
+        // case has a row and a built-in anchor, or it formats as its own code
+        // and converts one-to-one with the euro.
+        check("there are about forty currencies", Currency.allCases.count >= 40,
+              "\(Currency.allCases.count)")
+        check("every currency has a face",
+              Currency.allCases.allSatisfy { Currency.faces[$0] != nil },
+              Currency.allCases.filter { Currency.faces[$0] == nil }.map(\.code).joined(separator: " "))
+        check("and a built-in rate",
+              Currency.allCases.allSatisfy { (RateSnapshot.builtIn.perEuro[$0.code] ?? 0) > 0 },
+              Currency.allCases.filter { RateSnapshot.builtIn.perEuro[$0.code] == nil }.map(\.code).joined(separator: " "))
+        check("raw values are the lowercase codes the feeds use",
+              Currency.allCases.allSatisfy { $0.rawValue == $0.code.lowercased() && $0.code.count == 3 })
+        check("no symbol but the US dollar's is a bare $",
+              Currency.allCases.filter { $0.symbol == "$" } == [.usd])
+        check("a letter symbol is spaced from its number",
+              Currency.idr.format(15_000) == "Rp 15,000", Currency.idr.format(15_000))
+        check("and a sign isn't", Currency.jpy.format(1_200) == "¥1,200", Currency.jpy.format(1_200))
+        check("the home choice reaches every currency, the common three first",
+              Array(Currency.homeOptions.prefix(3)) == [.eur, .gbp, .usd]
+                  && Set(Currency.homeOptions) == Set(Currency.allCases))
+
+        // One odd minor currency used to stop every rate updating.
+        var feed: [String: Double] = [:]
+        for currency in Currency.allCases { feed[currency.code] = RateSnapshot.builtIn.perEuro(currency) * 1.1 }
+        feed["MMK"] = nil
+        feed["LAK"] = RateSnapshot.builtIn.perEuro(.lak) * 1000
+        let partial = RatesService.make(from: feed, updatedAt: nil)
+        check("a table missing one minor currency still updates the rest",
+              partial?.perEuro["JPY"] == feed["JPY"])
+        check("and holds the missing one where it was",
+              partial.map { abs($0.perEuro(.mmk) - RateSnapshot.builtIn.perEuro(.mmk)) < 0.001 } == true)
+        check("and an implausible one too",
+              partial.map { abs($0.perEuro(.lak) - RateSnapshot.builtIn.perEuro(.lak)) < 0.001 } == true)
+        var noDollar = feed
+        noDollar["USD"] = nil
+        check("but a table wrong about the majors is refused whole",
+              RatesService.make(from: noDollar, updatedAt: nil) == nil)
+        // A currency in a bad decade is judged against where it was last.
+        let lastPeso = RateSnapshot.builtIn.perEuro(.ars) * 6
+        check("a drifting currency is judged against its last rate",
+              RatesService.isPlausible(lastPeso * 1.5, for: .ars, previous: lastPeso)
+                  && !RatesService.isPlausible(lastPeso * 1.5, for: .ars))
+        check("and still refuses a decimal point in the wrong place",
+              !RatesService.isPlausible(lastPeso * 1000, for: .ars, previous: lastPeso))
+        check("but a steady one ignores the last rate",
+              !RatesService.isPlausible(RateSnapshot.builtIn.perEuro(.jpy) * 6, for: .jpy,
+                                        previous: RateSnapshot.builtIn.perEuro(.jpy) * 6))
+
+        // A trip with yen on it round-trips through the store.
+        do {
+            var yen = CheckTrip.snapshot()
+            yen.expenses.append(Expense(date: Date(), amount: 1_200, currency: .jpy, payer: .one,
+                                        split: .evenly, note: "ramen", country: "Japan"))
+            let data = try? JSONEncoder().encode(yen)
+            let back = data.flatMap { try? JSONDecoder().decode(TripSnapshot.self, from: $0) }
+            check("a stored trip with yen in it reads back",
+                  back?.expenses.last?.currency == .jpy)
+            check("as the same lowercase code an old build wrote",
+                  data.map { String(decoding: $0, as: UTF8.self).contains("\"jpy\"") } == true)
+        }
+
         check("zero is refused", !RatesService.isPlausible(0, for: .thb))
         check("so is a negative rate", !RatesService.isPlausible(-38.35, for: .thb))
         check("and so is a number that isn't one",
@@ -1032,6 +1094,124 @@ struct Verify {
                 .resourceValues(forKeys: [.isExcludedFromBackupKey]))?.isExcludedFromBackup
             check("and that folder is out of backups", excluded == true)
             box.erase()
+        }
+
+        print("— a moved start reaches the other phone —")
+        do {
+            // Two phones on one box. The phone that moves the start shifted its
+            // records without re-stamping them, and the other took the new
+            // start but kept its unshifted copies on the tie, so the ledgers
+            // ended up N days apart for good.
+            let box = LoopbackSyncTransport(named: "checks-shift")
+            box.latency = .zero
+            box.erase()
+            let a = TripStore(storeKey: nil, snapshot: CheckTrip.snapshot(),
+                              sync: SyncCoordinator(transport: box),
+                              ritual: SilentRitualScheduler())
+            let otherBox = LoopbackSyncTransport(named: "checks-shift")
+            otherBox.latency = .zero
+            let b = TripStore(storeKey: nil, snapshot: a.snapshot,
+                              sync: SyncCoordinator(transport: otherBox),
+                              ritual: SilentRitualScheduler())
+            b.role = .two
+
+            let edited = Expense(date: a.start, amount: 100, currency: .thb, payer: .one,
+                                 split: .evenly, note: "to be edited", country: "Thailand")
+            let deleted = Expense(date: a.start, amount: 200, currency: .thb, payer: .one,
+                                  split: .evenly, note: "to be deleted", country: "Thailand")
+            a.add(edited)
+            a.add(deleted)
+            a.addMoment(note: "a moment on A only")
+            let momentBefore = a.moments.last?.capturedAt
+            let editedDay = a.dayNumber(for: edited.date)
+            await a.syncNow()
+            await b.syncNow()
+            await a.syncNow()
+
+            try? await Task.sleep(for: .milliseconds(20))
+            b.setStart(Calendar.trip.date(byAdding: .day, value: 3, to: b.start) ?? b.start)
+            // A edits and deletes after B's move, before it has heard of it.
+            try? await Task.sleep(for: .milliseconds(20))
+            if var line = a.expenses.first(where: { $0.id == edited.id }) {
+                line.amount = 150
+                a.update(line)
+            }
+            a.delete(deleted.id)
+
+            await b.syncNow()
+            await a.syncNow()
+            await b.syncNow()
+
+            func line(_ store: TripStore, _ id: UUID) -> Expense? {
+                store.expenses.first { $0.id == id }
+            }
+            check("both phones take the new start", a.start == b.start)
+            let shared = Set(a.expenses.map(\.id)).union(b.expenses.map(\.id))
+            let disagreeing = shared.filter { line(a, $0)?.date != line(b, $0)?.date }
+            check("and every expense sits on the same date on both",
+                  disagreeing.isEmpty, "\(disagreeing.count) apart")
+            check("on the same trip day it was on before the move",
+                  line(a, edited.id).map { a.dayNumber(for: $0.date) } == editedDay
+                      && line(b, edited.id).map { b.dayNumber(for: $0.date) } == editedDay)
+            check("an edit made before hearing of the move survives it",
+                  line(a, edited.id)?.amount == 150 && line(b, edited.id)?.amount == 150)
+            check("and a delete stays deleted",
+                  line(a, deleted.id)?.isDeleted == true && line(b, deleted.id)?.isDeleted == true)
+            let stampsApart = a.stamps.filter { stamp in
+                b.stamps.first { $0.id == stamp.id }?.earnedOn != stamp.earnedOn
+            }
+            check("the stamps agree too", stampsApart.isEmpty, "\(stampsApart.count) apart")
+            check("and a moment that never travels moved with its phone",
+                  a.moments.last.map { m in momentBefore.map { Calendar.trip.days(from: $0, to: m.capturedAt) == 3 } ?? false } == true)
+
+            // And back the other way, from the other phone.
+            try? await Task.sleep(for: .milliseconds(20))
+            a.setStart(Calendar.trip.date(byAdding: .day, value: -2, to: a.start) ?? a.start)
+            await a.syncNow()
+            await b.syncNow()
+            await a.syncNow()
+            check("a move back is carried the same way",
+                  a.start == b.start
+                      && line(a, edited.id)?.date == line(b, edited.id)?.date
+                      && line(b, edited.id).map { b.dayNumber(for: $0.date) } == editedDay)
+            box.erase()
+        }
+
+        print("— a composer's photograph survives the prune —")
+        do {
+            let held = UUID().uuidString
+            let loose = UUID().uuidString
+            let folder = Storage.directory("Photos")
+            for id in [held, loose] {
+                try? Data([0xFF]).write(to: folder.appendingPathComponent("\(id).jpg"))
+            }
+            PhotoStore.shared.hold(held)
+            PhotoStore.shared.prune(keeping: [])
+            check("a photo an open composer holds is not pruned",
+                  PhotoStore.shared.storedIDs.contains(held))
+            check("one nothing holds is",
+                  !PhotoStore.shared.storedIDs.contains(loose))
+            PhotoStore.shared.release([held])
+            PhotoStore.shared.prune(keeping: [])
+            check("and once released, it goes like any other",
+                  !PhotoStore.shared.storedIDs.contains(held))
+        }
+
+        print("— a letter left unwritten leaves nothing —")
+        do {
+            let home = TripStore(storeKey: nil, ritual: SilentRitualScheduler())
+            home.participant = .writer
+            home.writeTo(.one)
+            let blank = home.startLetter(title: "", condition: .nextOnline)
+            check("an empty draft goes when the composer closes",
+                  home.discardDraftIfEmpty(blank.id) && !home.letters.contains { $0.id == blank.id })
+            let started = home.startLetter(title: "", condition: .nextOnline)
+            home.updateDraft(started.id, paragraphs: ["Dear you,"])
+            check("one with words in it stays",
+                  !home.discardDraftIfEmpty(started.id) && home.letters.contains { $0.id == started.id })
+            home.seal(started.id)
+            check("and a sealed letter is never a draft to discard",
+                  !home.discardDraftIfEmpty(started.id))
         }
 
         print("— two phones find the same trip —")
@@ -2494,9 +2674,14 @@ struct Verify {
             check("south korea spends won, however it is typed",
                   Currency.likely(forCountry: "south korea") == .krw)
             check("Portugal spends euros", Currency.likely(forCountry: "Portugal") == .eur)
+            check("Japan spends yen, now there is a yen",
+                  Currency.likely(forCountry: "Japan") == .jpy)
+            check("Laos spends kip", Currency.likely(forCountry: "Laos") == .lak)
+            check("Bulgaria spends euros, since 2026",
+                  Currency.likely(forCountry: "Bulgaria") == .eur)
             check("and a country with no rate here gets no guess",
-                  Currency.likely(forCountry: "Peru") == nil
-                      && Currency.likely(forCountry: "Japan") == nil)
+                  Currency.likely(forCountry: "Bhutan") == nil
+                      && Currency.likely(forCountry: "Atlantis") == nil)
 
             let library = TripLibrary(key: "dithoi.library.checks-nexttrip")
             library.erase()
@@ -4974,9 +5159,17 @@ struct Verify {
                                    library: TripLibrary(key: "dithoi.library.checks-replay"))
             let replay = played.trailReplay
             let frames = replay.days.map { replay.frame(atDay: $0) }
-            check("the replay starts with nothing earned",
-                  replay.frame(atDay: replay.days.lowerBound).stamps.isEmpty
-                      || replay.stamps.contains { played.dayNumber(for: $0.earnedOn ?? .distantPast) < 1 })
+            // Only what was earned by its first day. This used to be "nothing
+            // earned, unless some stamp sits before day 1", and it passed on
+            // the start-date bug: this store had taken the other phone's +3
+            // start without its own stamps moving, which put Bangkok on day -2.
+            // With the dates converged, Bangkok is honestly earned on day 1.
+            let opening = replay.frame(atDay: replay.days.lowerBound)
+            check("the replay starts with only what was earned by then",
+                  opening.stamps.allSatisfy {
+                      played.dayNumber(for: $0.earnedOn ?? .distantPast) <= replay.days.lowerBound
+                  } && opening.stamps.count < replay.last.stamps.count,
+                  "\(opening.stamps.map(\.code)) on day \(replay.days.lowerBound)")
             check("and ends on the trail's own headline",
                   replay.last.kilometres == played.kilometresTravelled
                       && Set(replay.last.stamps.map(\.id)) == Set(played.earnedStamps.map(\.id)),

@@ -34,7 +34,22 @@ struct DocumentEditorView: View {
     @State private var footnoteBody = ""
     @State private var showingFootnote = false
     @State private var confirmingDelete = false
+    @State private var askingToDiscard = false
+    /// Once only. `content` sits inside `Locked`, which takes it off screen
+    /// when the app leaves the foreground, so its `onAppear` ran again after
+    /// every unlock and put the stored document back over what was typed.
+    @State private var loaded = false
+    @State private var opened: [String] = []
     @FocusState private var focused: Bool
+
+    /// Everything typed, flattened, so leaving can tell whether any of it
+    /// would be lost. Field ids are left out; a row is its words.
+    private var typed: [String] {
+        [title, subtitle, badge, owner?.rawValue ?? "", footnoteTitle, footnoteBody]
+            + fields.flatMap { [$0.label, $0.value] }
+    }
+
+    private var isDirty: Bool { loaded && typed != opened }
 
     /// The words that go on the row. Chips rather than a free-for-all, because
     /// the badge is a label at 10pt and "Passport (Alex's, the new one)" is not
@@ -69,12 +84,20 @@ struct DocumentEditorView: View {
         Locked(reason: "Passport and visa numbers. This is the same vault the scans are in.") {
             content
         }
+        // Outside `Locked`, so the swipe stays held while the vault is shut
+        // over the half-filled form.
+        .guardsUnsavedWork(isDirty: isDirty, isAsking: $askingToDiscard,
+                           whatGoes: editing == nil ? "This document isn't kept." : "Your changes go.") {
+            dismiss()
+        }
     }
 
     private var content: some View {
         VStack(spacing: 0) {
             SheetHeader(title: editing == nil ? "New document" : "Edit document",
-                        trailing: "Cancel") { dismiss() }
+                        trailing: "Cancel") {
+                if isDirty { askingToDiscard = true } else { dismiss() }
+            }
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
@@ -290,6 +313,9 @@ struct DocumentEditorView: View {
     // MARK: - Loading and saving
 
     private func load() {
+        guard !loaded else { return }
+        loaded = true
+        defer { opened = typed }
         guard let editing else {
             fields = [DocumentField(label: "", value: "")]
             focused = true
