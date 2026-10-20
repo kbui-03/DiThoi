@@ -153,7 +153,7 @@ struct NextTripDestinationView: View {
             ForEach(store.legs) { leg in
                 DetailRow(title: leg.country, subtitle: leg.segments.first?.title,
                           titleSize: 17) {
-                    Mono("\(leg.nights) nights", size: 10.5, trackingRatio: 0.08, color: Palette.a700)
+                    Mono("\(Formatting.spelledCount(leg.nights, "night", spellingUpTo: 0))", size: 10.5, trackingRatio: 0.08, color: Palette.a700)
                 }
             }
             Aside(text: "More countries and stops come on the next steps.", size: 12)

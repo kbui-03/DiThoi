@@ -22,7 +22,10 @@ final class TripStore: ObservableObject {
     @Published var names: TripNames { didSet { save() } }
     /// Whether this trip arrived filled in. Fixed at creation.
     @Published private(set) var origin: TripOrigin { didSet { save() } }
-    @Published var features: TripFeatures { didSet { touchSettings(); save(); bookInputsChanged() } }
+    /// Not routed through `touchSettings()` either: the switches never leave
+    /// this phone, so a stamp would only let a local toggle win the other
+    /// phone's real budget change.
+    @Published var features: TripFeatures { didSet { save(); bookInputsChanged() } }
     @Published private(set) var template: TripTemplate { didSet { save() } }
     @Published private(set) var closedOn: Date? { didSet { save() } }
 
@@ -1385,7 +1388,7 @@ final class TripStore: ObservableObject {
             title: "Passports and scans", detail: "Encrypted here, and they do not leave.",
             state: "never", isShared: false, fields: []))
         lines.append(SharingLine(
-            title: "Where you are", detail: "Only while Separated is on, and never in the background.",
+            title: "Where you are", detail: "For moments, pins, the trail and Separated. Never in the background. Only a pin's spot leaves this phone.",
             state: "on demand", isShared: false, fields: []))
         return lines
     }
@@ -2968,9 +2971,9 @@ final class TripStore: ObservableObject {
     /// Always from the snapshot, never from the trip as it now is, so it can
     /// run on every continue and be walked back: going back and ticking a row
     /// again restores what it held. Each write is skipped when it would
-    /// change nothing, because `budget`, `homeCurrency` and `features` all
-    /// stamp the settings blob on every set, and a stamp that changed nothing
-    /// still wins the merge against the other phone.
+    /// change nothing, because `budget` and `homeCurrency` stamp the settings
+    /// blob on every set, and a stamp that changed nothing still wins the
+    /// merge against the other phone.
     ///
     /// A declined part goes back to what a blank trip has — no budget, euros,
     /// `init`'s switches — rather than to something new. A card is tombstoned

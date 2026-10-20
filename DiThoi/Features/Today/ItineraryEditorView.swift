@@ -42,7 +42,7 @@ struct ItineraryEditorView: View {
                                 .font(Typeface.heading(17, .semibold))
                                 .foregroundStyle(Palette.text)
                             Spacer()
-                            Mono("\(leg.nights) nights", size: 10, trackingRatio: 0.08)
+                            Mono("\(Formatting.spelledCount(leg.nights, "night", spellingUpTo: 0))", size: 10, trackingRatio: 0.08)
                         }
                         .textCase(nil)
                         .padding(.top, Space.s2)
@@ -105,7 +105,7 @@ struct ItineraryEditorView: View {
 
             HStack(spacing: 10) {
                 Stepper {
-                    Mono("\(segment.nights) night\(segment.nights == 1 ? "" : "s")",
+                    Mono("\(Formatting.spelledCount(segment.nights, "night", spellingUpTo: 0))",
                          size: 10, trackingRatio: 0.08, color: Palette.a700)
                 } onIncrement: {
                     store.setNights(segment.nights + 1, forSegment: segment.id)
@@ -115,7 +115,7 @@ struct ItineraryEditorView: View {
                 .labelsHidden()
                 .fixedSize()
 
-                Mono("\(segment.nights) night\(segment.nights == 1 ? "" : "s")",
+                Mono("\(Formatting.spelledCount(segment.nights, "night", spellingUpTo: 0))",
                      size: 10, trackingRatio: 0.08, color: Palette.a700)
 
                 Spacer()
@@ -246,18 +246,18 @@ struct ItineraryEditorView: View {
             HStack {
                 Mono("The plan", size: 10)
                 Spacer()
-                Mono("\(store.itinerary.totalNights) nights", size: 10, trackingRatio: 0.08, color: Palette.a700)
+                Mono("\(Formatting.spelledCount(store.itinerary.totalNights, "night", spellingUpTo: 0))", size: 10, trackingRatio: 0.08, color: Palette.a700)
             }
 
             if store.itineraryOverrun > 0 {
-                Aside(text: "That's \(store.itineraryOverrun) day\(store.itineraryOverrun == 1 ? "" : "s") past the date you're due home.", size: 12)
+                Aside(text: "That's \(Formatting.spelledCount(store.itineraryOverrun, "day", spellingUpTo: 0)) past the date you're due home.", size: 12)
                 OutlineButton(title: "Move the return date to match", minHeight: 44, size: 14) {
                     store.matchDatesToItinerary()
                 }
                 .padding(.top, 4)
             } else if store.itinerary.lastDay < store.dayCount {
                 let spare = store.dayCount - store.itinerary.lastDay
-                Aside(text: "\(spare) day\(spare == 1 ? "" : "s") of the trip aren't planned yet. That's allowed.", size: 12)
+                Aside(text: "\(Formatting.spelledCount(spare, "day", spellingUpTo: 0)) of the trip \(spare == 1 ? "isn't" : "aren't") planned yet. That's allowed.", size: 12)
             } else {
                 Aside(text: "The plan fills the trip exactly.", size: 12)
             }

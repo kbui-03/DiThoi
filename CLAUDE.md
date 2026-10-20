@@ -53,7 +53,7 @@ check: `Features/` and `Root/` aren't compiled by the checks.
 ## Before you change anything
 
 ```bash
-./Tools/run-checks.sh          # 1,304 model assertions, macOS, no simulator
+./Tools/run-checks.sh          # 1,310 model assertions, macOS, no simulator
 ./Tools/render-icons.sh        # regenerates the icon set and re-tests actool
 ```
 
@@ -137,6 +137,8 @@ The general lessons behind them are §11; the debt kept on purpose is §7.
   `Participant` overload. (§5.3)
 - Names merge per slot and never ride in `TripSettings`. An unrenamed slot
   carries `.distantPast`. (§5.3)
+- Only the dates, budget and currency `touchSettings()`. The feature switches
+  never sync, so they never stamp the blob. (§5.3)
 - The observer sets no trip parameters. (§5.3)
 - `role` is the letter box's address on both sides; never sync a
   `letterRecipient`. `lettersVisible` asks what is on the phone, not who holds
@@ -215,6 +217,8 @@ The general lessons behind them are §11; the debt kept on purpose is §7.
   work. `MomentUndo` withdraws on background. (§3.10)
 - The inline map is a door (`allowsHitTesting(false)`); `TrailMapView` is the
   map. Its cards never mention letters. (§3.10)
+- Location copy names every reader: moments, pins, the trail, Separated. A
+  pin's spot is the one position that leaves the phone. (§3.7)
 - "You are here" never asks for permission: `requestOnceIfAllowed`, a fix under
   15 minutes old, live traveller trips only. (§3.7)
 - Arrival is suggested, never awarded. The nudge goes to Trail's own

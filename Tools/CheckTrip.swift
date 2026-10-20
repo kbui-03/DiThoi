@@ -517,7 +517,7 @@ enum CheckTrip {
             SharingRule(title: "Plans & itinerary", detail: "either of you can change them", state: "shared", isShared: true),
             SharingRule(title: "Pins on the trail", detail: "one shared trail, both of you", state: "shared", isShared: true),
             SharingRule(title: "Your journal", detail: "until the books are printed", state: "private", isShared: false),
-            SharingRule(title: "Live location", detail: "only while Separated is on", state: "on demand", isShared: false),
+            SharingRule(title: "Live location", detail: "for moments, pins, the trail and Separated", state: "on demand", isShared: false),
             SharingRule(title: "Anything from home", detail: "whoever's at home sees none of this", state: "never", isShared: false)
         ]
     }

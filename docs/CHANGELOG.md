@@ -10,7 +10,16 @@ change gets its own line under **Unreleased**.
 
 ## [Unreleased]
 
-Nothing yet.
+### Fixed
+- The location copy on the sharing screen and Separated said only Separated
+  reads where you are. It now names moments, pins and the trail, and says a
+  pin's spot is the one that leaves the phone.
+- Turning a feature on or off no longer re-stamps the shared settings, so it
+  can't carry this phone's budget over the other phone's newer one.
+- "1 nights", "1 days", "1 places" and the like: every count that can reach one
+  goes through `Formatting.spelledCount`, including the hand-written
+  `== 1 ? "" : "s"` ternaries in `Features/`. The widget, which can't see
+  `Formatting`, keeps a ternary.
 
 ## [1.0 (build 1)] — 2026-10-12 — first commit
 
@@ -161,11 +170,6 @@ is lost.
   Cambodia and most of the world can't record local spending.
 - **Must:** a swipe down or "Close" discards tonight's page, a letter in
   progress, or a day plan's occasion and lodging, with no warning.
-- **Should:** location copy still says it is only read in Separated. Moments,
-  pins, the trail and the arrival nudge read it too.
-- **Should:** toggling a feature re-stamps the shared settings, so a local
-  switch can override the other phone's budget change.
-- **Should:** "1 nights", "1 days" and "1 places" in a few places.
 
 ### Today
 - **Must:** a phone holding sealed letters but none opened has no way into

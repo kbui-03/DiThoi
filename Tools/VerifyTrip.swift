@@ -1940,6 +1940,50 @@ struct Verify {
                   !fractional.isEditable)
         }
 
+        print("— a switch is not a setting —")
+        do {
+            // The switches never sync, and settings merge as one blob on one
+            // stamp. A toggle that stamped it would carry this phone's old
+            // budget over the other phone's newer one.
+            let boxA = LoopbackSyncTransport(named: "checks-switch")
+            let boxB = LoopbackSyncTransport(named: "checks-switch")
+            boxA.latency = .zero; boxB.latency = .zero; boxA.erase()
+            let hers = TripStore(storeKey: nil,
+                                 sync: SyncCoordinator(transport: boxA),
+                                 ritual: SilentRitualScheduler(),
+                                 library: TripLibrary(key: "dithoi.library.checks-switch"))
+            let his = TripStore(storeKey: nil, snapshot: hers.snapshot,
+                                sync: SyncCoordinator(transport: boxB),
+                                ritual: SilentRitualScheduler(),
+                                library: TripLibrary(key: "dithoi.library.checks-switch"))
+            his.role = .two
+            await hers.syncNow()
+            await his.syncNow()
+
+            let stamp = his.settingsUpdatedAt
+            his.features.letters.toggle()
+            check("a toggled switch leaves the settings stamp alone",
+                  his.settingsUpdatedAt == stamp)
+
+            hers.budget = 3_000
+            try? await Task.sleep(for: .milliseconds(20))
+            his.features.letters.toggle()
+            await hers.syncNow()
+            await his.syncNow()
+            await hers.syncNow()
+            check("so her budget survives his later toggle",
+                  his.budget == 3_000 && hers.budget == 3_000,
+                  "hers \(hers.budget), his \(his.budget)")
+
+            // The true negative: a real change of his, later, still wins.
+            try? await Task.sleep(for: .milliseconds(20))
+            his.budget = 5_000
+            await his.syncNow()
+            await hers.syncNow()
+            check("while a later budget of his still wins", hers.budget == 5_000)
+            boxA.erase()
+        }
+
         print("— more than one trip —")
         do {
             let library = TripLibrary(key: "dithoi.library.checks")
@@ -3660,6 +3704,11 @@ struct Verify {
                   afterwards.phase == .after && afterwards.dayNumber == 61
                       && afterwards.kicker == "Home · 61 days done", afterwards.kicker)
             check("and stops naming a next place", afterwards.nextCity == nil)
+            let dayTrip = TripStore(storeKey: nil, ritual: SilentRitualScheduler())
+            dayTrip.setDayCount(1)
+            let dayTripHome = dayTrip.widgetSnapshot(on: dayTrip.date(forDay: 3))
+            check("a one-day trip is one day done",
+                  dayTripHome.kicker == "Home · 1 day done", dayTripHome.kicker)
 
             // Before departure the next stop *is* the current city, so counting
             // down to it twice would read as two journeys.
@@ -5049,6 +5098,12 @@ struct Verify {
             for absent in ["journal", "letters", "moments", "documents"] {
                 check("  \(absent) is not on the payload", !labels.contains(absent))
             }
+            // Moments, pins and the trail read a position too, so a line that
+            // says only Separated does is a promise the code already broke.
+            check("the location line doesn't claim only Separated reads it",
+                  !travels.contains { $0.detail.contains("Separated is on") })
+            check("and it admits a pin's spot leaves the phone",
+                  travels.contains { $0.title == "Where you are" && $0.detail.contains("pin") })
         }
 
         print("— the book's map and its moments —")

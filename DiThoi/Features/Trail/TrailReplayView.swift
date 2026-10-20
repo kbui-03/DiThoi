@@ -63,7 +63,7 @@ struct TrailReplayView: View {
                                               highlighting: Set(frame.stamps.map(\.id)),
                                               moments: frame.moments, allowsSinglePlace: true),
                              height: height ?? 360, faintRest: true)
-                    .accessibilityLabel("The trail on \(dayLine(frame)), \(frame.stamps.count) stamps, \(frame.kilometres) kilometres")
+                    .accessibilityLabel("The trail on \(dayLine(frame)), \(Formatting.spelledCount(frame.stamps.count, "stamp", spellingUpTo: 0)), \(Formatting.spelledCount(frame.kilometres, "kilometre", spellingUpTo: 0))")
 
                 Slider(value: Binding(get: { Double(day) },
                                       set: { stop(); day = Int($0.rounded()) }),

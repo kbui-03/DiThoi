@@ -140,7 +140,7 @@ struct StampEarnedView: View {
 
     private var finalNote: String {
         let places = store.earnedStamps.count
-        return "That's all of them. \(store.dayCount) days, \(Formatting.decimal(Double(store.kilometresTravelled), places: 0)) km, \(places) places you actually stood."
+        return "That's all of them. \(Formatting.spelledCount(store.dayCount, "day", spellingUpTo: 0)), \(Formatting.decimal(Double(store.kilometresTravelled), places: 0)) km, \(Formatting.spelledCount(places, "place", spellingUpTo: 0)) you actually stood."
     }
 
     private var seal: some View {

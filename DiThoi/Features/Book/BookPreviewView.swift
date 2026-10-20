@@ -78,7 +78,7 @@ struct BookPreviewView: View {
                         }
 
                         if plan.skippedDays > 0 {
-                            Aside(text: "\(plan.skippedDays) night\(plan.skippedDays == 1 ? "" : "s") without a page. The book closes over them.",
+                            Aside(text: "\(Formatting.spelledCount(plan.skippedDays, "night", spellingUpTo: 0)) without a page. The book closes over them.",
                                   size: 12)
                                 .padding(.top, Space.s3)
                         }

@@ -690,8 +690,8 @@ struct TrailMap: View {
             withGentleAnimation(.easeInOut(duration: 0.45)) { camera = .region(region) }
         }
         .accessibilityLabel(located.isEmpty
-                            ? "Map of the trail so far, \(earned.count) places visited"
-                            : "Map of the trail so far, \(earned.count) places visited and \(located.count) moment\(located.count == 1 ? "" : "s")")
+                            ? "Map of the trail so far, \(Formatting.spelledCount(earned.count, "place", spellingUpTo: 0)) visited"
+                            : "Map of the trail so far, \(Formatting.spelledCount(earned.count, "place", spellingUpTo: 0)) visited and \(Formatting.spelledCount(located.count, "moment", spellingUpTo: 0))")
     }
 
     /// A mark, and on the full-screen map a button that selects it. The hit

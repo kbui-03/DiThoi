@@ -651,7 +651,7 @@ struct SavedPageView: View {
             Spacer(minLength: 0)
 
             VStack(spacing: 0) {
-                Mono("\(pageNumber.map { "Page \($0)" } ?? "Day \(entry.dayNumber)") · \(minutes) minute\(minutes == 1 ? "" : "s")",
+                Mono("\(pageNumber.map { "Page \($0)" } ?? "Day \(entry.dayNumber)") · \(Formatting.spelledCount(minutes, "minute", spellingUpTo: 0))",
                      size: 10, trackingRatio: 0.16, color: Palette.a700)
 
                 Rectangle().fill(Palette.accent)

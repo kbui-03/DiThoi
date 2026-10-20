@@ -135,7 +135,7 @@ struct SeparatedView: View {
                     // far *this* phone is from the meeting point and tells
                     // nobody. Making it mutual is a real feature and a real
                     // channel; claiming it was neither.
-                    Aside(text: "Only this screen reads where you are, and only while it's open.",
+                    Aside(text: "Followed only while this screen is open.",
                           size: 12, color: Palette.n400)
                         .padding(.top, Space.s3)
                 }
@@ -228,7 +228,7 @@ struct SeparatedView: View {
                         "Nothing to measure to until somebody agrees a meeting point.")
             }
             return ("Finding you", "…",
-                    "Position is only ever read while this screen is on.")
+                    "Only while this screen is open.")
         }
         let direction = store.bearingToMeetingPoint.map { " \($0)" } ?? ""
         return ("You, right now",

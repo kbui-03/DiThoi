@@ -252,7 +252,7 @@ struct ArrivalFlow: View {
         let count = store.letters.count
         let addressee = store.name(for: store.role)
         let picked = participant.traveller.map { store.name(for: $0) } ?? myName
-        return "\(count) sealed letter\(count == 1 ? "" : "s") on this phone \(count == 1 ? "was" : "were") addressed to \(addressee). Opening it as \(picked) deletes \(count == 1 ? "it" : "them") — not hides \(count == 1 ? "it" : "them") — and nothing can bring \(count == 1 ? "it" : "them") back."
+        return "\(Formatting.spelledCount(count, "sealed letter", spellingUpTo: 0)) on this phone \(count == 1 ? "was" : "were") addressed to \(addressee). Opening it as \(picked) deletes \(count == 1 ? "it" : "them") — not hides \(count == 1 ? "it" : "them") — and nothing can bring \(count == 1 ? "it" : "them") back."
     }
 
     /// The typed names, not the display ones. An unset slot has to arrive as an
@@ -350,11 +350,11 @@ struct FirstOpenView: View {
         }
         var clauses = ["\(store.names[.one]) and \(store.names[.two])"]
         if !store.legs.isEmpty {
-            clauses.append("\(store.legs.count) countr\(store.legs.count == 1 ? "y" : "ies")")
+            clauses.append("\(Formatting.spelledCount(store.legs.count, "country", plural: "countries", spellingUpTo: 0))")
         }
         var text = clauses.joined(separator: ", ") + ". The itinerary is already in."
         if !store.letters.isEmpty {
-            text += " \(store.letters.count) letters are sealed inside and open themselves when you arrive somewhere."
+            text += " \(Formatting.spelledCount(store.letters.count, "letter", spellingUpTo: 0)) \(store.letters.count == 1 ? "is" : "are") sealed inside and open themselves when you arrive somewhere."
         }
         return text
     }
@@ -547,7 +547,7 @@ struct WhatsInsideView: View {
             Mono("\(store.start.shortDate) – \(store.end.shortDate)", size: 10.5,
                  trackingRatio: 0.08, color: Palette.a700)
         }
-        DetailRow(title: "That's \(store.dayCount) days", titleSize: 17) {
+        DetailRow(title: "That's \(Formatting.spelledCount(store.dayCount, "day", spellingUpTo: 0))", titleSize: 17) {
             Mono("\(store.homeCurrency.formatRounded(store.budgetPerDay))/day",
                  size: 10.5, trackingRatio: 0.08)
         }
@@ -649,7 +649,7 @@ struct FirstStopView: View {
                 } else {
                     ForEach(store.legs) { leg in
                         DetailRow(title: leg.country, titleSize: 17) {
-                            Mono("\(leg.nights) nights", size: 10.5, trackingRatio: 0.08, color: Palette.a700)
+                            Mono("\(Formatting.spelledCount(leg.nights, "night", spellingUpTo: 0))", size: 10.5, trackingRatio: 0.08, color: Palette.a700)
                         }
                     }
                 }
@@ -658,7 +658,7 @@ struct FirstStopView: View {
                     Mono("You can leave it empty", size: 9.5)
                     Text(store.legs.isEmpty
                          ? "The ledger, the papers and the nightly page all work with nowhere in the plan. Add somewhere whenever you know."
-                         : "\(stops) stop\(stops == 1 ? "" : "s") across \(store.legs.count) countr\(store.legs.count == 1 ? "y" : "ies"), and \(store.itineraryOverrun > 0 ? "that runs \(store.itineraryOverrun) days past your return date" : "it fits inside your dates").")
+                         : "\(Formatting.spelledCount(stops, "stop", spellingUpTo: 0)) across \(Formatting.spelledCount(store.legs.count, "country", plural: "countries", spellingUpTo: 0)), and \(store.itineraryOverrun > 0 ? "that runs \(Formatting.spelledCount(store.itineraryOverrun, "day", spellingUpTo: 0)) past your return date" : "it fits inside your dates").")
                         .font(Typeface.body(12.5))
                         .foregroundStyle(Palette.n700)
                         .lineSpacing(4)

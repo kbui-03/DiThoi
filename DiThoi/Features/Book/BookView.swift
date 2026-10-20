@@ -263,7 +263,7 @@ struct BookView: View {
     private var missedLine: String {
         let missed = store.missedNights
         if missed == 0 { return "Not one night missed so far." }
-        return "You've missed \(missed) night\(missed == 1 ? "" : "s"). Nobody minds; the book skips them."
+        return "You've missed \(Formatting.spelledCount(missed, "night", spellingUpTo: 0)). Nobody minds; the book skips them."
     }
 }
 

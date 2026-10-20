@@ -207,7 +207,7 @@ struct TripSetupView: View {
     private var discardWarning: String {
         let count = store.letters.count
         let them = count == 1 ? "it" : "them"
-        let letters = "\(count) letter\(count == 1 ? "" : "s") on this phone"
+        let letters = "\(Formatting.spelledCount(count, "letter", spellingUpTo: 0)) on this phone"
         let picked = pendingParticipant.map { store.name(of: $0) } ?? ""
         let whose = store.isObserver
             ? "\(letters) \(count == 1 ? "is" : "are") the copy you wrote"
@@ -322,7 +322,7 @@ struct TripSetupView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .overlay(alignment: .bottom) { Rule(color: Palette.text) }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("The book this trip becomes: \(draft.displayName), \(draft.dayCount) days")
+        .accessibilityLabel("The book this trip becomes: \(draft.displayName), \(Formatting.spelledCount(draft.dayCount, "day", spellingUpTo: 0))")
     }
 
     private func commitTripName() {
@@ -464,7 +464,7 @@ struct TripSetupView: View {
             // rest of the app counts in.
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("That's \(store.dayCount) days")
+                    Text("That's \(Formatting.spelledCount(store.dayCount, "day", spellingUpTo: 0))")
                         .font(Typeface.heading(16, .semibold))
                         .foregroundStyle(Palette.text)
                     Aside(text: "\(store.start.shortDate) – \(store.end.shortDate)", size: 11.5, color: Palette.n600)
@@ -477,7 +477,7 @@ struct TripSetupView: View {
             if store.itineraryOverrun > 0 {
                 Panel(border: Palette.a300, fill: Palette.a100) {
                     Mono("The itinerary is longer than the trip", size: 9.5, color: Palette.a700)
-                    Text("It runs \(store.itineraryOverrun) day\(store.itineraryOverrun == 1 ? "" : "s") past your return. The last stops won't fit — move the return date or drop a city.")
+                    Text("It runs \(Formatting.spelledCount(store.itineraryOverrun, "day", spellingUpTo: 0)) past your return. The last stops won't fit — move the return date or drop a city.")
                         .font(Typeface.body(12.5))
                         .foregroundStyle(Palette.a800)
                         .lineSpacing(4)
@@ -515,7 +515,7 @@ struct TripSetupView: View {
 
             Rectangle().fill(Palette.accent).frame(height: 1)
 
-            Aside(text: "\(store.homeCurrency.formatRounded(store.budgetPerDay)) a day across \(store.dayCount) days, between the two of you.",
+            Aside(text: "\(store.homeCurrency.formatRounded(store.budgetPerDay)) a day across \(Formatting.spelledCount(store.dayCount, "day", spellingUpTo: 0)), between the two of you.",
                   size: 12.5)
                 .padding(.top, Space.s1)
 
@@ -696,7 +696,7 @@ struct TripSetupView: View {
         let stops = store.legs.flatMap(\.segments).count
         guard !store.legs.isEmpty else { return "Countries and stops, whenever you know them" }
         let countries = store.countries.map(\.name).joined(separator: " · ")
-        return "\(countries) · \(stops) stop\(stops == 1 ? "" : "s")"
+        return "\(countries) · \(Formatting.spelledCount(stops, "stop", spellingUpTo: 0))"
     }
 
     private var removePlan: some View {
