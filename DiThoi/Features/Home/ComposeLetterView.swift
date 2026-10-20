@@ -210,7 +210,7 @@ struct ComposeLetterView: View {
 
     private var countLine: String {
         let words = body_.split { $0.isWhitespace || $0.isNewline }.count
-        return "\(words) word\(words == 1 ? "" : "s")"
+        return "\(Formatting.spelledCount(words, "word", spellingUpTo: 0))"
     }
 
     private var travelNote: String {
@@ -227,8 +227,8 @@ struct ComposeLetterView: View {
     private func age(of date: Date) -> String {
         let hours = Int(Date().timeIntervalSince(date) / 3600)
         if hours < 1 { return "less than an hour ago" }
-        if hours < 24 { return "\(hours) hour\(hours == 1 ? "" : "s") ago" }
-        return "\(hours / 24) day\(hours / 24 == 1 ? "" : "s") ago"
+        if hours < 24 { return "\(Formatting.spelledCount(hours, "hour", spellingUpTo: 0)) ago" }
+        return "\(Formatting.spelledCount(hours / 24, "day", spellingUpTo: 0)) ago"
     }
 
     /// Only worth saying when the condition has a day behind it — otherwise it
@@ -250,7 +250,7 @@ struct ComposeLetterView: View {
         let country = store.legs.first { $0.contains(day: day) }?.country ?? "somewhere"
         let position = store.legs.firstIndex { $0.contains(day: day) }.map { $0 + 1 } ?? 1
         let ordinal = ["first", "second", "third", "fourth"][min(position - 1, 3)]
-        return "Day \(day). \(weeks) week\(weeks == 1 ? "" : "s") in, \(ordinal) country — \(country), by the itinerary as it stands tonight."
+        return "Day \(day). \(Formatting.spelledCount(weeks, "week", spellingUpTo: 0)) in, \(ordinal) country — \(country), by the itinerary as it stands tonight."
     }
 
     // MARK: - Editing

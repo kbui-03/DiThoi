@@ -90,7 +90,7 @@ struct ItineraryView: View {
         if store.itineraryOverrun > 0 {
             Panel(border: Palette.a300, fill: Palette.a100) {
                 Mono("Past your return date", size: 9.5, color: Palette.a700)
-                Text("The last \(store.itineraryOverrun) day\(store.itineraryOverrun == 1 ? "" : "s") of this itinerary fall after you're due home. Change the dates in the trip settings, or drop a stop.")
+                Text("\(store.itineraryOverrun == 1 ? "The last day of this itinerary falls" : "The last \(store.itineraryOverrun) days of this itinerary fall") after you're due home. Change the dates in the trip settings, or drop a stop.")
                     .font(Typeface.body(12.5))
                     .foregroundStyle(Palette.a800)
                     .lineSpacing(4)
@@ -112,7 +112,7 @@ struct ItineraryView: View {
                     .font(Typeface.heading(20, .semibold))
                     .foregroundStyle(Palette.text)
                 Spacer()
-                Mono("\(leg.nights) nights · \(leg.currency.symbol)", size: 10, trackingRatio: 0.08)
+                Mono("\(Formatting.spelledCount(leg.nights, "night", spellingUpTo: 0)) · \(leg.currency.symbol)", size: 10, trackingRatio: 0.08)
             }
             Rule(color: Palette.text)
         }

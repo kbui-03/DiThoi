@@ -159,7 +159,7 @@ struct HomeView: View {
 
     private var dayLine: String {
         switch store.phase {
-        case .before(let days): "\(days) day\(days == 1 ? "" : "s") to go"
+        case .before(let days): "\(Formatting.spelledCount(days, "day", spellingUpTo: 0)) to go"
         case .during: "Day \(store.dayNumber) of \(store.dayCount)"
         case .after: "The trip is over"
         }
@@ -177,9 +177,9 @@ struct HomeView: View {
         let earned = store.earnedStamps.count
         guard earned > 0 else { return "No pins yet. The first one lands when they do." }
         guard let last = store.earnedStamps.last, let on = last.earnedOn else {
-            return "\(earned) places so far."
+            return "\(Formatting.spelledCount(earned, "place", spellingUpTo: 0)) so far."
         }
-        return "\(earned) place\(earned == 1 ? "" : "s") so far. The last one landed \(on.dayMonth)."
+        return "\(Formatting.spelledCount(earned, "place", spellingUpTo: 0)) so far. The last one landed \(on.dayMonth)."
     }
 
     /// The next few that will land, then the last couple that did.
@@ -358,7 +358,7 @@ struct HandoverView: View {
                         .padding(.vertical, Space.s4)
 
                     row("Letters sealed", "\(store.sealedByWriter.count)")
-                    row("Itinerary", "\(store.dayCount) days")
+                    row("Itinerary", "\(Formatting.spelledCount(store.dayCount, "day", spellingUpTo: 0))")
                     row("Stamps waiting", "\(store.orderedStamps.count)")
                     // Counted, not described. "both of them" was drawn for any
                     // non-empty list, so one document read as two and three
@@ -385,7 +385,7 @@ struct HandoverView: View {
                     .padding(.top, Space.s4)
 
                     if !store.writerDrafts.isEmpty {
-                        Aside(text: "\(store.writerDrafts.count) draft\(store.writerDrafts.count == 1 ? "" : "s") still unsealed. A draft never travels — seal it or it isn't a letter.",
+                        Aside(text: "\(Formatting.spelledCount(store.writerDrafts.count, "draft", spellingUpTo: 0)) still unsealed. A draft never travels — seal it or it isn't a letter.",
                               size: 12)
                             .padding(.top, Space.s3)
                     }

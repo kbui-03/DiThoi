@@ -234,8 +234,8 @@ struct MoneyView: View {
     private var paceLine: String {
         let ahead = store.paceDaysAhead
         let day = "Day \(store.dayNumber) of \(store.dayCount)"
-        if ahead > 0 { return "\(day) — \(ahead) day\(ahead == 1 ? "" : "s") ahead of the burn." }
-        if ahead < 0 { return "\(day) — \(-ahead) day\(ahead == -1 ? "" : "s") behind the burn." }
+        if ahead > 0 { return "\(day) — \(Formatting.spelledCount(ahead, "day", spellingUpTo: 0)) ahead of the burn." }
+        if ahead < 0 { return "\(day) — \(Formatting.spelledCount(-ahead, "day", spellingUpTo: 0)) behind the burn." }
         return "\(day) — exactly on the burn."
     }
 
@@ -248,7 +248,7 @@ struct MoneyView: View {
             HStack(alignment: .firstTextBaseline) {
                 // n500 was 2.63:1. A country they haven't reached yet should
                 // read as quieter, not as unreadable.
-                Text(spend == nil ? "\(country) · not yet" : "\(country) · \(days) days")
+                Text(spend == nil ? "\(country) · not yet" : "\(country) · \(Formatting.spelledCount(days, "day", spellingUpTo: 0))")
                     .font(Typeface.body(13))
                     .foregroundStyle(spend == nil ? Palette.n700 : Palette.text)
                 Spacer()
@@ -283,7 +283,7 @@ struct MoneyView: View {
         guard leftOnArrival > 1 else {
             let over = projected - store.budget
             return ("\(country) doesn't fit",
-                    "At this rate the budget runs out before \(arrival) — about \(store.homeTextRounded(over)) over, with \(nights) days still to go.")
+                    "At this rate the budget runs out before \(arrival) — about \(store.homeTextRounded(over)) over, with \(Formatting.spelledCount(nights, "day", spellingUpTo: 0)) still to go.")
         }
 
         // "Comfortable" is relative to the budget they set, not a fixed figure.
@@ -292,7 +292,7 @@ struct MoneyView: View {
         let verdict = comfortable
             ? "above the trip average"
             : "below the trip average"
-        let body = "At this rate you'll arrive in \(arrival) with \(store.homeTextRounded(leftOnArrival)) for \(nights) days. That's \(store.homeTextRounded(perDay))/day — \(verdict)."
+        let body = "At this rate you'll arrive in \(arrival) with \(store.homeTextRounded(leftOnArrival)) for \(Formatting.spelledCount(nights, "day", spellingUpTo: 0)). That's \(store.homeTextRounded(perDay))/day — \(verdict)."
         return (title, body)
     }
 

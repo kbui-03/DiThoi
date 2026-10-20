@@ -192,7 +192,7 @@ struct LetterBoardView: View {
         switch store.phase {
         case .before(let days):
             let nights = max(days, 1)
-            return "\(nights) night\(nights == 1 ? "" : "s") before they go"
+            return "\(Formatting.spelledCount(nights, "night", spellingUpTo: 0)) before they go"
         case .during: return "Day \(store.dayNumber), out there"
         case .after: return "The trip is over"
         }
@@ -201,7 +201,7 @@ struct LetterBoardView: View {
     private var silenceLine: String {
         let count = schedule.silences.count
         let longest = schedule.silences.map(\.days).max() ?? 0
-        return "\(count) stretch\(count == 1 ? "" : "es") with nothing in \(count == 1 ? "it" : "them"), the longest \(longest) days. You can leave them, or write into them later."
+        return "\(Formatting.spelledCount(count, "stretch", plural: "stretches", spellingUpTo: 0)) with nothing in \(count == 1 ? "it" : "them"), the longest \(longest) days. You can leave them, or write into them later."
     }
 
     private var nextAction: String {

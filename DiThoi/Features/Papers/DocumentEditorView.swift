@@ -307,7 +307,7 @@ struct DocumentEditorView: View {
     static func deletionMessage(for document: TravelDocument, in store: TripStore) -> String {
         let scans = store.scanCount(for: document.id)
         guard scans > 0 else { return "It goes from this phone." }
-        return "It and its \(scans) scan\(scans == 1 ? "" : "s") go from this phone."
+        return "It and its \(Formatting.spelledCount(scans, "scan", spellingUpTo: 0)) go from this phone."
     }
 
     // MARK: - Loading and saving

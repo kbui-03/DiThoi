@@ -416,7 +416,7 @@ struct PapersView: View {
     /// describing the feature — the empty case has its own words above.
     private var cardsSubtitle: String {
         let count = store.orderedShowCards.count
-        return "\(count) card\(count == 1 ? "" : "s"), in the order you swipe them"
+        return "\(Formatting.spelledCount(count, "card", spellingUpTo: 0)), in the order you swipe them"
     }
 
     /// The language of wherever they are, or a name for not knowing.
@@ -446,7 +446,7 @@ struct PapersView: View {
     /// the two in step.
     private func scanBadge(for document: TravelDocument) -> some View {
         let pages = DocumentStore.shared.pageCount(for: document.id)
-        return Mono(pages > 0 ? "\(pages) scan\(pages == 1 ? "" : "s")" : document.badge,
+        return Mono(pages > 0 ? "\(Formatting.spelledCount(pages, "scan", spellingUpTo: 0))" : document.badge,
                     size: 10, trackingRatio: 0.08,
                     color: pages > 0 ? Palette.a700 : Palette.n600)
     }

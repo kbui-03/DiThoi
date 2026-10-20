@@ -273,7 +273,7 @@ struct BookSpreadView: View {
         let moments = plan.momentSpreadCount > 0
             ? ", and what you stopped for along the way"
             : ""
-        return "\(plan.pageCount) pages — a spread for each of the \(nights) nights you wrote something down\(moments)."
+        return "\(plan.pageCount) pages — a spread for \(nights == 1 ? "the one night" : "each of the \(nights) nights") you wrote something down\(moments)."
     }
 
     // MARK: - Contents

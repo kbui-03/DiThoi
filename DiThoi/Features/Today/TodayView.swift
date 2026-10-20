@@ -141,7 +141,7 @@ struct TodayView: View {
         .buttonStyle(.plain)
         .accessibilityHint("Opens the full itinerary")
 
-        planRow("The whole itinerary", detail: "\(store.dayCount) days",
+        planRow("The whole itinerary", detail: "\(Formatting.spelledCount(store.dayCount, "day", spellingUpTo: 0))",
                 hint: "Opens the full itinerary") { going = .itinerary }
 
         Rule()
@@ -250,7 +250,7 @@ struct TodayView: View {
     }
 
     private var dayLabel: String {
-        if case .after = store.phase { return "Home · \(store.dayCount) days done" }
+        if case .after = store.phase { return "Home · \(Formatting.spelledCount(store.dayCount, "day", spellingUpTo: 0)) done" }
         return "Day \(store.dayNumber) of \(store.dayCount)"
     }
 
@@ -333,7 +333,7 @@ struct TodayView: View {
             planRow("The whole day", detail: dayDetail,
                     hint: "Opens the whole day") { going = .today }
         }
-        planRow("The whole itinerary", detail: "\(store.dayCount) days",
+        planRow("The whole itinerary", detail: "\(Formatting.spelledCount(store.dayCount, "day", spellingUpTo: 0))",
                 hint: "Opens the full itinerary") { going = .itinerary }
     }
 
@@ -342,7 +342,7 @@ struct TodayView: View {
     private var hourCount: Int { plan?.items.count ?? 0 }
 
     private var dayDetail: String {
-        hourCount == 0 ? "nothing yet" : "\(hourCount) hour\(hourCount == 1 ? "" : "s")"
+        hourCount == 0 ? "nothing yet" : "\(Formatting.spelledCount(hourCount, "hour", spellingUpTo: 0))"
     }
 
     private var dayLine: String {

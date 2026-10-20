@@ -3,9 +3,11 @@ import CoreLocation
 
 /// Where they are — asked for by the act that needs it, never at launch.
 ///
-/// Position is shared only while Separated is on, and only as a city. So this
-/// asks for when-in-use authorisation at the moment Separated starts, never at
-/// launch, and stops the moment they find each other. There is no background
+/// Separated tracks (`start()`, stopped when they find each other); keeping a
+/// moment and dropping a pin take one fix (`requestOnce()`); the trail and
+/// Today take one only if somebody already said yes (`requestOnceIfAllowed()`).
+/// A moment's position stays on the phone. A pin's is the one that travels: an
+/// arrival fills a blank waypoint, and waypoints sync. There is no background
 /// mode and no always-on authorisation.
 @MainActor
 final class LocationService: NSObject, ObservableObject {

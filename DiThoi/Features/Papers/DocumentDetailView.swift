@@ -73,7 +73,7 @@ struct DocumentDetailView: View {
                 .buttonStyle(.plain)
 
                 HStack {
-                    Mono("\(pages.count) page\(pages.count == 1 ? "" : "s") · encrypted on this phone", size: 9.5, trackingRatio: 0.08)
+                    Mono("\(Formatting.spelledCount(pages.count, "page", spellingUpTo: 0)) · encrypted on this phone", size: 9.5, trackingRatio: 0.08)
                     Spacer()
                     if canEdit {
                         Button { capturing = true } label: {
@@ -241,7 +241,7 @@ struct DocumentDetailView: View {
     /// Says what was lost, and why, when a batch didn't all land.
     private func shortfall(_ result: DocumentStore.AddResult) -> String {
         let missed = result.attempted - result.written
-        let pages = "\(missed) of the \(result.attempted) page\(result.attempted == 1 ? "" : "s")"
+        let pages = "\(missed) of the \(Formatting.spelledCount(result.attempted, "page", spellingUpTo: 0))"
         guard let failure = result.failure else {
             return "\(pages) couldn't be saved. Nothing was written for \(missed == 1 ? "it" : "them")."
         }

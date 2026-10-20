@@ -11,6 +11,15 @@ change gets its own line under **Unreleased**.
 ## [Unreleased]
 
 ### Fixed
+- The location copy on the sharing screen and Separated said only Separated
+  reads where you are. It now names moments, pins and the trail, and says a
+  pin's spot is the one that leaves the phone.
+- Turning a feature on or off no longer re-stamps the shared settings, so it
+  can't carry this phone's budget over the other phone's newer one.
+- "1 nights", "1 days", "1 places" and the like: every count that can reach one
+  goes through `Formatting.spelledCount`, including the hand-written
+  `== 1 ? "" : "s"` ternaries in `Features/`. The widget, which can't see
+  `Formatting`, keeps a ternary.
 - The sync line no longer says "synced just now" when nothing has left the
   phone. With CloudKit off, sync and letters use CloudKit's switched-off
   transports instead of the loopback, so screens read "on this phone",

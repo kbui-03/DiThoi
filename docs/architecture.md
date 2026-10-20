@@ -963,7 +963,11 @@ When-in-use only, and asked for by the act that needs a position: Separated
 switching on (tracked, and stopped when they find each other), keeping a moment,
 and dropping a pin (one fix each, `requestOnce()`). Never at launch. No
 background mode and no always-on authorisation. A moment's coordinate stays on
-the phone.
+the phone. A pin's doesn't: `arrive(at:)` fills a blank waypoint from the fix,
+and waypoints sync. The copy said "only while Separated is on" on the sharing
+screen and "only this screen reads where you are" on Separated long after both
+stopped being true. Both name every reader now, and a check holds the sharing
+line to it.
 
 The trail uses `requestOnceIfAllowed()`, which does nothing until somebody has
 already said yes. The trail is opened on any afternoon and is never the moment
@@ -1762,6 +1766,12 @@ makes every leading-dot call site ambiguous.
 **A rename must never ride in `TripSettings`.** Settings merge as one blob on one
 timestamp, so a name inside them would win the dates, budget and currency too.
 `names` is its own field, merged per slot, and doesn't `touchSettings()`.
+
+**Nor does a feature switch.** `features` never leaves the phone, but its
+`didSet` used to stamp the settings blob anyway, so turning the letters off on
+one phone would carry that phone's old budget over the other phone's newer one.
+Only the dates, budget and currency stamp it now, and a check runs two stores
+against one loopback box to prove a later toggle loses to an earlier budget.
 
 **The observer sets no trip parameters.** On a trip somebody filled in they
 don't own those answers; on a blank one their settings blob would race the

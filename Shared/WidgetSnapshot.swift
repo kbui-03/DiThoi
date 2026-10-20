@@ -59,7 +59,7 @@ struct WidgetSnapshot: Codable, Equatable {
         case .during:
             "Day \(dayNumber) of \(dayCount)"
         case .after:
-            "Home · \(dayCount) days done"
+            "Home · \(dayCount) day\(dayCount == 1 ? "" : "s") done"
         }
     }
 

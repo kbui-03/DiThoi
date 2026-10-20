@@ -146,8 +146,8 @@ struct FinishTripView: View {
     private func papersLine(_ lost: TripStore.PapersLoss) -> String {
         let scans = lost.scans == 0
             ? ""
-            : " and \(lost.scans) scan\(lost.scans == 1 ? "" : "s")"
-        return "Empties \(lost.documents) document\(lost.documents == 1 ? "" : "s")\(scans) — passport numbers don't go on the shelf"
+            : " and \(Formatting.spelledCount(lost.scans, "scan", spellingUpTo: 0))"
+        return "Empties \(Formatting.spelledCount(lost.documents, "document", spellingUpTo: 0))\(scans) — passport numbers don't go on the shelf"
     }
 
     /// Asked of the store, so this and the deletion cannot drift apart — the
@@ -157,8 +157,8 @@ struct FinishTripView: View {
         guard let lost = store.papersLostOnClose else { return base }
         let scans = lost.scans == 0
             ? ""
-            : ", and \(lost.scans) scan\(lost.scans == 1 ? "" : "s") come off the phone"
-        return "\(base) The numbers on \(lost.documents) document\(lost.documents == 1 ? "" : "s") are cleared\(scans). That part can't be undone."
+            : ", and \(Formatting.spelledCount(lost.scans, "scan", spellingUpTo: 0)) come off the phone"
+        return "\(base) The numbers on \(Formatting.spelledCount(lost.documents, "document", spellingUpTo: 0)) are cleared\(scans). That part can't be undone."
     }
 
     /// What the next trip starts with, whichever answer is picked. Computed
@@ -181,7 +181,7 @@ struct FinishTripView: View {
     private var sinceLine: String {
         switch store.phase {
         case .after(let days):
-            return days == 0 ? "You landed today" : "\(days) day\(days == 1 ? "" : "s") after you landed"
+            return days == 0 ? "You landed today" : "\(Formatting.spelledCount(days, "day", spellingUpTo: 0)) after you landed"
         case .during: return "The trip is still running"
         case .before: return "You haven't left yet"
         }
