@@ -53,8 +53,7 @@ check: `Features/` and `Root/` aren't compiled by the checks.
 ## Before you change anything
 
 ```bash
-./Tools/run-checks.sh          # 1,310 model assertions, macOS, no simulator
-./Tools/run-checks.sh          # 1,505 model assertions, macOS, no simulator
+./Tools/run-checks.sh          # 1,530 model assertions, macOS, no simulator
 ./Tools/render-icons.sh        # regenerates the icon set and re-tests actool
 ```
 
@@ -62,8 +61,8 @@ check: `Features/` and `Root/` aren't compiled by the checks.
   against one loopback box, which is how sync is verified with no account. (§6.1)
 - Reach any screen with `xcrun simctl launch <device> com.lovedones.dithoi
   -resetTrip -screen <route>`. There are 71 routes, plus `-day N` (zero or
-  negative allowed), `-seedItinerary`, `-seedJournal`, `-seedSpending` and
-  `-planned`. The empty states are half of what there is to look at, which is
+  negative allowed), `-seedItinerary`, `-seedJournal`, `-seedSpending`,
+  `-seedLetters` (with `-openLetter`), `-noBudget` and `-planned`. The empty states are half of what there is to look at, which is
   why seeding is a flag, not a route. (§6.2)
 - **Take the screenshots.** Eleven rounds of fully green checks have sat over a
   screen that was wrong. (§6.3)
@@ -244,6 +243,10 @@ The general lessons behind them are §11; the debt kept on purpose is §7.
 - Every panel that looks tappable is tappable and says so in words. A tappable
   `Panel` is pixel-identical to a dead one. (§5.1)
 - `RateStamp` is a `Button`; never nest it inside another. (§5.1)
+- "Today together" is drawn on every phone. The letter card sits above it, and
+  the letters row never waits for a letter to open. (§5.1)
+- `meetingLine`, `paceNote` and `letterTally` are the store's, so their
+  clauses are checked. No budget is no verdict. (§3.4, §3.11)
 - Push through one `navigationDestination(item:)`, never two stacked
   `isPresented:`. (§5.1)
 - Empty states compute their own promises. Separators belong to the clause,

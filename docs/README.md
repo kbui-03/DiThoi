@@ -218,7 +218,7 @@ built app rather than the setting:
 
 What is built, what has never run and what is known to be wrong are in
 [CHANGELOG.md](CHANGELOG.md). From the repository root, the model checks run
-without a simulator — 1,505 assertions over the trip maths, the date shifting,
+without a simulator — 1,530 assertions over the trip maths, the date shifting,
 rates, settlement, letter gating and sealing, the book's arithmetic and type
 fitting, the shelf, the vault's key handling, and two stores converging through
 one loopback box:

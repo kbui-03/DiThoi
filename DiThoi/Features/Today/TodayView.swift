@@ -35,7 +35,7 @@ struct TodayView: View {
     /// One destination rather than two `navigationDestination(isPresented:)`
     /// modifiers on the same view: stacked, the later one can swallow the
     /// earlier and the push silently does nothing.
-    private enum Destination: Hashable { case itinerary, today, book(spread: Int) }
+    private enum Destination: Hashable { case itinerary, today, letters, book(spread: Int) }
 
     var body: some View {
         NavigationStack {
@@ -59,6 +59,8 @@ struct TodayView: View {
                     } else {
                         ItineraryView()
                     }
+                case .letters:
+                    LettersView()
                 case .book(let spread):
                     BookPreviewView(startAt: spread)
                 }
@@ -199,10 +201,16 @@ struct TodayView: View {
             countryDone(done.leg, nights: done.nights, spread: done.spread)
         }
 
+        // The letter card sits above the day rather than in its place. It used
+        // to *be* the day's slot on a phone with letters on it, and drew
+        // nothing until one had opened — so a phone holding three sealed
+        // letters had neither the day nor a way into the letters.
+        letterCard
+
+        togetherBlock
+
         if store.lettersVisible {
-            letterBlock
-        } else {
-            togetherBlock
+            lettersRow
         }
 
         planRows
@@ -322,17 +330,10 @@ struct TodayView: View {
 
     /// The rows under the block, on the trip.
     ///
-    /// The day row is drawn only where the letter card has taken the panel's
-    /// slot. Where `togetherBlock` is drawn the panel *is* the way to the day,
-    /// and a second control to the same screen is noise — but a phone with
-    /// letters on it has no panel to tap, and that used to leave the 10.5pt
-    /// header label as the only door on the screen.
+    /// No day row: `togetherBlock` is drawn on every phone and the panel *is*
+    /// the way to the day, so a second control to the same screen is noise.
     @ViewBuilder
     private var planRows: some View {
-        if store.lettersVisible {
-            planRow("The whole day", detail: dayDetail,
-                    hint: "Opens the whole day") { going = .today }
-        }
         planRow("The whole itinerary", detail: "\(Formatting.spelledCount(store.dayCount, "day", spellingUpTo: 0))",
                 hint: "Opens the full itinerary") { going = .itinerary }
     }
@@ -366,9 +367,10 @@ struct TodayView: View {
         return "\(store.start.shortDate) · \(country)"
     }
 
+    /// The newest letter that has opened, when one has.
     @ViewBuilder
-    private var letterBlock: some View {
-        if let letter = store.newestOpenLetter {
+    private var letterCard: some View {
+        if store.lettersVisible, let letter = store.newestOpenLetter {
             Mono("A letter opened itself here", size: 10)
                 .padding(.bottom, 9)
 
@@ -393,28 +395,26 @@ struct TodayView: View {
                         .multilineTextAlignment(.leading)
                         .padding(.top, 8)
                         .fixedSize(horizontal: false, vertical: true)
-                    Mono("Read the whole thing · \(store.sealedLetters.count + store.hiddenLetterCount) still sealed",
+                    Mono(stillSealed == 0 ? "Read the whole thing"
+                                          : "Read the whole thing · \(stillSealed) still sealed",
                          size: 10, trackingRatio: 0.1, color: Palette.a700)
                         .padding(.top, 11)
                 }
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-
-            NavigationLink {
-                LettersView()
-            } label: {
-                HStack {
-                    Mono("All \(store.letters.count)", size: 10, trackingRatio: 0.1)
-                    Spacer()
-                    Mono("\(store.openLetters.count) open · \(store.sealedLetters.count + store.hiddenLetterCount) sealed",
-                         size: 10, trackingRatio: 0.1, color: Palette.a700)
-                }
-                .frame(minHeight: 44)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
+            .padding(.bottom, Space.s3)
         }
+    }
+
+    private var stillSealed: Int { store.sealedLetters.count + store.hiddenLetterCount }
+
+    /// The way into every letter, whether or not one has opened. It used to
+    /// live inside the open-letter card, so a phone whose letters were all
+    /// still sealed had no way to see them.
+    private var lettersRow: some View {
+        planRow("All \(store.letters.count)", detail: store.letterTally ?? "",
+                hint: "Opens the letters") { going = .letters }
     }
 
     /// The day after the last one, and every day after that until the trip is
@@ -510,12 +510,22 @@ struct TodayView: View {
                     .padding(.top, 5)
                 // The meeting point is attributable and a day plan isn't —
                 // `DayPlan` has no author — so the line names the meeting point.
-                Text(meetingLine)
+                Text(store.meetingLine)
                     .font(Typeface.body(12.5))
                     .foregroundStyle(Palette.n700)
                     .lineSpacing(4)
                     .padding(.top, 5)
                     .fixedSize(horizontal: false, vertical: true)
+                // Where they sleep, which `DayDetailView` already shows under
+                // the same word. The title only; the note stays on the day.
+                if let lodging = plan?.lodgingTitle {
+                    Text("Tonight · \(lodging)")
+                        .font(Typeface.body(12.5))
+                        .foregroundStyle(Palette.n700)
+                        .lineSpacing(4)
+                        .padding(.top, 3)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 // A tappable `Panel` is pixel-identical to a dead one, which
                 // is what this was, so the way in has to be written down.
                 Mono(dayLine, size: 10, trackingRatio: 0.1, color: Palette.a700)
@@ -525,15 +535,6 @@ struct TodayView: View {
         }
         .buttonStyle(.plain)
         .accessibilityHint("Opens the whole day")
-    }
-
-    /// Who set tonight's meeting point, which the store does record — unlike who
-    /// added a day plan, which it doesn't.
-    private var meetingLine: String {
-        guard store.meeting.isSet else {
-            return "No meeting point yet. Pick somewhere you can both walk to if the phones die."
-        }
-        return "Meeting point set at \(store.meeting.place)'s \(store.meeting.detail) if you lose each other."
     }
 
     private var figures: some View {
@@ -572,8 +573,7 @@ struct TodayView: View {
                     // drew the blank and the year-one time, which is why the
                     // question is `MeetingPoint.isSet` now and not a private
                     // property here.
-                    Text(store.meeting.isSet ? "\(store.meeting.place)\n\(store.meeting.detail)"
-                                             : "Not set yet")
+                    Text(store.meeting.isSet ? meetingTitle : "Not set yet")
                         .font(Typeface.heading(17, .semibold))
                         .foregroundStyle(store.meeting.isSet ? Palette.text : Palette.n600)
                         .multilineTextAlignment(.leading)
@@ -591,6 +591,13 @@ struct TodayView: View {
             .buttonStyle(.plain)
         }
         .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// The place, and the bit of it on its own line when there is one. An
+    /// empty detail left a blank second line under the place.
+    private var meetingTitle: String {
+        let detail = store.meeting.detail.trimmingCharacters(in: .whitespacesAndNewlines)
+        return detail.isEmpty ? store.meeting.place : "\(store.meeting.place)\n\(detail)"
     }
 
     /// What the figure says, without the rate stamp under it.
@@ -613,7 +620,10 @@ struct TodayView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
                 .padding(.top, 3)
-            Aside(text: paceNote, size: 11.5)
+            // Asked of the store: with no budget there is no pace to be on.
+            if let note = store.paceNote {
+                Aside(text: note, size: 11.5)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -640,14 +650,6 @@ struct TodayView: View {
                 Mono("+ add", size: 10, trackingRatio: 0.1, color: Palette.a700)
             }
         }
-    }
-
-    /// Today's spending against what a day is worth, which comes from the
-    /// budget and the dates they set.
-    private var paceNote: String {
-        let home = store.spentTodayHome
-        let verdict = home <= store.budgetPerDay ? "under pace" : "over pace"
-        return "≈ \(store.homeTextRounded(home)) · \(verdict)"
     }
 
     private var tonight: some View {

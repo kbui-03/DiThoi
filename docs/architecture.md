@@ -527,6 +527,13 @@ every currency makes the figure bigger and the "≈" adds a glyph, so the change
 that made it honest is the change that made it wrap. Only the screenshot showed
 it; both suites were green.
 
+**The pace line needs a budget to judge against.** Nought is allowed, and
+`paceNote` used to say "≈ €0 · under pace" on an empty day and "over pace" for
+anything spent against a day worth nothing. It is the store's now: with no
+budget it is only the home figure, and only when a rate was used or the money
+in hand isn't the home money; otherwise `nil` and nothing is drawn. Its "≈"
+follows `spentTodayText`'s rule.
+
 **A record is stamped with `countryNow`, never `currentCountry`.** The em-dash
 in `currentCountry` is what a *label* says when the trip has nowhere in it, and
 it leaked into stored data: `AddExpenseView.save()` and `proposeSettlement`
@@ -1302,6 +1309,11 @@ formatter — and Separated, the 2am screen, said "Go to the" over an empty card
 captioned "show this to a driver". One question on the model, not three views'
 worth of guesses.
 
+**Today's sentence is the store's (`meetingLine`), and the possessive belongs
+to the detail.** One interpolation read "set at The bridge's  if you lose each
+other" with "Which bit of it" left empty; the figures column drew a blank second
+line for the same reason.
+
 **Its fallback was unreachable, like `DayDetailView.cityName`'s.** The headline
 was `detail.components(separatedBy: ",").first ?? "meeting point"`, and splitting
 `""` answers `[""]`, never nil. A `??` behind a split only fires if the split can
@@ -1643,6 +1655,16 @@ that stacks above the accessibility threshold, the `CallTileRow` trick — `Mono
 is uncapped there and "SPENT TODAY" already wraps on its own at AX5, so a verb
 beside it on one line is "POLIC / E" waiting to happen.
 
+**"Today together" is on every phone, and the letters never take its place.**
+It used to be swapped out for the letter card whenever `lettersVisible`, and
+the card — the "All 12 · 3 open" row with it — drew only once
+`newestOpenLetter` existed. So a phone holding three sealed letters and none
+opened had no day panel, no meeting line, and no way into its own letters. The
+card now sits *above* the panel when a letter has opened, the "All N" row
+(`letterTally`, "3 sealed" with no nought clause) is drawn whenever there are
+letters, and the extra "The whole day" row went with the swap: the panel is
+always the door to the day. The panel also names tonight's lodging, title only.
+
 **`TodayView` pushes through one `navigationDestination(item:)`, not two
 `isPresented:`.** Two of those stacked on one view is the arrangement where the
 later swallows the earlier and the push silently does nothing — a dead control,
@@ -1896,7 +1918,7 @@ There is no simulator in CI and no XCTest target. Verification is two things:
 ### 6.1 `./Tools/run-checks.sh`
 
 Compiles everything in `DiThoi/Model/` and `Shared/` plus `Tools/VerifyTrip.swift`
-for **macOS** and runs 1,505 assertions — no simulator; the compile takes a
+for **macOS** and runs 1,530 assertions — no simulator; the compile takes a
 few minutes, the run a few seconds. It
 covers trip shape, rate conversion and round-tripping, budget derivation, the
 date-shift invariants, itinerary reflow after all four edit operations, the
