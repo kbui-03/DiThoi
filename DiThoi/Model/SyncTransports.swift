@@ -23,13 +23,13 @@ final class LoopbackSyncTransport: SyncTransport, @unchecked Sendable {
     private let queue = DispatchQueue(label: "dithoi.loopback")
 
     init(named box: String = "shared") {
-        url = Storage.directory(".").appendingPathComponent("loopback-\(box).json")
+        url = Storage.loopbackDirectory.appendingPathComponent("loopback-\(box).json")
     }
 
     func push(_ payload: SyncPayload) async throws {
         try? await Task.sleep(for: latency)
         let data = try JSONEncoder().encode(payload)
-        try queue.sync { try data.write(to: url, options: .atomic) }
+        try queue.sync { try Storage.writeLoopback(data, to: url) }
     }
 
     func pull(tripID: UUID) async throws -> SyncPayload? {

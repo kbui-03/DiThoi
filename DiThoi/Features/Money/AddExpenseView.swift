@@ -22,6 +22,21 @@ struct AddExpenseView: View {
     @State private var customShare: Double = 0.5
     /// 2.5 · a stay that repeats. One is the normal answer.
     @State private var nights = 1
+    @State private var askingToDiscard = false
+    /// Every field as the sheet opened. Nil until `onAppear` has filled them.
+    @State private var opened: Fields?
+
+    private struct Fields: Equatable {
+        var digits: String, currency: Currency, payer: Payer, split: Split
+        var note: String, customShare: Double, nights: Int
+    }
+
+    private var current: Fields {
+        Fields(digits: digits, currency: currency, payer: payer, split: split,
+               note: note, customShare: customShare, nights: nights)
+    }
+
+    private var isDirty: Bool { opened.map { $0 != current } ?? false }
 
     private var amount: Double { Double(digits) ?? 0 }
 
@@ -33,7 +48,9 @@ struct AddExpenseView: View {
     var body: some View {
         VStack(spacing: 0) {
             SheetHeader(title: editing == nil ? "New expense" : "Edit expense",
-                        leading: nil, trailing: "Cancel") { dismiss() }
+                        leading: nil, trailing: "Cancel") {
+                if isDirty { askingToDiscard = true } else { dismiss() }
+            }
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
@@ -144,7 +161,12 @@ struct AddExpenseView: View {
             .padding(.bottom, Space.gutter)
         }
         .background(Palette.bg)
+        .guardsUnsavedWork(isDirty: isDirty, isAsking: $askingToDiscard,
+                           whatGoes: editing == nil ? "This expense isn't recorded." : "Your changes go.") {
+            dismiss()
+        }
         .onAppear {
+            defer { if opened == nil { opened = current } }
             guard let line = editing else {
                 currency = store.localCurrency
                 payer = store.role == .one ? .one : .two
@@ -205,7 +227,7 @@ struct AddExpenseView: View {
                 Button {
                     currency = option
                 } label: {
-                    Mono("\(option.symbol) \(option.code)", size: 11, trackingRatio: 0.06,
+                    Mono(option.chipLabel, size: 11, trackingRatio: 0.06,
                          color: currency == option ? Palette.a700 : Palette.n600)
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: 38)

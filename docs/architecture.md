@@ -164,9 +164,14 @@ for every conforming type.
 
 Everything is a `Codable` struct or enum. Notable shapes:
 
-**`Currency`** — an enum of the six currencies the app knows (`eur usd gbp thb
-vnd krw`) carrying symbol, display name and decimal places. It deliberately does
-*not* carry an exchange rate; see §3.3.
+**`Currency`** — a curated enum of about forty currencies, every country in
+`CountryFacts` plus the common travel ones. Raw values are lowercase ISO codes
+and are persisted, so cases are added and never renamed. Symbol, name and
+decimal places come from one `faces` table. No case has three decimals (the
+keypad is whole units), and no symbol but the US dollar's is a bare "$". It was
+six cases, which left Japan, Laos, Cambodia and most of Europe outside the euro
+with nothing to record spending in. It deliberately does *not* carry an
+exchange rate; see §3.3.
 
 **`Expense`** — one line of the ledger. The interesting part is that it exposes
 two rate-free properties and lets the store do the conversion half:
@@ -266,6 +271,19 @@ did not:
 | `dithoi.library.v1` | `Store/`, protected | the shelf — every archived trip, entire |
 | `dithoi.rates.v1` | `UserDefaults` | a public table of numbers |
 | `dithoi.sync.lastSyncedAt` | `UserDefaults` | a timestamp |
+
+Nothing else sits in the container root. The loopback boxes used to:
+`loopback-shared.json` (the ledger, itinerary and meeting point) and
+`letters-*.json` (every sealed letter in full, unsealed), at the default
+protection class and in every backup, one folder up from the store this table
+was built to protect. The app no longer writes either: sync and letters both
+choose an inert transport when CloudKit is off. The loopbacks, reached by
+injection from the checks and debug screens, write to `Loopback/` through
+`Storage.writeLoopback`, protected and excluded from backup. Every launch runs
+`Storage.sweepStrayLoopbackFiles()`, which deletes what an older build left.
+That delete has no read-back, unlike the migration: neither file was ever the
+only copy of anything (the payload is this phone's own trip, and the letters
+are `TripStore.letters` in the protected snapshot).
 
 `Storage.forget(_:)` clears **both** addresses unconditionally rather than
 knowing which is which, so a key moving between them can never stale the reset.
@@ -373,11 +391,27 @@ length is shorter than the itinerary, `itineraryOverrun` reports by how many
 days and both the setup and itinerary screens say so — the app declines to
 silently truncate the plan.
 
-Any new dated collection must be added to `setStart` or the trip loses its
-shape. **Known issue:** the shifted records keep their `updatedAt`, so the other
-phone — which takes the new start date from the settings — keeps its unshifted
-copies and the two ledgers end up N days apart. See
-[CHANGELOG.md](CHANGELOG.md#known-issues).
+Any new dated collection must be added to `setStart` (through `TripShift`, in
+`Syncing.swift`) or the trip loses its shape.
+
+**The shift reaches the other phone by conversion, not by re-stamping.** The
+shifted records keep their `updatedAt`, and that is now on purpose. The
+invariant: every dated record in a payload is measured from that payload's own
+`settings.start`. When two payloads disagree about the start, `SyncMerge.merge`
+moves the dates of the side whose settings lose into the winner's frame
+(`SyncPayload.shiftDates(by:)`) before the union, and per-record LWW then
+decides edits and deletes as it always did. On the receiving phone, `apply`
+calls the same `shiftDates(by:)` the store's `setStart` uses before taking the
+new start, which moves what never travels: the journal, the moments, the
+letters and `separatedSince`.
+
+It used to keep the shifted records' timestamps *and* do nothing else, so the
+other phone took the new start, kept its unshifted copies on the tie, and every
+expense sat N days off on one phone for good. Re-stamping each shifted record
+was the obvious fix and the wrong one: one date move would have overridden the
+other phone's unsynced edits and brought its deleted lines back. Two phones on
+mixed builds would still diverge, but CloudKit has never run, so there is no
+older peer to meet.
 
 ### 3.3 Rates and number formatting
 
@@ -398,8 +432,9 @@ launch / foreground
    decodeERAPI                decodeCurrencyAPI
         └───────────┬───────────────┘
                     ▼
-              make(from:updatedAt:)
-              — rejects a payload missing ANY known currency
+         make(from:updatedAt:previous:)
+         — rejects a payload wrong about USD or GBP;
+           a bad minor currency holds its last rate
                     ▼
         @Published snapshot  →  UserDefaults "dithoi.rates.v1"
 ```
@@ -408,9 +443,16 @@ Design points:
 
 - **Two keyless public endpoints, in order.** Both are unauthenticated and
   return a public list of numbers. Nothing about the trip is transmitted.
-- **All-or-nothing decoding.** `make(from:)` returns `nil` if any currency is
-  missing, rather than half-updating the table and leaving one currency on a
-  stale rate while the others move.
+- **All-or-nothing about the majors, per currency below them.** `make` returns
+  `nil` when USD or GBP is missing or implausible, which still catches an
+  inverted table or one that lost its thousands. A missing or implausible minor
+  currency keeps its last rate (or the built-in one) while the rest move. This
+  was all-or-nothing over every currency, which was right at six and wrong at
+  forty: one odd kyat would have frozen every rate on the phone.
+- **Drifting currencies are judged against their last rate.** `RatesService.drifting`
+  (ARS, TRY, LAK, EGP, MMK) can outrun ×4 in a few years, so they are compared
+  with the last rate that got through rather than the built-in one. Still ×4 per
+  step, so a decimal in the wrong place is refused all the same.
 - **Failure is not an error state.** A failed fetch sets `lastAttemptFailed` and
   changes nothing else. There is no alert. The only visible consequence is that
   the date under the numbers doesn't move.
@@ -750,10 +792,18 @@ closing a trip.
 
 #### In this build
 
-With CloudKit off, `SyncCoordinator` falls back to `LoopbackSyncTransport`,
-which is available and succeeds — so the sync line says "synced just now" about
-a round that went nowhere, and the loopback files sit outside the protected
-store. Both are known issues in [CHANGELOG.md](CHANGELOG.md#known-issues).
+`SyncCoordinator` always chooses `CloudKitSyncTransport` unless a check injects
+a box. With the flag off it is the switched-off transport the conformance check
+describes: unavailable, with a reason, refusing every call. So `state` is
+`.unavailable`, the sync line reads "on this phone", Settings names the reason
+and drops "Sync now", and `lastSyncedAt` is never stamped (a stale one from an
+older build is cleared on init).
+
+It used to fall back to `LoopbackSyncTransport`, which is available and
+succeeds, so every screen said "synced just now" about a round that wrote a file
+on this phone and read it back. The loopback is a test fixture, and it is reached
+only by injection: `init(transport:)` and `useForTesting`. Turning sync on stays
+what it was, the flag and nothing else, and then the line is true by itself.
 
 ### 3.6 Files on disk
 
@@ -1610,6 +1660,32 @@ separator standing where the country goes — the meeting point's
 `". Agreed at 00:53."` exactly, one screen over. The separator belongs to the
 country, not to the line.
 
+**No composer drops work on a swipe.** Swiping down, or tapping Close, used to
+throw away tonight's page and its photographs, a letter from home, a day plan's
+occasion and lodging, and every other sheet with fields in it, with no word
+said; `interactiveDismissDisabled` appeared once in the app. Each sheet now
+does what fits its kind:
+
+- **New work** (tonight's page, a moment, an expense, an hour, a card, a
+  document, the meeting point, a new stop, country or stamp) uses
+  `guardsUnsavedWork(isDirty:isAsking:whatGoes:onDiscard:)`. While dirty the
+  swipe is held, and both the swipe and Close ask "Throw it away?". The swipe
+  is heard through `DismissAttemptObserver`, which joins the presentation
+  controller as its delegate and forwards everything else to SwiftUI's, so a
+  held swipe asks instead of bouncing.
+- **An edit to something that exists** (the day plan's fields) commits on
+  `onDisappear`, the setup screens' rule (§5.4).
+- **A letter keeps itself.** Leaving any way but Discard saves the draft, a
+  draft with no words goes (`discardDraftIfEmpty`), and Discard asks when there
+  is something to lose.
+
+Dirty is "differs from what was loaded", so an untouched sheet closes without a
+question. The meeting point's "Done" keeps what was typed instead of being a
+bare `dismiss()`. A composer's photographs are written to disk at pick time, so
+they are held (`PhotoStore.hold`) until the sheet knows what was kept: the
+prune runs on every return to the foreground, and an app switch mid-compose
+used to delete the photo a page was about to point at.
+
 ### 5.2 What the lock is in front of, and why it is a rule
 
 `AppLock` gates two screens, not the tab they live on. Papers itself is
@@ -1761,9 +1837,9 @@ returning observer gets no destination step.
   With a leg already in, the fields give way to rows, so a second "Next" can't
   add the country twice.
 - **The currency chip is preselected from `Currency.likely(forCountry:)`.**
-  It is a guess drawn on a chip and never applied silently. Nil is the
-  ordinary answer (Japan has no rate in this app), and it means no chip is
-  preselected.
+  It is a guess drawn on a chip and never applied silently. Nil means no chip
+  is preselected. `CurrencyChips` shows the likely and home currencies, with the
+  rest by name behind "another…", because forty chips are a wall.
 - **"Coming along" is applied from a snapshot.** `CarriedOver` is captured
   once, and `applyCarry` runs from it on every continue. Going back and
   ticking a row again gives it back. Each write is skipped when it would
@@ -1820,7 +1896,7 @@ There is no simulator in CI and no XCTest target. Verification is two things:
 ### 6.1 `./Tools/run-checks.sh`
 
 Compiles everything in `DiThoi/Model/` and `Shared/` plus `Tools/VerifyTrip.swift`
-for **macOS** and runs 1,310 assertions — no simulator; the compile takes a
+for **macOS** and runs 1,505 assertions — no simulator; the compile takes a
 few minutes, the run a few seconds. It
 covers trip shape, rate conversion and round-tripping, budget derivation, the
 date-shift invariants, itinerary reflow after all four edit operations, the
@@ -2851,6 +2927,15 @@ app's own container on this one phone; sealing it would encrypt against a key
 held by the same process. The seal exists because a *shared zone* is readable by
 people who are not the recipient.
 
+**With CloudKit off, the letterbox is closed.** `chooseLetterTransport(cloudAvailable: false)`
+used to return the loopback, which wrote every sealed letter in clear into the
+container root. It returns `ClosedLetterDropTransport` now, which passes
+`TransportConformance.inert`: unavailable, a reason, `post` throws `.unavailable`,
+`collect` returns nil. `postLetters` skips a transport that isn't available, so
+`letterPostProblem` is the plain reason rather than a refusal dressed as a
+failure. The Home vocabulary didn't change, because `lettersAreStuck` already
+read `unavailableReason`.
+
 The transport existed and compiled for a long time before anything selected it.
 `TripStore.init` read `letterPost ?? LoopbackLetterDropTransport()` —
 unconditional — while `SyncCoordinator` probed and chose, so the three steps that
@@ -3164,7 +3249,7 @@ The check's label carries the design's 11 so the discrepancy shows in the output
 | Change a colour, space or radius | `Shared/Theme.swift` — the mark's six live in `TripMarkInk` |
 | Swap in the real Cormorant/Lora/Plex fonts | `TypeSpec.design`, `Shared/Theme.swift` |
 | Adjust how type scales for accessibility | `TypeSpec.growthCeiling` |
-| Add a currency | `Currency` in `Models.swift` — rates follow automatically |
+| Add a currency | a case in `Currency`, a `faces` row, and a `RateSnapshot.builtIn` rate; the checks refuse a case missing either |
 | Add or change a rate provider | `RatesService.Endpoint` + a `decode…` function |
 | Change what the checks run against | `Tools/CheckTrip.swift` |
 | Persist something new | `Storage.appKeys` **and** a line in the reset check — never a string literal in `DebugScreen` |

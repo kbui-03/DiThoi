@@ -120,13 +120,11 @@ struct NextTripDestinationView: View {
                 Mono("They spend", size: 10)
                     .padding(.top, Space.s3)
                     .padding(.bottom, 7)
-                FlowRow(spacing: Space.s2) {
-                    ForEach(Currency.allCases) { option in
-                        Chip(text: "\(option.symbol) \(option.code)", selected: currency == option) {
-                            currency = option
-                            currencyChosen = true
-                        }
-                    }
+                CurrencyChips(selected: currency,
+                              suggested: [Currency.likely(forCountry: trimmedCountry),
+                                          store.homeCurrency]) {
+                    currency = $0
+                    currencyChosen = true
                 }
             }
 
