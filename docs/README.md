@@ -198,10 +198,11 @@ Each of these has a full section in [architecture.md](architecture.md).
 
 ### Turning on sync
 
-CloudKit is written, complete, and has never run. Until it does, the app uses
-`LoopbackSyncTransport`, a file on the same phone, which the model checks use to
-prove two stores converge. **In this build nothing leaves the phone**, and the
-sync line still says "synced" — a known issue in [CHANGELOG.md](CHANGELOG.md).
+CloudKit is written, complete, and has never run. Until it does, the app's
+sync and letter transports are CloudKit's, switched off: **nothing leaves the
+phone, and every screen says so** ("on this phone"; Settings gives the reason).
+The model checks prove two stores converge through `LoopbackSyncTransport`, a
+file box they inject; the app never falls back to it.
 
 To switch CloudKit on, which needs a **paid** Apple Developer membership (a free
 personal team cannot hold the iCloud capability):

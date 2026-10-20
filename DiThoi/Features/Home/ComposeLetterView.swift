@@ -195,6 +195,11 @@ struct ComposeLetterView: View {
     }
 
     private var travelNote: String {
+        // Their phone's wifi is beside the point when the letter can't leave
+        // this one. `lastSyncedAt` is this phone's round, and it is nil then.
+        if store.lettersAreStuck, let why = store.letterPostProblem {
+            return "\(why) A letter only fires once it reaches their phone, so a place they have already passed never will."
+        }
         let synced = store.sync.lastSyncedAt.map { "Their phone last reached wifi \(age(of: $0))." }
             ?? "Their phone hasn't reached wifi yet."
         return "\(synced) A new letter only lands the next time they're online, so a place they have already passed will never fire."

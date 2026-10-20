@@ -10,7 +10,16 @@ change gets its own line under **Unreleased**.
 
 ## [Unreleased]
 
-Nothing yet.
+### Fixed
+- The sync line no longer says "synced just now" when nothing has left the
+  phone. With CloudKit off, sync and letters use CloudKit's switched-off
+  transports instead of the loopback, so screens read "on this phone",
+  Settings gives the reason, and "Sync now" is gone until there is something
+  to sync with.
+- No plaintext copies outside the protected store. The app stopped writing
+  `loopback-shared.json` and `letters-*.json`; every launch deletes copies an
+  older build left in the container root. The loopbacks the checks use now
+  write to `Loopback/`, protected and excluded from backups.
 
 ## [1.0 (build 1)] — 2026-10-12 — first commit
 
@@ -149,11 +158,6 @@ something the app promises; **should** means it is wrong or rough, but nothing
 is lost.
 
 ### Everywhere
-- **Must:** the sync line reads "synced just now" when nothing has left the
-  phone. With CloudKit off, the loopback stand-in reports success.
-- **Must:** the loopback stand-ins write `loopback-shared.json` (the ledger,
-  itinerary and meeting point) and `letters-*.json` (every sealed letter, in
-  full) unprotected to the app container, and both are included in backups.
 - **Must:** moving the start date shifts records without re-stamping them. The
   other phone takes the new date but not the shift, so the two ledgers end up
   N days apart.

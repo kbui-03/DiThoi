@@ -125,6 +125,9 @@ The general lessons behind them are §11; the debt kept on purpose is §7.
 - `Storage` is the one seam. `Storage.shared` returns `nil`, never a fallback.
   Every persisted key is named once, in `Storage.appKeys`. (§3.2)
 - `-resetTrip` clears the letters file and the shelf too. (§3.2)
+- Nothing sits in the container root. The loopback boxes live in `Loopback/`,
+  protected and out of backups, and every launch sweeps strays an older build
+  left (`Storage.sweepStrayLoopbackFiles`). (§3.2)
 - Persisted enums keep their raw values (`Participant.writer`, `Traveller.one`
   and `.two`). An unknown raw value throws and wipes the trip. (§5.3)
 
@@ -321,7 +324,11 @@ The general lessons behind them are §11; the debt kept on purpose is §7.
   vocabulary splits on `lettersAreStuck`. (§8.3)
 - A switched-off transport fails in the shape `TransportConformance.inert`
   pins. Conflict is the coordinator's to retry. (§3.5)
-- Known issue: in this build the loopback reports "synced". (§3.5)
+- The default sync transport is CloudKit, inert when the flag is off; with no
+  container the line says "on this phone". The loopbacks are reached only by
+  injection, never as a fallback. (§3.5)
+- With no CloudKit, letters get `ClosedLetterDropTransport`, and
+  `postLetters` skips a transport that isn't available. (§8.3)
 
 ### The book, the ritual, the letters
 - `BookSpreadView` draws the preview *and* the PDF. A spread is two pages, and

@@ -267,6 +267,19 @@ did not:
 | `dithoi.rates.v1` | `UserDefaults` | a public table of numbers |
 | `dithoi.sync.lastSyncedAt` | `UserDefaults` | a timestamp |
 
+Nothing else sits in the container root. The loopback boxes used to:
+`loopback-shared.json` (the ledger, itinerary and meeting point) and
+`letters-*.json` (every sealed letter in full, unsealed), at the default
+protection class and in every backup, one folder up from the store this table
+was built to protect. The app no longer writes either: sync and letters both
+choose an inert transport when CloudKit is off. The loopbacks, reached by
+injection from the checks and debug screens, write to `Loopback/` through
+`Storage.writeLoopback`, protected and excluded from backup. Every launch runs
+`Storage.sweepStrayLoopbackFiles()`, which deletes what an older build left.
+That delete has no read-back, unlike the migration: neither file was ever the
+only copy of anything (the payload is this phone's own trip, and the letters
+are `TripStore.letters` in the protected snapshot).
+
 `Storage.forget(_:)` clears **both** addresses unconditionally rather than
 knowing which is which, so a key moving between them can never stale the reset.
 
@@ -750,10 +763,18 @@ closing a trip.
 
 #### In this build
 
-With CloudKit off, `SyncCoordinator` falls back to `LoopbackSyncTransport`,
-which is available and succeeds — so the sync line says "synced just now" about
-a round that went nowhere, and the loopback files sit outside the protected
-store. Both are known issues in [CHANGELOG.md](CHANGELOG.md#known-issues).
+`SyncCoordinator` always chooses `CloudKitSyncTransport` unless a check injects
+a box. With the flag off it is the switched-off transport the conformance check
+describes: unavailable, with a reason, refusing every call. So `state` is
+`.unavailable`, the sync line reads "on this phone", Settings names the reason
+and drops "Sync now", and `lastSyncedAt` is never stamped (a stale one from an
+older build is cleared on init).
+
+It used to fall back to `LoopbackSyncTransport`, which is available and
+succeeds, so every screen said "synced just now" about a round that wrote a file
+on this phone and read it back. The loopback is a test fixture, and it is reached
+only by injection: `init(transport:)` and `useForTesting`. Turning sync on stays
+what it was, the flag and nothing else, and then the line is true by itself.
 
 ### 3.6 Files on disk
 
@@ -2840,6 +2861,15 @@ exists. Nothing here has ever run, so it was free exactly once.
 app's own container on this one phone; sealing it would encrypt against a key
 held by the same process. The seal exists because a *shared zone* is readable by
 people who are not the recipient.
+
+**With CloudKit off, the letterbox is closed.** `chooseLetterTransport(cloudAvailable: false)`
+used to return the loopback, which wrote every sealed letter in clear into the
+container root. It returns `ClosedLetterDropTransport` now, which passes
+`TransportConformance.inert`: unavailable, a reason, `post` throws `.unavailable`,
+`collect` returns nil. `postLetters` skips a transport that isn't available, so
+`letterPostProblem` is the plain reason rather than a refusal dressed as a
+failure. The Home vocabulary didn't change, because `lettersAreStuck` already
+read `unavailableReason`.
 
 The transport existed and compiled for a long time before anything selected it.
 `TripStore.init` read `letterPost ?? LoopbackLetterDropTransport()` —

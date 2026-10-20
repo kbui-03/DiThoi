@@ -597,19 +597,25 @@ struct TripSetupView: View {
             }
             .padding(.bottom, 8)
 
-            DetailRow(title: store.sync.transport.name,
-                      subtitle: store.sync.summary, titleSize: 16, showsRule: false) {
+            DetailRow(title: store.sync.transportName,
+                      subtitle: store.sync.detail ?? store.sync.summary,
+                      titleSize: 16, showsRule: false) {
                 if store.sync.isSyncing {
                     ProgressView().controlSize(.mini).tint(Palette.a700)
                 }
             }
 
-            OutlineButton(title: store.sync.isSyncing ? "Syncing…" : "Sync now",
-                          minHeight: 46, size: 15) {
-                Task { await store.syncNow() }
+            // Absent rather than disabled when there is nothing to sync with:
+            // a button that "succeeds" at a round going nowhere is how the
+            // sync line came to say "synced just now" about nothing.
+            if store.sync.transport.isAvailable {
+                OutlineButton(title: store.sync.isSyncing ? "Syncing…" : "Sync now",
+                              minHeight: 46, size: 15) {
+                    Task { await store.syncNow() }
+                }
+                .disabled(store.sync.isSyncing)
+                .padding(.top, Space.s2)
             }
-            .disabled(store.sync.isSyncing)
-            .padding(.top, Space.s2)
 
             // The second place somebody looks for "get the other phone on
             // this", after Papers — this block is already titled with the other

@@ -264,13 +264,41 @@ protocol LetterDropTransport: AnyObject {
 ///
 /// `cloudAvailable` is passed in rather than read here so both branches can be
 /// checked — `isAvailable` reads the bundle, and the checks can't forge one.
+///
+/// The other branch used to be `LoopbackLetterDropTransport`, which wrote every
+/// sealed letter in clear to a file on this phone and called that posting. A
+/// build with no postal service now has a closed letterbox instead: it refuses
+/// the post and says why, which is all home mode needed from it.
 func chooseLetterTransport(cloudAvailable: Bool) -> LetterDropTransport {
-    cloudAvailable ? CloudKitLetterDropTransport() : LoopbackLetterDropTransport()
+    cloudAvailable ? CloudKitLetterDropTransport() : ClosedLetterDropTransport()
+}
+
+/// The letterbox on a build with no CloudKit. It holds nothing and accepts
+/// nothing, in the shape `TransportConformance.inert` pins.
+final class ClosedLetterDropTransport: LetterDropTransport, @unchecked Sendable {
+    let name = "This phone only"
+    var isAvailable: Bool { false }
+
+    /// Said plainly: home mode rests on sealing a letter sending it somewhere,
+    /// and on this build it doesn't leave the phone.
+    var unavailableReason: String? {
+        "Letters aren't switched on for this build, so sealed ones wait on this phone."
+    }
+
+    func post(_ drop: LetterDrop, to recipient: Traveller, sealingTo key: Data?) async throws {
+        throw SyncError.unavailable(unavailableReason ?? "")
+    }
+
+    func collect(tripID: UUID, for recipient: Traveller,
+                 opening key: Curve25519.KeyAgreement.PrivateKey?) async throws -> LetterDrop? {
+        nil
+    }
 }
 
 /// File-backed stand-in for the real thing, exactly as `LoopbackSyncTransport`
 /// stands in for CloudKit — and for the same reason: it lets the interesting
-/// half be verified without an account or a second device.
+/// half be verified without an account or a second device. Reached only by
+/// injection; the app itself never chooses it.
 ///
 /// One file per address. When this grows a CloudKit sibling the address belongs
 /// in the record name for the same reason it is in the filename here: a phone
@@ -279,13 +307,9 @@ final class LoopbackLetterDropTransport: LetterDropTransport, @unchecked Sendabl
     let name = "This phone (loopback)"
 
     /// True: the box works and really holds post. What it isn't is a box on
-    /// another phone, which is `unavailableReason`'s job — a channel reporting
-    /// itself unavailable would leave `chooseLetterTransport` nothing to fall
-    /// back to.
+    /// another phone, which is `unavailableReason`'s job.
     var isAvailable: Bool { true }
 
-    /// Said plainly: home mode rests on sealing a letter sending it somewhere,
-    /// and on this build it doesn't leave the phone.
     var unavailableReason: String? {
         "Letters aren't switched on for this build, so sealed ones wait on this phone."
     }
@@ -298,7 +322,7 @@ final class LoopbackLetterDropTransport: LetterDropTransport, @unchecked Sendabl
     private let queue = DispatchQueue(label: "dithoi.loopback.letters")
 
     init(named box: String = "letters") {
-        directory = Storage.directory(".")
+        directory = Storage.loopbackDirectory
         self.box = box
     }
 
@@ -318,7 +342,7 @@ final class LoopbackLetterDropTransport: LetterDropTransport, @unchecked Sendabl
     func post(_ drop: LetterDrop, to recipient: Traveller, sealingTo key: Data?) async throws {
         let data = try JSONEncoder().encode(drop)
         let target = url(for: recipient)
-        try queue.sync { try data.write(to: target, options: .atomic) }
+        try queue.sync { try Storage.writeLoopback(data, to: target) }
     }
 
     func collect(tripID: UUID, for recipient: Traveller,

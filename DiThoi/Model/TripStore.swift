@@ -1509,7 +1509,10 @@ final class TripStore: ObservableObject {
     /// construction rather than by a filter, and in home mode `role` *is* the
     /// recipient, so the address needs no field of its own.
     func postLetters() async {
-        guard isObserver, isLive else { return }
+        // A closed letterbox is not a failed post. Trying would record its
+        // refusal as `lastPostFailure`, and the screen would print an error
+        // where the plain reason belongs.
+        guard isObserver, isLive, letterPost.isAvailable else { return }
         let drop = LetterDrop(tripID: tripID, recipient: role,
                               letters: sealedByWriter.map { SealedLetter($0, sealedAt: $0.sealedAt ?? $0.writtenOn) },
                               updatedAt: now)

@@ -945,15 +945,93 @@ struct Verify {
             // `SyncCoordinator` probed and picked, so switching iCloud on would
             // have moved the trip and left the letters on a file. Both branches,
             // because only one of them is reachable in this build.
-            check("with no iCloud, letters go in the file box",
-                  chooseLetterTransport(cloudAvailable: false) is LoopbackLetterDropTransport)
+            //
+            // The no-iCloud branch used to be the file box, which wrote every
+            // sealed letter in clear into the container root, in every backup.
+            check("with no iCloud, letters go nowhere and say so",
+                  chooseLetterTransport(cloudAvailable: false) is ClosedLetterDropTransport)
             check("and with iCloud they go to iCloud",
                   chooseLetterTransport(cloudAvailable: true) is CloudKitLetterDropTransport)
             check("a store picks the same way, rather than always the file",
                   TripStore(storeKey: nil, ritual: SilentRitualScheduler()).letterPost
-                      is LoopbackLetterDropTransport)
+                      is ClosedLetterDropTransport)
+            for result in await TransportConformance.inert(ClosedLetterDropTransport(),
+                                                           tripID: UUID()) {
+                check("closed letterbox: " + result.label, result.passed, result.detail)
+            }
             check("and the loopback admits it isn't a postal service",
                   LoopbackLetterDropTransport().unavailableReason?.isEmpty == false)
+
+            // The sync line. The default coordinator used to fall back to the
+            // loopback, which succeeds, so every screen said "synced just now"
+            // about a file on this phone.
+            let defaultSync = SyncCoordinator()
+            check("with no iCloud, the trip's sync is CloudKit, switched off",
+                  defaultSync.transport is CloudKitSyncTransport
+                      && !defaultSync.transport.isAvailable)
+            check("and the sync line says the trip is on this phone",
+                  defaultSync.summary == "on this phone", defaultSync.summary)
+            check("with the reason one tap further in",
+                  defaultSync.detail?.isEmpty == false)
+            check("and its transport isn't named as iCloud",
+                  defaultSync.transportName == "Only on this phone")
+            let offline = TripStore(storeKey: nil, ritual: SilentRitualScheduler())
+            await offline.syncNow()
+            check("a round on a build with no iCloud stamps nothing",
+                  offline.sync.lastSyncedAt == nil)
+            check("and still says on this phone afterwards",
+                  offline.sync.summary == "on this phone")
+
+            // A home phone with a closed letterbox: the post is skipped, so
+            // the problem is the plain reason, not a refusal dressed as an
+            // error.
+            let closedHome = TripStore(storeKey: nil, ritual: SilentRitualScheduler())
+            closedHome.participant = .writer
+            closedHome.writeTo(.one)
+            let closedDraft = closedHome.startLetter(title: "Waiting", condition: .nextOnline)
+            closedHome.seal(closedDraft.id)
+            await closedHome.postLetters()
+            check("a closed letterbox isn't recorded as a failed post",
+                  closedHome.lastPostFailure == nil && closedHome.lastPostedAt == nil)
+            check("but the letters are stuck, and it says why",
+                  closedHome.lettersAreStuck
+                      && closedHome.letterPostProblem == ClosedLetterDropTransport().unavailableReason)
+        }
+
+        print("— no plaintext copies outside the store —")
+        do {
+            // The boxes earlier builds left in the container root are swept.
+            let root = Storage.container
+            let strays = ["loopback-shared.json", "letters-one.json", "letters-two.json"]
+            for name in strays {
+                try? Data("{}".utf8).write(to: root.appendingPathComponent(name))
+            }
+            let keeper = root.appendingPathComponent("keep-me.json")
+            try? Data("{}".utf8).write(to: keeper)
+            let swept = Storage.sweepStrayLoopbackFiles()
+            check("the sweep removes every stray box in the root",
+                  Set(swept) == Set(strays), "\(swept)")
+            check("and nothing of them is left",
+                  strays.allSatisfy { !FileManager.default.fileExists(atPath: root.appendingPathComponent($0).path) })
+            check("and it leaves other files alone",
+                  FileManager.default.fileExists(atPath: keeper.path))
+            try? FileManager.default.removeItem(at: keeper)
+
+            // The boxes the checks still use live in their own folder, out of
+            // backups, never in the root.
+            let box = LoopbackSyncTransport(named: "checks-where")
+            box.latency = .zero
+            try? await box.push(SyncPayload.empty(tripID: UUID()))
+            let rootNames = (try? FileManager.default.contentsOfDirectory(atPath: root.path)) ?? []
+            check("a loopback box is not written to the container root",
+                  !rootNames.contains("loopback-checks-where.json"))
+            check("it is in the loopback folder",
+                  FileManager.default.fileExists(atPath: Storage.loopbackDirectory
+                      .appendingPathComponent("loopback-checks-where.json").path))
+            let excluded = (try? Storage.loopbackDirectory
+                .resourceValues(forKeys: [.isExcludedFromBackupKey]))?.isExcludedFromBackup
+            check("and that folder is out of backups", excluded == true)
+            box.erase()
         }
 
         print("— two phones find the same trip —")

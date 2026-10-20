@@ -133,6 +133,59 @@ enum Storage {
             at: storeDirectory.appendingPathComponent(name))
     }
 
+    // MARK: - The loopback boxes
+
+    /// Where the stand-in transports keep their boxes.
+    ///
+    /// They used to write to the container root at the default protection
+    /// class: `loopback-shared.json` (the ledger, the itinerary, the meeting
+    /// point) and `letters-*.json` (every sealed letter in full, unsealed),
+    /// both in every backup. That is the gap `writeProtected` was built to
+    /// close, left open one folder up. The app no longer falls back to either
+    /// box; they are reached by injection, from the checks and debug screens.
+    /// Protected and out of backups all the same, because "only the checks
+    /// write here" is a promise the next fallback can break.
+    static var loopbackDirectory: URL {
+        let url = directory("Loopback")
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        var excluded = url
+        try? excluded.setResourceValues(values)
+        return url
+    }
+
+    /// The same write `writeProtected` makes, into the loopback folder.
+    static func writeLoopback(_ data: Data, to url: URL) throws {
+        #if os(iOS)
+        let options: Data.WritingOptions = [.atomic, .completeFileProtection]
+        #else
+        let options: Data.WritingOptions = [.atomic]
+        #endif
+        try data.write(to: url, options: options)
+    }
+
+    /// Deletes the boxes earlier builds left in the container root.
+    ///
+    /// Removed without a read-back, which "never remove on faith" would
+    /// otherwise forbid: neither file was ever the only copy of anything.
+    /// `loopback-*.json` is this phone's own payload, pushed from the trip in
+    /// `Store/`; `letters-*.json` is the sealed set, whose originals are
+    /// `TripStore.letters` in the same protected snapshot. Run on every launch,
+    /// because an earlier build can be restored from a backup at any time.
+    ///
+    /// - Returns: the names it removed, so a check can see it did something.
+    @discardableResult
+    static func sweepStrayLoopbackFiles() -> [String] {
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: container.path)) ?? []
+        let strays = names.filter {
+            $0.hasSuffix(".json") && ($0.hasPrefix("loopback-") || $0.hasPrefix("letters-"))
+        }
+        for name in strays {
+            try? FileManager.default.removeItem(at: container.appendingPathComponent(name))
+        }
+        return strays
+    }
+
     /// Where a built book waits for the share sheet.
     ///
     /// Not `temporaryDirectory`, which is where it used to go: the PDF is the
