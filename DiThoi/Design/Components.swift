@@ -10,6 +10,20 @@ struct Rule: View {
     }
 }
 
+/// One horizontal line through the middle of its frame, to be stroked dashed.
+///
+/// A line, never a stroked rectangle: a rectangle one point tall strokes both
+/// of its edges, and the two rows of dashes interleave into a zigzag. The
+/// postcard found that first and the sealed letters' rule second.
+struct DashedLine: Shape {
+    func path(in rect: CGRect) -> Path {
+        Path { path in
+            path.move(to: CGPoint(x: rect.minX, y: rect.midY))
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
+        }
+    }
+}
+
 /// Uppercase monospace label — the app's "small caps" voice.
 ///
 /// Defaults to n700, not n600. The label voice renders at 9.5–10.5pt, under the

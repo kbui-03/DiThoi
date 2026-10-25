@@ -412,9 +412,20 @@ struct TodayView: View {
     /// The way into every letter, whether or not one has opened. It used to
     /// live inside the open-letter card, so a phone whose letters were all
     /// still sealed had no way to see them.
+    ///
+    /// The line under it is the anticipation: where the next one opens, which
+    /// is most of what a sealed letter is for. Never a withheld one's.
     private var lettersRow: some View {
-        planRow("All \(store.letters.count)", detail: store.letterTally ?? "",
-                hint: "Opens the letters") { going = .letters }
+        VStack(alignment: .leading, spacing: 0) {
+            planRow("All \(store.letters.count)", detail: store.letterTally ?? "",
+                    hint: "Opens the letters") { going = .letters }
+            if let next = store.nextLetterLine {
+                // Space under, none over: it belongs to the row above, and
+                // centred between two rows it read as belonging to neither.
+                Aside(text: next, size: 12)
+                    .padding(.bottom, Space.s2)
+            }
+        }
     }
 
     /// The day after the last one, and every day after that until the trip is

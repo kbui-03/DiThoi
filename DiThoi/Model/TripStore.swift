@@ -1702,6 +1702,40 @@ final class TripStore: ObservableObject {
         return clauses.isEmpty ? nil : clauses.joined(separator: " · ")
     }
 
+    /// "The next one opens in Hội An." The anticipation, said under the tally.
+    ///
+    /// The soonest by the schedule's own guess at a day, so Today and the
+    /// writer's board agree on what "next" is. A withheld condition is never
+    /// the next one: naming where it opens is the one thing it withholds. Nil
+    /// when nothing sealed can be placed — a letter waiting to be online has
+    /// already opened by the time anybody reads this.
+    var nextLetterLine: String? {
+        guard !isObserver, features.letters else { return nil }
+        let waiting = Set(letters.filter {
+            $0.isSealed && !$0.isOpen && !$0.secretCondition && $0.condition != .nextOnline
+        }.map(\.id))
+        guard !waiting.isEmpty,
+              let next = letterSchedule.placements
+                .filter({ waiting.contains($0.id) })
+                .min(by: { ($0.day, $0.number) < ($1.day, $1.number) })
+        else { return nil }
+        switch next.condition {
+        case .place(let name):
+            return "The next one opens in \(name)."
+        case .stamp(let code):
+            if let city = orderedStamps.first(where: { $0.code == code })?.city {
+                return "The next one opens in \(city)."
+            }
+            return "The next one opens with the \(code) stamp."
+        case .day(let day):
+            return day == dayNumber + 1 ? "The next one opens tomorrow." : "The next one opens on day \(day)."
+        case .finalStamp:
+            return "The next one opens with the last stamp."
+        case .nextOnline, .hidden:
+            return nil
+        }
+    }
+
     var newestOpenLetter: Letter? {
         letters.filter(\.isOpen).max { ($0.openedOn ?? .distantPast) < ($1.openedOn ?? .distantPast) }
     }
@@ -2267,6 +2301,21 @@ final class TripStore: ObservableObject {
         return position(ofCity: city, inCountry: leg.country)
     }
 
+    /// Where the plan goes, as far as the city list knows: every stop's places,
+    /// in plan order, looked up inside the stop's own country.
+    ///
+    /// For the map to frame before any waypoint has a position. It used to
+    /// fall back to a fixed point over Bangkok, which was the sample trip's
+    /// first city and every other trip's wrong one. Empty when nothing can be
+    /// placed, and then the map draws nothing rather than somewhere.
+    var itineraryPositions: [CityPositions.Position] {
+        legs.flatMap { leg in
+            leg.segments.flatMap { segment in
+                segment.places.compactMap { position(ofCity: $0, inCountry: leg.country) }
+            }
+        }
+    }
+
     /// Gives every waypoint nobody has stood in, and that has no position, the
     /// one the city list has for it.
     ///
@@ -2406,10 +2455,17 @@ final class TripStore: ObservableObject {
     /// standing on it. A pin from home would earn the stamp, open the letter
     /// tied to that city, add its leg to the distance and change the headline
     /// on all three phones, none of which can be undone.
+    ///
+    /// - Returns: every letter that opened, in number order. Not just the
+    ///   packed `unlocksLetter`, which only the sample trip ever set: the
+    ///   letters written from home are keyed `.stamp`, `.place` and
+    ///   `.finalStamp`, and asking only that field opened them on the next
+    ///   wake, off screen, so the stamp screen's "something came with it"
+    ///   never happened on a real trip.
     @discardableResult
-    func arrive(at stamp: Stamp) -> Letter? {
-        guard !isObserver else { return nil }
-        guard let index = stamps.firstIndex(where: { $0.id == stamp.id }), !stamps[index].earned else { return nil }
+    func arrive(at stamp: Stamp) -> [Letter] {
+        guard !isObserver else { return [] }
+        guard let index = stamps.firstIndex(where: { $0.id == stamp.id }), !stamps[index].earned else { return [] }
         stamps[index].earnedOn = now
         // A waypoint somebody typed has no coordinate, so it draws nowhere on
         // the map and adds nothing to the distance. Standing in it is the one
@@ -2420,9 +2476,40 @@ final class TripStore: ObservableObject {
             stamps[index].longitude = fix.longitude
         }
         stamps[index].updatedAt = now
-        guard let number = stamps[index].unlocksLetter else { return nil }
-        open(letterNumber: number, place: stamps[index].city)
-        return letters.first { $0.number == number }
+        var opened: [Letter] = []
+        if let number = stamps[index].unlocksLetter,
+           letters.contains(where: { $0.number == number && !$0.isOpen }) {
+            open(letterNumber: number, place: stamps[index].city)
+            if let letter = letters.first(where: { $0.number == number && $0.isOpen }) { opened.append(letter) }
+        }
+        // The stamp is earned by now, so `letterMoment` already counts it.
+        // Anything else that came due in the same instant opens with it too:
+        // it would otherwise open on the next wake with nobody looking.
+        opened += openDueLetters()
+        return opened.sorted { $0.number < $1.number }
+    }
+
+    /// The letters arriving at this waypoint would open, for the trail to say
+    /// so before the pin is dropped.
+    ///
+    /// Asks the same `isMet` the opening does, with the stamp counted as
+    /// earned — so the promise and the opening can't disagree. A letter whose
+    /// condition was withheld is never counted: "arriving here opens a letter"
+    /// would tell them where the secret one is.
+    func lettersOpening(onArrivalAt stamp: Stamp) -> [Letter] {
+        guard !isObserver, features.letters, !stamp.earned else { return [] }
+        let before = letterMoment
+        var after = before
+        after.earnedStampCodes.insert(stamp.code)
+        after.earnedStampCities.insert(stamp.city)
+        after.allStampsEarned = !orderedStamps.isEmpty
+            && orderedStamps.allSatisfy { $0.earned || $0.id == stamp.id }
+        return letters.filter { letter in
+            guard letter.isSealed, !letter.isOpen, !letter.secretCondition else { return false }
+            if let number = stamp.unlocksLetter, letter.number == number { return true }
+            return letter.condition.isMet(after) && !letter.condition.isMet(before)
+        }
+        .sorted { $0.number < $1.number }
     }
 
     // MARK: - Meeting point

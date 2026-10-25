@@ -57,7 +57,7 @@ struct TrailMapView: View {
 
             TrailMap(stamps: store.orderedStamps, moments: store.orderedMoments,
                      here: here?.coordinate, interactive: true,
-                     selection: $selection, recentre: recentre)
+                     selection: $selection, recentre: recentre, planned: TrailMap.planned(in: store))
                 .overlay(alignment: .top) { Rule() }
                 .overlay(alignment: .bottom) { Rule() }
         }

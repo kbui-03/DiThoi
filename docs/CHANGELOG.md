@@ -26,6 +26,9 @@ change gets its own line under **Unreleased**.
   was removed on the other phone. Each one can be put on a stop or let go.
 
 ### Changed
+- Today says where the next sealed letter opens, under the letters row.
+- The trail's closing line ("X is the last one, and it's just a stamp") is
+  gone.
 - Day plans are filed by stop and day-of-stop, not by day number, so dragging
   a stop takes its plans with it. A stop shortened past a written day sets the
   plan aside, and lengthening the stop brings it back. If two phones write the
@@ -35,6 +38,15 @@ change gets its own line under **Unreleased**.
   the rest in plan order.
 
 ### Fixed
+- Arriving opens the letters written from home. Letters sealed to a stamp, a
+  place or the last stamp opened on the next wake, off screen; the stamp
+  screen now shows every letter that opened, one row each. "Arriving here
+  opens a letter" asks the letters, and never counts one whose condition was
+  withheld.
+- The empty trail map frames the itinerary instead of Bangkok, and with no
+  stop it can place it shows a frame saying what fills it.
+- The last stamp no longer says "0 km" when no stamp has a position.
+- The dashed rule between sealed letters is a line, not a zigzag.
 - Removing a stop takes its unearned stamps with it. They used to stay "next"
   on the trail, reachable from no editor, and blocked every letter sealed to
   the last stamp. The confirmation names the stamps, the sealed letters and
@@ -230,15 +242,8 @@ is lost.
 - **Should:** "1 nights", "1 days" and "1 places" in a few places.
 
 ### Trail
-- **Must:** arriving doesn't open letters sealed from home to that stamp or
-  place. They open on the next wake, off screen.
 - **Should:** a typed stop the city list doesn't know (a camp, a village under
   15,000 people) still has no position until somebody stands in it.
-- **Should:** the map defaults to Bangkok, and the last stamp can say "0 km".
-
-### Letters
-- **Should:** the dashed rule between sealed letters strokes both edges of a
-  one-point box, which draws a zigzag.
 
 ### Money
 - **Must:** only the newest six expenses can be reached to edit or delete.

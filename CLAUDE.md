@@ -55,14 +55,14 @@ check: `Features/` and `Root/` aren't compiled by the checks.
 ## Before you change anything
 
 ```bash
-./Tools/run-checks.sh          # 1,594 model assertions, macOS, no simulator
+./Tools/run-checks.sh          # 1,610 model assertions, macOS, no simulator
 ./Tools/render-icons.sh        # regenerates the icon set and re-tests actool
 ```
 
 - Run the checks after touching `Model/` or `Shared/`. They also run two stores
   against one loopback box, which is how sync is verified with no account. (§6.1)
 - Reach any screen with `xcrun simctl launch <device> com.lovedones.dithoi
-  -resetTrip -screen <route>`. There are 76 routes, plus `-day N` (zero or
+  -resetTrip -screen <route>`. There are 77 routes, plus `-day N` (zero or
   negative allowed), `-seedItinerary`, `-seedJournal`, `-seedSpending`,
   `-seedLetters` (with `-openLetter`), `-noBudget` and `-planned`. The empty states are half of what there is to look at, which is
   why seeding is a flag, not a route. (§6.2)
@@ -242,6 +242,13 @@ The general lessons behind them are §11; the debt kept on purpose is §7.
   15 minutes old, live traveller trips only. (§3.7)
 - Arrival is suggested, never awarded. The nudge goes to Trail's own
   confirmation. (§3.10)
+- `arrive(at:)` opens every due letter through `openDueLetters()` and returns
+  them all; the stamp screen takes the list. Never ask `unlocksLetter` alone,
+  which only packed trips set. (§3.10)
+- The trail's "opens a letter" is `lettersOpening(onArrivalAt:)`, which never
+  counts a `secretCondition` letter. (§3.10)
+- With nothing located the map frames `itineraryPositions`, and with no plan
+  either it draws a dashed frame, never a default city. (§3.10)
 - "Keep a moment here" presents from the cover's `onDismiss`. (§3.10)
 - An unfinished moment is derived, never stored. (§3.10)
 - `photoIntake` clears `isPresented` on sight. (§3.10)
@@ -412,6 +419,9 @@ The general lessons behind them are §11; the debt kept on purpose is §7.
 - `RitualClock` stores its zone and schedules by interval. It never touches
   `UNUserNotificationCenter` without permission. (§8.1)
 - `save(entry:)` replaces on `(dayNumber, author)`. (§8.1)
+- `nextLetterLine` never names a `secretCondition` letter. (§8.3)
+- Dashed hairlines are a stroked `DashedLine`, never a bordered 1pt box.
+  (§3.10)
 - `sealedAt == nil` means draft, and only the decoder defaults it.
   `secretCondition` withholds; `.hidden` can't fire. `Silence.id` is its span.
   (§8.3)

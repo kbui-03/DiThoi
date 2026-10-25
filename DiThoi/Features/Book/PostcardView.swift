@@ -86,15 +86,6 @@ struct PostcardView: View {
     }
 }
 
-private struct DashedLine: Shape {
-    func path(in rect: CGRect) -> Path {
-        Path { path in
-            path.move(to: CGPoint(x: rect.minX, y: rect.midY))
-            path.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
-        }
-    }
-}
-
 /// Choosing the week's postcard, and keeping it.
 ///
 /// "Save to Photos" is the act. It used to be drafted as "Send one home", and

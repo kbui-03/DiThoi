@@ -101,17 +101,13 @@ struct LettersView: View {
     }
 }
 
-/// Dashed hairline used only for the sealed letters.
+/// Dashed hairline used only for the sealed letters. One `DashedLine`, not
+/// a bordered one-point box, which drew its top and bottom edges as two rows
+/// of dashes that met in a zigzag.
 struct DashedRule: View {
     var body: some View {
-        Rectangle()
-            .fill(.clear)
+        DashedLine()
+            .stroke(Palette.n300, style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
             .frame(height: 1)
-            .overlay(
-                Rectangle()
-                    .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
-                    .foregroundStyle(Palette.n300)
-                    .frame(height: 1)
-            )
     }
 }

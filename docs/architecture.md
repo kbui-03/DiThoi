@@ -1265,6 +1265,29 @@ button — a 6pt diamond is not a target. Its cards never mention letters: the
 same screen is on the observer's tab and in the shelf. `TrailView` pushes through
 one `navigationDestination(item:)` over `TrailDestination`.
 
+**With nothing located, the map frames the plan, and with no plan it isn't a
+map.** `TrailMap.region` fell back to a fixed box over Bangkok, the sample
+trip's first city, on every trip. Now `TrailMap.planned(in:)` hands it
+`itineraryPositions` (every stop's places, looked up in `cities.tsv` inside
+the stop's own country) while no waypoint has a position. The plan only
+frames; it draws no marks, which would read as stamps still ahead. With
+nothing to frame at all, `TrailView.mapDoor` draws a dashed frame saying what
+fills it, and no door: there is nothing to open. The world view left in
+`region(fitting:)` is a backstop for moments with nothing else around them.
+
+**Arriving opens every letter that came due, on the tap.** `arrive(at:)`
+used to open only `unlocksLetter`, which only the packed trip sets. The
+letters written from home are keyed `.stamp`, `.place` and `.finalStamp`, so on
+a real trip they opened on the next wake with nobody looking, and the stamp
+screen's "something came with it" never happened. It now calls
+`openDueLetters()` once the stamp is earned and returns everything that
+opened; `StampEarnedView` takes the list and gives each its own row when there
+is more than one. The trail's promise above the button is
+`lettersOpening(onArrivalAt:)`, which asks the same `isMet` with the stamp
+counted as earned. It never counts a `secretCondition` letter (the count would
+say where the secret one is), so with any hidden letter on the phone the line
+says "as far as you can tell" instead of "nothing else".
+
 **"Keep a moment here" presents from the cover's `onDismiss`.** The stamp
 screen is a full-screen cover; a sheet started while it is still animating out
 is the `PhotoIntake` race, so the stamp is held in `keepingAt` and handed to
@@ -1996,7 +2019,7 @@ There is no simulator in CI and no XCTest target. Verification is two things:
 ### 6.1 `./Tools/run-checks.sh`
 
 Compiles everything in `DiThoi/Model/` and `Shared/` plus `Tools/VerifyTrip.swift`
-for **macOS** and runs 1,594 assertions — no simulator; the compile takes a
+for **macOS** and runs 1,610 assertions — no simulator; the compile takes a
 few minutes, the run a few seconds. It
 covers trip shape, rate conversion and round-tripping, budget derivation, the
 date-shift invariants, itinerary reflow after all four edit operations, the
@@ -2048,7 +2071,8 @@ To reach a screen without walking a flow (`#if DEBUG`, out of Release):
 xcrun simctl launch <device> com.lovedones.dithoi -resetTrip -screen money
 ```
 
-76 routes. `savedpostcard` is the saved page on a night the book reaches a
+77 routes. `stampletters` is the stamp screen with two letters opened at
+once (`-seedLetters`). `savedpostcard` is the saved page on a night the book reaches a
 multiple of seven (`-seedItinerary -seedJournal -day 14`); `postcard -week n` is
 the postcard sheet; `exportpostcard -week n` writes the PNG and prints where.
 `bookpreview -scrubDay n` draws the page bar's bubble held, `entry -promptIndex n`
@@ -2202,7 +2226,8 @@ screenshots.
 
 - **The book's additions** — two, over a green suite. The postcard's dashed
   rule was a `Rectangle` stroked with a dash, which strokes *both* edges of a
-  one-point box and drew a zigzag. And the first prompt cap of 44 dropped every
+  one-point box and drew a zigzag. (The letter box's `DashedRule` had the same
+  bug and kept it until `DashedLine` moved to `Components.swift`.) And the first prompt cap of 44 dropped every
   seeded moment, so the composer asked "What did you eat?" on a day with a dog
   in it. Neither was wrong to any assertion.
 
@@ -2963,6 +2988,10 @@ Three more things fell out of taking the design seriously:
 - **A hidden letter has a real condition.** `LetterCondition.hidden` could never
   fire, so `secretCondition` withholds the *when* from her while the letter
   still knows it. Four seeded letters were sealed with no way to open.
+- **The next letter is named, never a hidden one.** `nextLetterLine` is the
+  soonest sealed letter by `letterSchedule`'s day, so Today and the writer's
+  board agree on "next". A `secretCondition` letter is skipped even when it is
+  the only one left: where it opens is the thing withheld.
 - **Nothing says "no letters on this phone".** `TodayView` used to, on the phone
   that is supposed to have neither the letters nor any mention of them. It read
   as a demonstration written for a reader of the prototype. What each side can

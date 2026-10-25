@@ -13,7 +13,7 @@ struct TrailView: View {
     @Environment(\.isReadOnly) private var isReadOnly
     @Environment(\.arrivalRequest) private var arrivalRequest
     @State private var earned: Stamp?
-    @State private var unlocked: Letter?
+    @State private var unlocked: [Letter] = []
     @State private var showingStamp = false
     @State private var readingLetter: Letter?
     /// The waypoint the dialog is asking about.
@@ -95,27 +95,7 @@ struct TrailView: View {
                 .padding(.top, 8)
                 .padding(.bottom, 12)
 
-            // A door, now. A tappable frame is pixel-identical to a dead one,
-            // so it says so in its corner — clear of the Maps logo and the
-            // legal link, which sit bottom-leading.
-            Button { going = .map } label: {
-                TrailMap(stamps: store.orderedStamps, moments: store.orderedMoments,
-                         here: here?.coordinate)
-                    .frame(height: 236)
-                    .overlay(alignment: .topTrailing) {
-                        Mono("open the map", size: 9.5, trackingRatio: 0.1, color: Palette.a700)
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 4)
-                            .background(Palette.bg.opacity(0.92))
-                            .padding(6)
-                    }
-                    .padding(6)
-                    .background(Palette.surface)
-                    .overlay(Rectangle().strokeBorder(Palette.divider, lineWidth: 1))
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityHint("Opens the whole trail, to explore")
+            mapDoor
 
             // No pin count here: the stamps are counted two rows down, from the
             // waypoints that were actually earned.
@@ -166,9 +146,7 @@ struct TrailView: View {
                              size: 10, trackingRatio: 0.1, color: close ? Palette.a700 : Palette.n700)
                             .padding(.top, 3)
                     }
-                    Aside(text: next.unlocksLetter == nil
-                          ? "A stamp, and nothing else."
-                          : "Arriving here opens a letter.", size: 12.5)
+                    Aside(text: arrivalPromise(at: next), size: 12.5)
                         .padding(.top, 2)
 
                     OutlineButton(title: "I'm standing in it", minHeight: 46, size: 15) {
@@ -187,10 +165,6 @@ struct TrailView: View {
                 .padding(.bottom, Space.s3)
             }
 
-            if let last = store.orderedStamps.last {
-                Aside(text: "\(last.city) is the last one, and it's \(last.unlocksLetter == nil ? "just a stamp" : "the only stamp that opens a letter").", size: 12)
-            }
-
             momentsSection
         }
         .confirmationDialog("Drop a pin in \(arriving?.city ?? "")?",
@@ -207,7 +181,7 @@ struct TrailView: View {
             keepingAt = nil
         }) {
             if let earned {
-                StampEarnedView(stamp: earned, unlockedLetter: unlocked,
+                StampEarnedView(stamp: earned, unlockedLetters: unlocked,
                                 onReadLetter: { readingLetter = $0 },
                                 onKeepMoment: canMark ? { keepingAt = $0 } : nil)
             }
@@ -364,14 +338,75 @@ struct TrailView: View {
         }
     }
 
+    /// The map, or, when nothing on it could be placed, a frame saying what
+    /// fills it.
+    ///
+    /// Nothing located used to mean a map of Bangkok, the sample trip's first
+    /// city, on every trip. Now the plan frames it, and with no stop the city
+    /// list knows either, there is no map to open: a door onto an empty sea
+    /// is the "00 / 0 over a gap" the stamps below refused.
+    @ViewBuilder
+    private var mapDoor: some View {
+        // Read once: `itineraryPositions` walks the city list.
+        let planned = TrailMap.planned(in: store)
+        if planned.isEmpty, here == nil,
+           !store.orderedStamps.contains(where: \.hasLocation),
+           !store.orderedMoments.contains(where: \.hasLocation) {
+            Aside(text: "The map starts with the first place it can find. Add a stop in the itinerary.",
+                  size: 12.5)
+                .multilineTextAlignment(.center)
+                .padding(Space.s6)
+                .frame(maxWidth: .infinity, minHeight: 236)
+                .overlay(Rectangle().strokeBorder(Palette.n500, style: StrokeStyle(lineWidth: 1, dash: [3, 3])))
+        } else {
+                // A door, now. A tappable frame is pixel-identical to a dead one,
+                // so it says so in its corner — clear of the Maps logo and the
+                // legal link, which sit bottom-leading.
+                Button { going = .map } label: {
+                    TrailMap(stamps: store.orderedStamps, moments: store.orderedMoments,
+                             here: here?.coordinate, planned: planned)
+                        .frame(height: 236)
+                        .overlay(alignment: .topTrailing) {
+                            Mono("open the map", size: 9.5, trackingRatio: 0.1, color: Palette.a700)
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 4)
+                                .background(Palette.bg.opacity(0.92))
+                                .padding(6)
+                        }
+                        .padding(6)
+                        .background(Palette.surface)
+                        .overlay(Rectangle().strokeBorder(Palette.divider, lineWidth: 1))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Opens the whole trail, to explore")
+        }
+    }
+
+    /// What arriving opens, asked of the letters themselves. This used to read
+    /// `unlocksLetter`, which only the packed trip ever set, so on a real trip
+    /// it said "nothing else" over a stop with three letters sealed to it.
+    /// The count never includes a withheld condition, which the store sees to.
+    private func arrivalPromise(at stamp: Stamp) -> String {
+        let count = store.lettersVisible ? store.lettersOpening(onArrivalAt: stamp).count : 0
+        switch count {
+        // "Nothing else" is a promise the phone can't make while a letter's
+        // condition is withheld from it. The letter box already says one is.
+        case 0: return store.hiddenLetterCount > 0 ? "A stamp, as far as you can tell." : "A stamp, and nothing else."
+        case 1: return "Arriving here opens a letter."
+        default:
+            return "Arriving here opens \(Formatting.spelledCount(count, "letter").lowercased())."
+        }
+    }
+
     /// The waypoint the dialog named, not whichever one is next by the time the
     /// tap lands.
     private func arrive() {
         guard let target = arriving else { return }
         arriving = nil
-        let letter = store.arrive(at: target)
+        let letters = store.arrive(at: target)
         earned = store.stamps.first { $0.id == target.id }
-        unlocked = store.lettersVisible ? letter : nil
+        unlocked = store.lettersVisible ? letters : []
         showingStamp = true
     }
 }
@@ -576,6 +611,10 @@ struct TrailMap: View {
     /// earned stamps, day 8 was a close-up of Bangkok with the rest of the
     /// trip nowhere on screen.
     var framing: [Stamp]? = nil
+    /// Where the plan goes, for framing a trail no waypoint has a position
+    /// on yet. Never drawn: a plan is not a place anybody has been, and
+    /// marks for it would read as stamps still ahead.
+    var planned: [CLLocationCoordinate2D] = []
 
     private var earned: [Stamp] { stamps.filter { $0.earned && $0.hasLocation } }
     private var ahead: [Stamp] { stamps.filter { !$0.earned && $0.hasLocation } }
@@ -720,21 +759,23 @@ struct TrailMap: View {
     /// titled "the trail so far".
     private var region: MKCoordinateRegion {
         if let framing, framing.contains(where: \.hasLocation) {
-            return Self.region(fitting: framing.filter(\.hasLocation))
+            return Self.region(fitting: framing.filter(\.hasLocation).map(\.coordinate))
         }
         var located = earned
         if let next = ahead.first { located.append(next) }
         if located.count < 2 { located = stamps.filter(\.hasLocation) }
-        return Self.region(fitting: located)
+        // Nothing on the trail knows where it is: frame where the plan goes.
+        // This was a fixed box over Bangkok, the sample trip's first city,
+        // on every trip. The trail draws a frame instead of a map when even
+        // the plan can't be placed, so the world view below is a backstop.
+        if located.isEmpty, !planned.isEmpty { return Self.region(fitting: planned) }
+        return Self.region(fitting: located.map(\.coordinate))
     }
 
-    /// The box around some stamps, with room at the edges and never tighter
+    /// The box around some points, with room at the edges and never tighter
     /// than about a region of a country.
-    private static func region(fitting located: [Stamp]) -> MKCoordinateRegion {
-        guard !located.isEmpty else {
-            return MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: 13.75, longitude: 100.5),
-                                      span: MKCoordinateSpan(latitudeDelta: 30, longitudeDelta: 30))
-        }
+    private static func region(fitting located: [CLLocationCoordinate2D]) -> MKCoordinateRegion {
+        guard !located.isEmpty else { return MKCoordinateRegion(.world) }
         let lats = located.map(\.latitude), lons = located.map(\.longitude)
         let minLat = lats.min()!, maxLat = lats.max()!
         let minLon = lons.min()!, maxLon = lons.max()!
@@ -744,4 +785,17 @@ struct TrailMap: View {
                                    longitudeDelta: max((maxLon - minLon) * 1.6, 1.2))
         )
     }
+}
+
+extension TrailMap {
+    /// The plan's stops, only while no waypoint has a position of its own:
+    /// once one does, the trail frames itself. Asked by both maps.
+    static func planned(in store: TripStore) -> [CLLocationCoordinate2D] {
+        guard !store.orderedStamps.contains(where: \.hasLocation) else { return [] }
+        return store.itineraryPositions.map { CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude) }
+    }
+}
+
+private extension Stamp {
+    var coordinate: CLLocationCoordinate2D { CLLocationCoordinate2D(latitude: latitude, longitude: longitude) }
 }
