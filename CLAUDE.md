@@ -28,6 +28,7 @@ membership.
 
 ```
 DiThoi/Model/      TripStore, Models, SampleTrip (commented out), TripShape,
+                   CityPositions,
                    TrailReplay, Syncing, SyncTransports, SyncCoordinator,
                    TransportConformance, Rates, CountryFacts, LocationService,
                    PhotoStore, PhotoCrop, DocumentStore, ScanVault,
@@ -38,13 +39,14 @@ DiThoi/Design/     Components, AppLock, ReadOnly
 DiThoi/Features/   41 screens grouped by tab, incl. Arrival/, Home/ and Trips/
 DiThoi/Root/       RootView, MainTabs, HomeTabs, ClassicalTabBar, DebugScreens,
                    AppShortcuts
+DiThoi/Resources/  cities.tsv (GeoNames, made by Tools/build-cities.sh)
 Shared/            both targets: Theme, TripMark, TripMarkView, WidgetSnapshot,
                    DayWidgetView, QuickAction, MarkMomentIntent
 DiThoiWidget/      WidgetBundle, DayWidget (timeline), MarkMomentControl (iOS 18)
 docs/              README, architecture, expansion, CHANGELOG; archive/
 Tools/             run-checks.sh, CheckTrip.swift, VerifyTrip.swift,
-                   render-icons.sh, RenderIcons
-Screenshots/       107 files: every screen, 3 text sizes
+                   render-icons.sh, RenderIcons, build-cities.sh
+Screenshots/       117 files: every screen, most at 3 text sizes
 ```
 
 About 33k lines of Swift, no third-party dependencies. Not every model rule is in a
@@ -53,14 +55,14 @@ check: `Features/` and `Root/` aren't compiled by the checks.
 ## Before you change anything
 
 ```bash
-./Tools/run-checks.sh          # 1,530 model assertions, macOS, no simulator
+./Tools/run-checks.sh          # 1,594 model assertions, macOS, no simulator
 ./Tools/render-icons.sh        # regenerates the icon set and re-tests actool
 ```
 
 - Run the checks after touching `Model/` or `Shared/`. They also run two stores
   against one loopback box, which is how sync is verified with no account. (§6.1)
 - Reach any screen with `xcrun simctl launch <device> com.lovedones.dithoi
-  -resetTrip -screen <route>`. There are 71 routes, plus `-day N` (zero or
+  -resetTrip -screen <route>`. There are 76 routes, plus `-day N` (zero or
   negative allowed), `-seedItinerary`, `-seedJournal`, `-seedSpending`,
   `-seedLetters` (with `-openLetter`), `-noBudget` and `-planned`. The empty states are half of what there is to look at, which is
   why seeding is a flag, not a route. (§6.2)
@@ -181,6 +183,12 @@ The general lessons behind them are §11; the debt kept on purpose is §7.
   phone's own. (§3.2)
 - Itinerary edits are a mutation plus `reflow()`. Order and nights are the
   authority. (§3.1)
+- Removing a stop or a country goes through `removalSummary(ofSegments:)`: its
+  unearned stamps and its day plans go with it, earned stamps stay, and a
+  removal that would complete the trail is refused. Never remove a segment
+  from the document alone. (§3.8)
+- Renaming a stop pins its name-joined stamps by id first and never rewrites
+  `Stamp.city`. Renaming a country re-stamps that visit's expenses. (§3.8)
 - `city(forDay:)` and `todaySegment` fall through to the last stop on the way
   home; `currentSegment` deliberately doesn't. (§3.8)
 - A stop's title splits only through `Segment.places` and
@@ -198,7 +206,13 @@ The general lessons behind them are §11; the debt kept on purpose is §7.
 - `waypoints(forSegment:)` is plural, and the editor offers another stamp
   whenever `appendCost()` allows. Never use `.first`. (§3.9)
 - `index` is derived by `reflowWaypoints()`, which re-stamps `updatedAt`.
-  Renumbering is an edit. (§3.9)
+  Renumbering is an edit. Earned stamps come first, by `earnedOn`; the rest
+  follow the plan. (§3.9)
+- `orphanedWaypoints` is the editor's repair list; `attachWaypoint` is the
+  only way back onto a stop. (§3.9)
+- A typed waypoint's position comes from `CityPositions`, inside its stop's
+  country only. The backfill fills blanks without an edit; `arrive(at:)`
+  still only fills a blank. The settings credit is the licence. (§3.9)
 - Waypoints stay a tombstoned collection, never nested in `Segment`. (§3.9)
 - An earned waypoint is immutable. Removing one a letter names is confirmed,
   with the letter named. Removing the last unearned one is refused. (§3.9)
@@ -271,6 +285,10 @@ The general lessons behind them are §11; the debt kept on purpose is §7.
 - Both are editable and therefore on `SyncPayload`. (§3.12)
 - Read `orderedShowCards`, never `showCards`. `plan(forDay:)` reads
   `dayPlans.live`. (§3.12)
+- Day plans are filed by `planKey(forDay:)`: stop and day-of-stop, or the day
+  number where no stop covers it. A plan past its stop's nights is set aside,
+  never deleted. The newest of two answers wins. (§3.12)
+- Read `orderedItems`, never `items`: hours sort by time, derived. (§3.12)
 - A day plan's `city` is what it was written about; screens prefer the segment.
   (§3.12)
 - Editors keyed on a value load with `.task(id:)`. Placeholders are never real

@@ -11,6 +11,9 @@ struct ItineraryEditorView: View {
     @State private var confirmingRemoval: Segment?
     @State private var addingWaypointTo: Segment?
     @State private var editingWaypoint: Stamp?
+    @State private var editingCountry: Leg?
+    @State private var renaming: Segment?
+    @State private var placing: Stamp?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -20,6 +23,14 @@ struct ItineraryEditorView: View {
             }
 
             List {
+                // First, not last: these hold the trail up until somebody
+                // answers them, and below eleven stops nobody would.
+                if !store.orphanedWaypoints.isEmpty {
+                    Section {
+                        orphans
+                    }
+                }
+
                 ForEach(store.legs) { leg in
                     Section {
                         ForEach(leg.segments) { segment in
@@ -37,12 +48,25 @@ struct ItineraryEditorView: View {
                         }
                         .listRowBackground(Palette.bg)
                     } header: {
-                        HStack(alignment: .firstTextBaseline) {
-                            Text(leg.country)
-                                .font(Typeface.heading(17, .semibold))
-                                .foregroundStyle(Palette.text)
-                            Spacer()
-                            Mono("\(Formatting.spelledCount(leg.nights, "night", spellingUpTo: 0))", size: 10, trackingRatio: 0.08)
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(alignment: .firstTextBaseline) {
+                                Text(leg.country)
+                                    .font(Typeface.heading(17, .semibold))
+                                    .foregroundStyle(Palette.text)
+                                Spacer()
+                                // The name, the money and removing the whole
+                                // country all live behind this one word: they
+                                // are answers about the country, not the stop.
+                                Button { editingCountry = leg } label: {
+                                    Mono("edit", size: 10, trackingRatio: 0.08, color: Palette.a700)
+                                        .padding(.leading, Space.s4)
+                                        .padding(.vertical, 6)
+                                        .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            Mono("\(Formatting.spelledCount(leg.nights, "night", spellingUpTo: 0)) · \(leg.currency.code)",
+                                 size: 10, trackingRatio: 0.08)
                         }
                         .textCase(nil)
                         .padding(.top, Space.s2)
@@ -51,6 +75,7 @@ struct ItineraryEditorView: View {
                 .onMove { offsets, destination in
                     store.moveLegs(from: offsets, to: destination)
                 }
+
 
                 Section {
                     Button {
@@ -85,12 +110,69 @@ struct ItineraryEditorView: View {
         .sheet(isPresented: $addingCountry) {
             AddCountryView()
         }
+        .sheet(item: $editingCountry) { leg in
+            CountryEditorView(leg: leg)
+        }
+        .sheet(item: $renaming) { segment in
+            RenameStopView(segment: segment)
+        }
+        .sheet(item: $placing) { stamp in
+            PlaceStampView(stamp: stamp)
+        }
+    }
+
+    // MARK: - Stamps with no stop
+
+    /// A stamp whose stop went in a merge: the other phone removed the stop
+    /// while this one stamped it. Unattended it is "next" on the trail and
+    /// holds the last-stamp letter shut, so each one is put somewhere or let go.
+    @ViewBuilder
+    private var orphans: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Mono("Stamps with no stop", size: 10, color: Palette.a700)
+            Aside(text: "Their stop was removed on the other phone. Put each one on a stop, or let it go.",
+                  size: 12, color: Palette.n600)
+        }
+        .padding(.top, Space.s3)
+        .listRowBackground(Palette.bg)
+
+        ForEach(store.orphanedWaypoints) { stamp in
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(stamp.code)
+                    .font(Typeface.mono(10.5))
+                    .foregroundStyle(Palette.a700)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .overlay(Rectangle().strokeBorder(Palette.a300, lineWidth: 1))
+                Mono(stamp.city, size: 9.5, trackingRatio: 0.08)
+                Spacer(minLength: 0)
+                Button { placing = stamp } label: {
+                    Mono("place it", size: 9.5, trackingRatio: 0.08, color: Palette.a700)
+                        .padding(.vertical, 8)
+                        .padding(.leading, 12)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                // The removal and its guards are the stamp editor's, which
+                // already says what a letter loses.
+                Button { editingWaypoint = stamp } label: {
+                    Mono("edit", size: 9.5, trackingRatio: 0.08, color: Palette.n600)
+                        .padding(.vertical, 8)
+                        .padding(.leading, 12)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            .listRowBackground(Palette.bg)
+        }
     }
 
     // MARK: - A stop
 
     @ViewBuilder
     private func row(_ segment: Segment, in leg: Leg) -> some View {
+        // Read once: it walks every stamp and letter on the trip.
+        let removal = store.removalSummary(ofSegments: [segment.id])
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
                 Text(segment.title)
@@ -120,15 +202,45 @@ struct ItineraryEditorView: View {
 
                 Spacer()
 
-                Button(role: .destructive) {
-                    confirmingRemoval = segment
+                Button {
+                    renaming = segment
                 } label: {
-                    Mono("remove", size: 9.5, trackingRatio: 0.08, color: Palette.n600)
+                    Mono("rename", size: 9.5, trackingRatio: 0.08, color: Palette.a700)
+                        .padding(.vertical, 8)
+                        .padding(.trailing, 6)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+
+                // Absent rather than greyed when it is refused, the way the
+                // stamp's own remove is; the reason is said under the row.
+                if removal.refusal == nil {
+                    Button(role: .destructive) {
+                        confirmingRemoval = segment
+                    } label: {
+                        Mono("remove", size: 9.5, trackingRatio: 0.08, color: Palette.n600)
+                            .padding(.vertical, 8)
+                            .padding(.leading, 6)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            if let refusal = removal.refusal {
+                Mono(refusal, size: 9, trackingRatio: 0.06, color: Palette.a700)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             waypointRow(segment)
+
+            // Written days a shortened stop no longer has. Kept, and back the
+            // moment the nights are.
+            let setAside = store.setAsidePlans(forSegment: segment.id)
+            if !setAside.isEmpty {
+                Mono(setAsideLine(setAside, in: segment), size: 9, trackingRatio: 0.06, color: Palette.n600)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .padding(.vertical, 6)
         .listRowBackground(Palette.bg)
@@ -136,14 +248,43 @@ struct ItineraryEditorView: View {
                             isPresented: Binding(get: { confirmingRemoval?.id == segment.id },
                                                  set: { if !$0 { confirmingRemoval = nil } }),
                             titleVisibility: .visible) {
-            Button("Remove the stop", role: .destructive) {
+            Button(removal.stamps.isEmpty ? "Remove the stop" : "Remove the stop and its stamps",
+                   role: .destructive) {
                 store.removeSegment(segment.id)
                 confirmingRemoval = nil
             }
             Button("Keep it", role: .cancel) { confirmingRemoval = nil }
         } message: {
-            Text("The days after it move up. Anything already spent or written stays where it is.")
+            Text(Self.removalMessage(removal))
         }
+    }
+
+    /// What a removal takes, in one paragraph: the dialog has room for a
+    /// message and nothing else. Shared with the country sheet.
+    static func removalMessage(_ removal: TripStore.StopRemoval, leading: String = "The days after it move up.") -> String {
+        var parts = [leading]
+        if !removal.stamps.isEmpty {
+            let codes = removal.stamps.map(\.code)
+            parts.append(codes.count == 1
+                         ? "Its \(codes[0]) stamp goes with it."
+                         : "Its stamps go with it: \(codes.joined(separator: ", ")).")
+        }
+        if let cost = removal.letterCost { parts.append(cost) }
+        if removal.planCount > 0 {
+            parts.append(removal.planCount == 1
+                         ? "The day written in it goes too, on both phones."
+                         : "The \(Formatting.spelledCount(removal.planCount, "day").lowercased()) written in it go too, on both phones.")
+        }
+        parts.append("Money spent there stays where it is.")
+        return parts.joined(separator: " ")
+    }
+
+    private func setAsideLine(_ plans: [DayPlan], in segment: Segment) -> String {
+        let days = plans.compactMap(\.dayOfStop).map { "day \($0 + 1)" }
+        let list = days.count == 1 ? days[0] : days.dropLast().joined(separator: ", ") + " and " + days.last!
+        return days.count == 1
+            ? "\(list)'s plan is set aside until the stop is that long again"
+            : "the plans for \(list) are set aside until the stop is that long again"
     }
 
     // MARK: - The stamp on a stop
@@ -424,6 +565,39 @@ private struct StampFields: View {
 
 // MARK: - Adding
 
+/// Whether the stop being typed will be on the map, said under its name.
+///
+/// Derived, never stored: the position goes on the stamp when one is made
+/// (`addWaypoint`), and a stop with no stamp has nowhere it needs one. Said
+/// because a stop the list can't find has no nudge and no distance until
+/// somebody stands in it, and that should not be a surprise on the day.
+private struct OnTheMapLine: View {
+    @EnvironmentObject private var store: TripStore
+    let places: [String]
+    let country: String
+
+    var body: some View {
+        if let first = places.first, !country.trimmingCharacters(in: .whitespaces).isEmpty {
+            let found = store.position(ofCity: first, inCountry: country)
+            VStack(alignment: .leading, spacing: 2) {
+                Mono(found.map { "on the map · \(Self.coordinate($0))" } ?? "not on the map yet",
+                     size: 9.5, trackingRatio: 0.08, color: found == nil ? Palette.n600 : Palette.a700)
+                Aside(text: found == nil
+                      ? "It gets a position the first time you arrive."
+                      : "From the city list on this phone. No signal needed.",
+                      size: 11.5, color: Palette.n600)
+            }
+            .padding(.top, 6)
+        }
+    }
+
+    private static func coordinate(_ position: CityPositions.Position) -> String {
+        let lat = Formatting.decimal(abs(position.latitude), places: 2, grouping: false)
+        let lon = Formatting.decimal(abs(position.longitude), places: 2, grouping: false)
+        return "\(lat) \(position.latitude < 0 ? "S" : "N"), \(lon) \(position.longitude < 0 ? "W" : "E")"
+    }
+}
+
 /// The whole stamp half of a sheet that makes a stop: the rule, the heading, the
 /// sentence saying the code is optional, the warning when appending one costs
 /// something, and the fields.
@@ -477,10 +651,13 @@ private struct StampSection: View {
 /// where are we going, and what does getting there mean. Asking separately also
 /// meant the city was asked twice: once as the stop's title, and again as a
 /// text field prefilled with a copy of it.
-private struct AddStopView: View {
+struct AddStopView: View {
     @EnvironmentObject private var store: TripStore
     @Environment(\.dismiss) private var dismiss
     let leg: Leg
+    /// What the title starts as. Only `-screen addstop` passes one, so the
+    /// "on the map" line can be photographed without a keyboard.
+    var initialTitle = ""
 
     @State private var title = ""
     @State private var nights = 3
@@ -532,6 +709,8 @@ private struct AddStopView: View {
 
                     Rectangle().fill(Palette.accent).frame(height: 1)
 
+                    OnTheMapLine(places: places, country: leg.country)
+
                     HStack {
                         Mono("Nights", size: 10)
                         Spacer()
@@ -560,7 +739,10 @@ private struct AddStopView: View {
         }
         .background(Palette.bg)
         .guardsUnsavedWork(isDirty: isDirty, isAsking: $askingToDiscard) { dismiss() }
-        .onAppear { focused = true }
+        .onAppear {
+            if title.isEmpty { title = initialTitle }
+            focused = initialTitle.isEmpty
+        }
     }
 
     private func add() {
@@ -615,6 +797,7 @@ private struct AddCountryView: View {
                         .padding(.top, Space.s3)
                         .padding(.bottom, 4)
                     UnderlinedField(text: $firstStop, placeholder: "Siem Reap")
+                    OnTheMapLine(places: places, country: country)
 
                     Mono("They spend", size: 10)
                         .padding(.top, Space.s3)
@@ -842,5 +1025,206 @@ private struct WaypointEditorView: View {
                               toSegment: segment.id)
         }
         dismiss()
+    }
+}
+
+// MARK: - Editing what exists
+
+/// The country: its name, its money, and taking it out of the trip.
+///
+/// One sheet behind "edit" on the header, because all three are answers about
+/// the country rather than any stop in it. It edits something that exists, so
+/// it commits on the way out (§5.1) rather than behind a Save that a swipe
+/// would skip.
+struct CountryEditorView: View {
+    @EnvironmentObject private var store: TripStore
+    @Environment(\.dismiss) private var dismiss
+    let leg: Leg
+
+    @State private var country = ""
+    @State private var currency: Currency = .eur
+    @State private var confirmingRemoval = false
+    @State private var removed = false
+
+    /// The leg as it is now, not as it was when the sheet opened.
+    private var live: Leg? { store.legs.first { $0.id == leg.id } }
+
+    var body: some View {
+        // Read once: it walks every stamp and letter on the trip.
+        let removal = store.removalSummary(ofSegments: (live ?? leg).segments.map(\.id))
+        VStack(spacing: 0) {
+            SheetHeader(title: "This country", trailing: "Done") { dismiss() }
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    Display(text: country.isEmpty ? leg.country : country, size: 30)
+                        .padding(.bottom, Space.s3)
+
+                    Mono("Country", size: 10).padding(.bottom, 4)
+                    UnderlinedField(text: $country, placeholder: leg.country)
+
+                    Mono("They spend", size: 10)
+                        .padding(.top, Space.s3)
+                        .padding(.bottom, 7)
+                    CurrencyChips(selected: currency,
+                                  suggested: [Currency.likely(forCountry: country), leg.currency,
+                                              store.homeCurrency]) { currency = $0 }
+                    Aside(text: "Changes what new lines are in. Lines already spent keep theirs.",
+                          size: 11.5, color: Palette.n600)
+                        .padding(.top, 5)
+
+                    if let refusal = removal.refusal {
+                        Panel(border: Palette.a300, fill: Palette.a100) {
+                            Mono("This one can't be removed", size: 9.5, color: Palette.a700)
+                            Aside(text: refusal, size: 12.5).padding(.top, 4)
+                        }
+                        .padding(.top, Space.s4)
+                    }
+                }
+                .padding(.horizontal, Space.gutter)
+                .padding(.bottom, Space.s4)
+            }
+
+            // Absent rather than greyed when it is refused: the panel above
+            // says why.
+            if removal.refusal == nil {
+                HStack {
+                    Button(role: .destructive) {
+                        confirmingRemoval = true
+                    } label: {
+                        Mono("remove the country", size: 9.5, trackingRatio: 0.08, color: Palette.n600)
+                            .frame(minHeight: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    Spacer()
+                }
+                .padding(.horizontal, Space.gutter)
+                .padding(.bottom, Space.gutter)
+            }
+        }
+        .background(Palette.bg)
+        .task(id: leg.id) {
+            country = leg.country
+            currency = leg.currency
+        }
+        .onDisappear {
+            guard !removed else { return }
+            store.renameLeg(leg.id, country: country)
+            store.setCurrency(currency, forLeg: leg.id)
+        }
+        .confirmationDialog("Remove \(leg.country)?", isPresented: $confirmingRemoval,
+                            titleVisibility: .visible) {
+            Button(removal.stamps.isEmpty ? "Remove the country" : "Remove it and its stamps",
+                   role: .destructive) {
+                removed = store.removeLeg(leg.id)
+                dismiss()
+            }
+            Button("Keep it", role: .cancel) {}
+        } message: {
+            let stops = (live ?? leg).segments.count
+            Text(ItineraryEditorView.removalMessage(
+                removal,
+                leading: stops == 1
+                    ? "Its stop goes, and the days after it move up."
+                    : "\(Formatting.spelledCount(stops, "stop")) go, and the days after them move up."))
+        }
+    }
+}
+
+/// A stop's name.
+///
+/// The stamps on it stay on it, and keep the cities their letters are sealed
+/// to — the store sees to both. Commits on the way out, like every sheet that
+/// edits something that exists.
+struct RenameStopView: View {
+    @EnvironmentObject private var store: TripStore
+    @Environment(\.dismiss) private var dismiss
+    let segment: Segment
+
+    @State private var title = ""
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        VStack(spacing: 0) {
+            SheetHeader(title: "Renaming a stop", trailing: "Done") { dismiss() }
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    Mono("Was \(segment.title)", size: 10.5)
+
+                    TextField("", text: $title, prompt: Text(segment.title)
+                        .font(Typeface.heading(23).resolved(for: .large))
+                        .foregroundStyle(Palette.n400))
+                        .font(Typeface.heading(23))
+                        .foregroundStyle(Palette.text)
+                        .focused($focused)
+                        .frame(minHeight: 48)
+                        .padding(.top, Space.s3)
+
+                    Rectangle().fill(Palette.accent).frame(height: 1)
+
+                    Aside(text: "Two places go on one stop with a dot between them: Hội An · Đà Nẵng. Its stamps stay on it.",
+                          size: 11.5, color: Palette.n600)
+                        .padding(.top, 6)
+                }
+                .padding(.horizontal, Space.gutter)
+            }
+        }
+        .background(Palette.bg)
+        .task(id: segment.id) {
+            title = segment.title
+            focused = true
+        }
+        .onDisappear { store.renameSegment(segment.id, title: title) }
+    }
+}
+
+/// Puts a stamp whose stop is gone onto one that isn't.
+struct PlaceStampView: View {
+    @EnvironmentObject private var store: TripStore
+    @Environment(\.dismiss) private var dismiss
+    let stamp: Stamp
+
+    @State private var chosen: UUID?
+
+    var body: some View {
+        VStack(spacing: 0) {
+            SheetHeader(title: "Placing a stamp", trailing: "Cancel") { dismiss() }
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    Mono("\(stamp.code) · \(stamp.city)", size: 10.5, color: Palette.a700)
+                    Display(text: "Which stop is it for", size: 30)
+                        .padding(.top, 8)
+                        .padding(.bottom, Space.s3)
+
+                    ForEach(store.legs) { leg in
+                        Mono(leg.country, size: 10)
+                            .padding(.top, Space.s2)
+                            .padding(.bottom, 7)
+                        FlowRow(spacing: Space.s2) {
+                            ForEach(leg.segments) { segment in
+                                Chip(text: segment.title, selected: chosen == segment.id) {
+                                    chosen = segment.id
+                                }
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, Space.gutter)
+                .padding(.bottom, Space.s4)
+            }
+
+            OutlineButton(title: "Put it there") {
+                if let chosen { store.attachWaypoint(stamp.id, toSegment: chosen) }
+                dismiss()
+            }
+            .disabled(chosen == nil)
+            .opacity(chosen == nil ? 0.4 : 1)
+            .padding(.horizontal, Space.gutter)
+            .padding(.bottom, Space.gutter)
+        }
+        .background(Palette.bg)
     }
 }

@@ -63,7 +63,7 @@ extension TripStore {
         for stamp in earnedStamps where stamp.earnedOn.map(dayNumber(for:)) == day {
             add(LinePrompts.about("Arriving in \(stamp.city)"))
         }
-        for item in plan(forDay: day)?.items ?? [] { add(LinePrompts.about(item.title)) }
+        for item in plan(forDay: day)?.orderedItems ?? [] { add(LinePrompts.about(item.title)) }
         for moment in moments(onDay: day) { add(LinePrompts.after(moment.note)) }
         return prompts.isEmpty ? LinePrompts.generic : prompts
     }

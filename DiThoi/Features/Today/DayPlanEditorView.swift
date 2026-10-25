@@ -32,7 +32,8 @@ struct DayPlanEditorView: View {
     @Environment(\.dynamicTypeSize) private var typeSize
 
     private var plan: DayPlan? { store.plan(forDay: day) }
-    private var items: [PlanItem] { plan?.items ?? [] }
+    /// By time, the way the day page draws them. Typing a time is the order.
+    private var items: [PlanItem] { plan?.orderedItems ?? [] }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -82,13 +83,10 @@ struct DayPlanEditorView: View {
                         .buttonStyle(.plain)
                         .listRowBackground(Palette.bg)
                     }
-                    // Reordering rather than swipe-to-delete, which this app
-                    // uses nowhere: a removal that takes a confirmation on one
-                    // screen shouldn't take a flick on the next.
-                    .onMove { offsets, destination in
-                        commit()
-                        store.moveItems(onDay: day, from: offsets, to: destination)
-                    }
+                    // No dragging: the hours sort by their time, so the order
+                    // is the clock's. No swipe-to-delete either, which this
+                    // app uses nowhere: a removal that takes a confirmation on
+                    // one screen shouldn't take a flick on the next.
 
                     Button {
                         addingItem = true
@@ -131,15 +129,18 @@ struct DayPlanEditorView: View {
                                 .frame(minHeight: 38)
                         }
                         .listRowBackground(Palette.bg)
-                    } footer: {
+
+                        // A row, not the section's `footer:`, which draws its
+                        // own white band where the paper stops (§3.12).
                         Aside(text: "Clears the sentence, the hours and the lodging for day \(day). The itinerary, the money and the trail are untouched.",
                               size: 11.5)
                             .padding(.top, Space.s1)
+                            .listRowBackground(Palette.bg)
+                            .listRowSeparator(.hidden, edges: .top)
                     }
                 }
             }
             .listStyle(.plain)
-            .environment(\.editMode, .constant(.active))
             .scrollContentBackground(.hidden)
             .background(Palette.bg)
         }

@@ -770,6 +770,27 @@ struct ItineraryDocument: Codable, Hashable {
         touched(now)
     }
 
+    /// A stop's title. Blank is refused: `Segment.places` would answer `[]`.
+    mutating func renameSegment(_ id: UUID, title: String, now: Date = Date()) {
+        let trimmed = title.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty, let position = position(of: id) else { return }
+        legs[position.leg].segments[position.segment].title = trimmed
+        touched(now)
+    }
+
+    mutating func renameLeg(_ id: UUID, country: String, now: Date = Date()) {
+        let trimmed = country.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty, let index = legs.firstIndex(where: { $0.id == id }) else { return }
+        legs[index].country = trimmed
+        touched(now)
+    }
+
+    mutating func setCurrency(_ currency: Currency, forLeg id: UUID, now: Date = Date()) {
+        guard let index = legs.firstIndex(where: { $0.id == id }) else { return }
+        legs[index].currency = currency
+        touched(now)
+    }
+
     mutating func moveLegs(from offsets: IndexSet, to destination: Int, now: Date = Date()) {
         legs.moveElements(fromOffsets: offsets, toOffset: destination)
         touched(now)
@@ -790,6 +811,32 @@ struct PlanItem: Identifiable, Codable, Hashable {
     var time: String
     var title: String
     var note: String
+
+    /// Minutes past midnight, for the times people actually type: "07:30",
+    /// "7:30", "19.00", "7am", "7:30 pm". Nil for "after dark", which is a
+    /// time too, just not one that sorts.
+    var minutes: Int? {
+        var text = time.trimmingCharacters(in: .whitespaces).lowercased()
+        var meridiem: String?
+        for suffix in ["am", "pm", "a.m.", "p.m."] where text.hasSuffix(suffix) {
+            meridiem = String(suffix.prefix(1))
+            text = String(text.dropLast(suffix.count)).trimmingCharacters(in: .whitespaces)
+            break
+        }
+        let parts = text.split(omittingEmptySubsequences: false,
+                               whereSeparator: { $0 == ":" || $0 == "." || $0 == "h" })
+        guard (1...2).contains(parts.count),
+              parts.allSatisfy({ part in !part.isEmpty && part.allSatisfy { $0.isNumber } }),
+              var hour = Int(parts[0]) else { return nil }
+        let minute = parts.count == 2 ? Int(parts[1]) ?? -1 : 0
+        guard (0...59).contains(minute) else { return nil }
+        if let meridiem {
+            guard (1...12).contains(hour) else { return nil }
+            hour = hour % 12 + (meridiem == "p" ? 12 : 0)
+        }
+        guard (0...23).contains(hour) else { return nil }
+        return hour * 60 + minute
+    }
 }
 
 /// One day of the trip, as the two of them wrote it.
@@ -798,15 +845,26 @@ struct PlanItem: Identifiable, Codable, Hashable {
 /// value and travels inside its day, so reordering breakfast and the temple is
 /// one edit with one timestamp instead of a race between two.
 ///
-/// It joins on `dayNumber`, and `ItineraryDocument.reflow()` renumbers days on
-/// every itinerary edit — so a plan can end up attached to a day that is now a
-/// different city. `city` is what the day was written *about*; the screens
-/// prefer the segment covering the day and fall back to this, which is why
-/// moving a stop leaves the note where it was written rather than silently
-/// relabelling it.
+/// It joins on the stop it was written in and how many days into that stop,
+/// not on `dayNumber`. `ItineraryDocument.reflow()` renumbers every day on any
+/// itinerary edit, so a plan keyed by day number stayed on day 20 while Chiang
+/// Mai was dragged away from under it, and read as Chiang Rai's. Keyed by stop,
+/// it goes where the stop goes. Read through `TripStore.planKey(forDay:)`.
+///
+/// `segmentID == nil` means keyed by `dayNumber` after all: a day no stop
+/// covers, and a plan saved before the stop keys existed until
+/// `backfillPlanKeys()` attaches it. `dayNumber` is still written, for a
+/// payload from the older build.
+///
+/// `city` is what the day was written *about*; the screens prefer the segment.
 struct DayPlan: Identifiable, Codable, Hashable {
     var id = UUID()
     var dayNumber: Int
+    /// The stop the day belongs to.
+    var segmentID: UUID?
+    /// How far into that stop, from 0. A stop shortened past it sets the plan
+    /// aside rather than deleting it, and lengthening it brings the plan back.
+    var dayOfStop: Int?
     var city: String
     var occasion: String?
     var blurb: String
@@ -818,12 +876,15 @@ struct DayPlan: Identifiable, Codable, Hashable {
     /// beat a concurrent edit on the other phone. Same mechanism as `Expense`.
     var deletedAt: Date?
 
-    init(id: UUID = UUID(), dayNumber: Int, city: String, occasion: String? = nil,
+    init(id: UUID = UUID(), dayNumber: Int, segmentID: UUID? = nil, dayOfStop: Int? = nil,
+         city: String, occasion: String? = nil,
          blurb: String, items: [PlanItem], lodgingTitle: String? = nil,
          lodgingNote: String? = nil,
          updatedAt: Date = .distantPast, deletedAt: Date? = nil) {
         self.id = id
         self.dayNumber = dayNumber
+        self.segmentID = segmentID
+        self.dayOfStop = dayOfStop
         self.city = city
         self.occasion = occasion
         self.blurb = blurb
@@ -834,12 +895,23 @@ struct DayPlan: Identifiable, Codable, Hashable {
         self.deletedAt = deletedAt
     }
 
+    /// The hours in the order the day happens: by time, with the ones that
+    /// have no clock time after them in the order they were written. Derived,
+    /// so the stored order — and with it the merge — is never touched.
+    var orderedItems: [PlanItem] {
+        items.enumerated()
+            .sorted { ($0.element.minutes ?? Int.max, $0.offset) < ($1.element.minutes ?? Int.max, $1.offset) }
+            .map(\.element)
+    }
+
     /// Plans written before day plans could be edited carry no timestamp, so
     /// they lose to anything typed since — which is the right way round.
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
         dayNumber = try c.decodeIfPresent(Int.self, forKey: .dayNumber) ?? 1
+        segmentID = try c.decodeIfPresent(UUID.self, forKey: .segmentID)
+        dayOfStop = try c.decodeIfPresent(Int.self, forKey: .dayOfStop)
         city = try c.decodeIfPresent(String.self, forKey: .city) ?? ""
         occasion = try c.decodeIfPresent(String.self, forKey: .occasion)
         blurb = try c.decodeIfPresent(String.self, forKey: .blurb) ?? ""

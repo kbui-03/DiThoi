@@ -1044,6 +1044,34 @@ stop and no waypoint. A code that is filled in and *refused* disables "Add it"
 rather than making the stop and dropping the stamp — "no error" is not "it
 worked", one screen further down.
 
+**Removing a stop takes its stamps, and asks first.** `ItineraryDocument.removeSegment`
+only ever removed the segment. Its unearned waypoints stayed live with a
+`segmentID` pointing at nothing: still in `orderedStamps`, still `nextStamp`,
+sorted last by `planPosition`, reachable from no editor because
+`waypoints(forSegment:)` never returned them — and holding
+`allStampsEarned` false, so every `.finalStamp` letter could never open. The
+AYU bug again, one operation over. `removeSegment` and `removeLeg` now go
+through `removalSummary(ofSegments:)`, one derived answer for a stop and a
+country: the unearned stamps that go, the sealed letters that will never open
+(worded as `removalCost(ofWaypoint:)` words them, secret conditions kept
+secret), the day plans filed under those stops, and a refusal — the group half
+of `removalRefusal(ofWaypoint:)`, because removing the last unearned stamps
+completes the trail and opens the last-stamp letter on the spot. It is
+validated whole, then applied whole. Earned stamps stay: they are a record.
+`ItineraryDocument.removeSegment` on its own is now only what a merge does, and
+`orphanedWaypoints` is how the editor catches that (§3.9).
+
+**Renaming keeps what hangs off the name.** A stamp joined only by name —
+packed before the join existed, or one of two on "Ayutthaya · Pai", which the
+backfill won't guess at — would lose its stop with the old title, so
+`renameSegment` gives it the id first, as an edit. `Stamp.city` is never
+rewritten: a `.place` letter is sealed to it, and `StampFields.options`
+already offers the drifted city. A country's name is on every expense spent
+there and is never re-resolved (§3.4), so `renameLeg` re-stamps the lines that
+carry the old name *and* fall in that visit — a country entered twice keeps the
+other visit's. `setCurrency` changes what new lines default to and nothing
+already spent.
+
 **A country can be entered twice, and `legs` is not the list of them.** Thailand →
 Laos → Thailand is an ordinary route. Anything keyed off "*the* leg for this
 country" answers with the first; anything that iterates `legs` to talk about
@@ -1102,6 +1130,35 @@ refused.** Removing one names the letters that will never open. That only holds
 up because `canStillFire` now knows `knownStampCodes` and `knownPlaces`: without
 them "not reached yet" and "will never exist" are the same sentence, and an
 orphaned condition reads "live" forever.
+
+**Earned stamps come first, in the order they were earned.** `reflowWaypoints()`
+sorted every live stamp by plan position, so an earned stamp whose stop was
+removed went to `Int.max` — the end of the trail, behind places nobody has
+reached — and dragging a stop behind an earned one reordered history. The trail
+is where they have been and then where they are going: earned by `earnedOn`,
+the rest by plan.
+
+**A stamp whose stop is gone is listed, not left.** Removing a stop takes its
+stamps, but a merge can still strand one: the other phone removes the stop
+while this one stamps it. `orphanedWaypoints` (live, unearned, `segment(for:)`
+nil) is drawn at the top of the plan editor, and `attachWaypoint` puts one on a
+stop as an edit; the stamp editor's own remove, with its guards, lets it go.
+
+**A typed waypoint finds its position in a list that ships with the app.**
+Nothing gave a typed waypoint a coordinate until somebody stood in it, so the
+nudge, the distance to the next stop and the map ahead never happened on a
+trip nobody packed. `CityPositions` reads `Resources/cities.tsv` (GeoNames,
+cities over 15,000, every Latin-script spelling, made by
+`Tools/build-cities.sh`) — never the network, which the app promises not to
+need. It searches only inside the stop's own country, largest first: a city
+looked up anywhere puts Springfield on the wrong continent and fires the nudge
+there, and an unknown country answers nil, the country card's rule (§8.5).
+`addWaypoint` fills the position; changing an unearned stamp's city refills it
+or clears it; `backfillWaypointPositions()` fills blanks at launch, after a merge
+and after every itinerary edit, without touching `updatedAt`, because both
+phones read the same list. The list is a closure on the store (`cityList`), so
+2.8 MB is read the first time it is wanted and the checks hand in a fixture.
+GeoNames is CC BY 4.0: the credit at the bottom of Settings *is* the licence.
 
 **`kilometresTravelled` skips waypoints with no position; it used to zero them.**
 `Stamp.kilometres(to:)` answers 0 when *either* end is unlocated, so one
@@ -1362,9 +1419,30 @@ and returns `Array(byID.values)`, so append order doesn't survive a sync. Read
 `orderedShowCards`, never `showCards`. Day plans order by `dayNumber`, but
 `plan(forDay:)` must read `dayPlans.live` — clearing a day tombstones it.
 
-**A day plan's `city` is what it was written *about*.** Plans join on `dayNumber`
-while `reflow()` renumbers days, so `DayDetailView.cityName` prefers the segment
-covering the day.
+**A day plan is filed under its stop, not its day number.** Plans joined on
+`dayNumber` while `reflow()` renumbers every day on any itinerary edit, so
+dragging Chiang Rai ahead of Chiang Mai left Songkran under Chiang Rai with no
+warning. `planKey(forDay:)` is the one resolver: the stop covering the day and
+how far into it, the last stop's `nights` for the morning they fly home, and
+the day number only where no stop covers it. `plan(forDay:)` and `editPlan`
+both go through it. A plan past a shortened stop's nights is *set aside* —
+`setAsidePlans(forSegment:)`, named under the stop in the editor — and comes
+back when the nights do; nothing is written either way. Removing a stop
+tombstones its plans. `backfillPlanKeys()` files a plan from the older build,
+or a gap-day plan a stop has since come to cover, without an edit, on the
+`backfillWaypointJoins()` reasoning. The newest of two answers wins: two phones
+writing one day before a round mint two records, and `.first` over a merge's
+dictionary order picked one at random. `dayNumber` is still written, for the
+older build. `TripShift` leaves plans alone; they were never dated.
+
+**The hours sort by their time.** `orderedItems` parses what people type
+("07:30", "7am", "19.15", "12:30 pm") and puts the hours with no clock time
+("after dark") after them in the order written. Derived, so the stored order
+and the merge are never touched, and the drag handles are gone: the clock is
+the order. Read `orderedItems`, never `items`.
+
+**A day plan's `city` is what it was written *about*.** `DayDetailView.cityName`
+prefers the segment covering the day.
 
 **`DayPlanEditorView` loads with `.task(id: day)`, not `onAppear`.** `@State`
 survives the view being rebuilt with a different `day`, so a one-shot load showed
@@ -1918,7 +1996,7 @@ There is no simulator in CI and no XCTest target. Verification is two things:
 ### 6.1 `./Tools/run-checks.sh`
 
 Compiles everything in `DiThoi/Model/` and `Shared/` plus `Tools/VerifyTrip.swift`
-for **macOS** and runs 1,530 assertions — no simulator; the compile takes a
+for **macOS** and runs 1,594 assertions — no simulator; the compile takes a
 few minutes, the run a few seconds. It
 covers trip shape, rate conversion and round-tripping, budget derivation, the
 date-shift invariants, itinerary reflow after all four edit operations, the
@@ -1970,7 +2048,7 @@ To reach a screen without walking a flow (`#if DEBUG`, out of Release):
 xcrun simctl launch <device> com.lovedones.dithoi -resetTrip -screen money
 ```
 
-71 routes. `savedpostcard` is the saved page on a night the book reaches a
+76 routes. `savedpostcard` is the saved page on a night the book reaches a
 multiple of seven (`-seedItinerary -seedJournal -day 14`); `postcard -week n` is
 the postcard sheet; `exportpostcard -week n` writes the PNG and prints where.
 `bookpreview -scrubDay n` draws the page bar's bubble held, `entry -promptIndex n`
@@ -1978,6 +2056,10 @@ picks the blank line's question, and `-seedSpending` puts money on every day so
 far — nothing else seeds an expense, so the facts line had none. `-day N` moves the trip to that day and may be zero or negative
 (`-day -5` is six days before departure). `-screen widget` draws all four widget
 families; `dayplan`, `showcards`, `showcard`, `country` reach the newer screens.
+`countryedit`, `renamestop`, `addstop` (typed "Chiang Rai", so the "on the map"
+line shows) and `placestamp` reach the itinerary sheets; `editororphan` takes
+Huế out of the document behind the store's back, the way a merge would, so
+"Stamps with no stop" has something in it. Both need `-seedItinerary`.
 `book` is the journal list and `shelf` now seeds two archived trips, because
 neither could otherwise be reached with anything on it. `finish` is the
 finishing sheet, seeded with documents so its papers line is drawn. `between`

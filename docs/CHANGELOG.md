@@ -10,7 +10,39 @@ change gets its own line under **Unreleased**.
 
 ## [Unreleased]
 
+### Added
+- Renaming a stop and editing a country. "rename" on each stop row keeps the
+  stamps on it and the cities their letters are sealed to. "edit" on each
+  country opens one sheet for its name, its currency and removing the whole
+  country. Renaming a country re-stamps the lines spent on that visit, and a
+  new currency leaves every line already spent in its own.
+- Typed stops get a position from a city list bundled with the app (GeoNames,
+  cities over 15,000 people, CC BY 4.0, credited in Settings). The list is
+  searched only inside the stop's own country. The arrival nudge, the distance
+  to the next stop and the map ahead now work on a trip nobody packed. The
+  stop sheets say whether a stop is on the map.
+- The day screen links to that night's page and that day's moments.
+- "Stamps with no stop" at the top of the plan editor, for a stamp whose stop
+  was removed on the other phone. Each one can be put on a stop or let go.
+
+### Changed
+- Day plans are filed by stop and day-of-stop, not by day number, so dragging
+  a stop takes its plans with it. A stop shortened past a written day sets the
+  plan aside, and lengthening the stop brings it back. If two phones write the
+  same day, the newest is shown.
+- Hours sort by their time, with untimed ones last. The drag handles are gone.
+- The trail lists earned stamps first, in the order they were earned, then
+  the rest in plan order.
+
 ### Fixed
+- Removing a stop takes its unearned stamps with it. They used to stay "next"
+  on the trail, reachable from no editor, and blocked every letter sealed to
+  the last stamp. The confirmation names the stamps, the sealed letters and
+  the day plans that go. A removal that would complete the trail is refused,
+  as removing the last stamp is.
+- Before departure the first stop no longer says "you're here"; it says when
+  it starts.
+- The "clear this day" note sits on the paper, not on a white band.
 - The location copy on the sharing screen and Separated said only Separated
   reads where you are. It now names moments, pins and the trail, and says a
   pin's spot is the one that leaves the phone.
@@ -197,20 +229,11 @@ is lost.
   switch can override the other phone's budget change.
 - **Should:** "1 nights", "1 days" and "1 places" in a few places.
 
-### Itinerary and day
-- **Must:** removing a stop orphans its unearned stamps. They stay "next" on the
-  trail, can't be edited, and block letters sealed to the last stamp.
-- **Should:** before departure, the first stop says "you're here".
-- **Should:** there is no way to rename a stop or country, change a country's
-  currency, or remove a whole country.
-- **Should:** day plans are keyed by day number, so dragging a stop leaves its
-  plans behind.
-
 ### Trail
 - **Must:** arriving doesn't open letters sealed from home to that stamp or
   place. They open on the next wake, off screen.
-- **Should:** typed stops have no position, so the arrival nudge and the
-  distance to the next stop never appear.
+- **Should:** a typed stop the city list doesn't know (a camp, a village under
+  15,000 people) still has no position until somebody stands in it.
 - **Should:** the map defaults to Bangkok, and the last stamp can say "0 km".
 
 ### Letters

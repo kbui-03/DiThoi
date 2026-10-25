@@ -44,7 +44,11 @@ final class TripStore: ObservableObject {
     @Published private(set) var settingsUpdatedAt: Date { didSet { save() } }
 
     // Shared with the other phone
-    @Published var itinerary: ItineraryDocument { didSet { save(); bookInputsChanged() } }
+    /// A day nobody's stop covered was filed by its number; once a stop covers
+    /// it, that is where it is filed — `backfillPlanKeys()` after every edit.
+    @Published var itinerary: ItineraryDocument {
+        didSet { backfillPlanKeys(); backfillWaypointPositions(); save(); bookInputsChanged() }
+    }
     @Published var expenses: [Expense] { didSet { save() } }
     @Published var stamps: [Stamp] { didSet { save(); bookInputsChanged() } }
     @Published private(set) var meetingPoint: StampedMeetingPoint { didSet { save() } }
@@ -129,6 +133,10 @@ final class TripStore: ObservableObject {
     let ritual: RitualScheduler
     /// Every trip that isn't this one.
     let library: TripLibrary
+    /// Where a typed city is. A closure so the 2.8 MB list is read the first
+    /// time a position is wanted, not every time a store opens a trip; the
+    /// checks hand in a fixture.
+    var cityList: () -> CityPositions? = { CityPositions.bundled }
 
     // What this trip came with. Stored per trip rather than read from a shared
     // constant, so a trip created from scratch opens with its own papers and
@@ -310,6 +318,8 @@ final class TripStore: ObservableObject {
         // Non-destructive, so it costs nothing to run on every launch, and it
         // has to run somewhere both branches above reach.
         backfillWaypointJoins()
+        backfillPlanKeys()
+        backfillWaypointPositions()
     }
 
     // MARK: - Who everybody is
@@ -721,8 +731,72 @@ final class TripStore: ObservableObject {
     /// through here, which makes it the one place tombstones have to be
     /// filtered — `dayPlans` itself keeps the cleared ones so a clear can win
     /// a merge against an edit made before it.
+    ///
+    /// The newest wins when two answer. Two phones writing the same day before
+    /// a round each mint a record, the merge keeps both, and `.first` over a
+    /// merge's dictionary order picked one of them at random.
     func plan(forDay day: Int) -> DayPlan? {
-        dayPlans.live.first { $0.dayNumber == day }
+        let key = planKey(forDay: day)
+        return dayPlans.live.filter { planKey(of: $0) == key }.max { $0.updatedAt < $1.updatedAt }
+    }
+
+    /// Where a day's plan is filed.
+    ///
+    /// By the stop and how far into it, so a plan goes where its stop goes when
+    /// the stops are dragged. The morning they fly home is in no stop, because
+    /// `contains(day:)` is half-open, so it is filed one past the last stop's
+    /// nights — the shape `lastKnownSegment(forDay:)` has. A day no stop covers
+    /// is filed by its number.
+    enum PlanKey: Hashable {
+        case stop(UUID, Int)
+        case day(Int)
+    }
+
+    func planKey(forDay day: Int) -> PlanKey {
+        if let segment = segment(forDay: day) { return .stop(segment.id, day - segment.startDay) }
+        if day == itinerary.lastDay, let last = itinerary.allSegments.last {
+            return .stop(last.id, last.nights)
+        }
+        return .day(day)
+    }
+
+    private func planKey(of plan: DayPlan) -> PlanKey {
+        if let segmentID = plan.segmentID, let offset = plan.dayOfStop { return .stop(segmentID, offset) }
+        return .day(plan.dayNumber)
+    }
+
+    /// The plans a stop has but no longer has days for.
+    ///
+    /// Taking a night off a stop doesn't delete what was written for it: the
+    /// plan waits, and adding the night back brings it back. Nothing is written
+    /// either way, which is what makes the stepper safe to tap.
+    func setAsidePlans(forSegment id: UUID) -> [DayPlan] {
+        guard let segment = itinerary.allSegments.first(where: { $0.id == id }) else { return [] }
+        let isLast = itinerary.allSegments.last?.id == id
+        let reach = isLast ? segment.nights : segment.nights - 1
+        return dayPlans.live
+            .filter { $0.segmentID == id && ($0.dayOfStop ?? 0) > reach }
+            .sorted { ($0.dayOfStop ?? 0) < ($1.dayOfStop ?? 0) }
+    }
+
+    /// The live plans filed under these stops, set aside or not.
+    func plans(inSegments ids: Set<UUID>) -> [DayPlan] {
+        dayPlans.live.filter { $0.segmentID.map(ids.contains) ?? false }
+    }
+
+    /// Files plans saved before the stop keys existed under the stop covering
+    /// their day.
+    ///
+    /// Runs where `backfillWaypointJoins()` does, and for its reason: both
+    /// phones derive the same answer, so it is not an edit and `updatedAt`
+    /// stays put — bumping it would let a backfill win against a real edit.
+    func backfillPlanKeys() {
+        for index in dayPlans.indices where dayPlans[index].segmentID == nil {
+            guard case .stop(let segmentID, let offset) = planKey(forDay: dayPlans[index].dayNumber)
+            else { continue }
+            dayPlans[index].segmentID = segmentID
+            dayPlans[index].dayOfStop = offset
+        }
     }
 
     func segment(forDay day: Int) -> Segment? {
@@ -755,9 +829,86 @@ final class TripStore: ObservableObject {
         reflowWaypoints()
     }
 
-    func removeSegment(_ id: UUID) {
-        itinerary.removeSegment(id, now: now)
+    /// What removing these stops would take with it, and whether it may.
+    ///
+    /// One answer for a stop and for a whole country, because removing a
+    /// country is removing every stop in it. The stamps go with their stop:
+    /// leaving them behind is the AYU bug again — still in `orderedStamps`,
+    /// still "next", reachable from no editor, and holding every letter sealed
+    /// to the last stamp shut for good. Earned ones stay; they are a record of
+    /// somebody standing somewhere.
+    struct StopRemoval {
+        /// The unearned waypoints that go with the stops.
+        var stamps: [Stamp]
+        /// The sealed letters that will never open, in the editor's words.
+        var letterCost: String?
+        /// How many written days go with them.
+        var planCount: Int
+        /// Why it is refused outright, or nil if it is only a thing to confirm.
+        var refusal: String?
+    }
+
+    func removalSummary(ofSegments ids: [UUID]) -> StopRemoval {
+        let going = ids.flatMap { waypoints(forSegment: $0) }.filter { !$0.earned }
+        let goingIDs = Set(going.map(\.id))
+
+        let sealed = letters.filter { letter in
+            !letter.isDraft && !letter.isOpen
+                && going.contains { stamp in lettersDepending(on: stamp).contains { $0.id == letter.id } }
+        }
+        var cost: String?
+        if sealed.contains(where: \.secretCondition) {
+            cost = "Something sealed is waiting on \(going.count == 1 ? "its stamp" : "its stamps"). Removing it means that never opens."
+        } else if !sealed.isEmpty {
+            let numbers = sealed.map(\.numberLabel).joined(separator: ", ")
+            cost = sealed.count == 1
+                ? "Letter \(numbers) opens with \(going.count == 1 ? "its stamp" : "one of its stamps"). Removing it means it never opens."
+                : "Letters \(numbers) open with its stamps. Removing it means they never open."
+        }
+
+        // The group half of `removalRefusal(ofWaypoint:)`: taking away the last
+        // stamps nobody has stood in completes the trail, and every letter
+        // sealed to the last stamp opens on the spot, for good.
+        var refusal: String?
+        let remaining = stamps.live.filter { !goingIDs.contains($0.id) }
+        if !going.isEmpty, !remaining.isEmpty, remaining.allSatisfy(\.earned),
+           letters.contains(where: { $0.condition == .finalStamp && !$0.isDraft && !$0.isOpen }) {
+            refusal = "This holds the last stamps nobody has stood in. Removing it opens the letter sealed to the last stamp, right here, and that can't be taken back."
+        }
+
+        return StopRemoval(stamps: going, letterCost: cost,
+                           planCount: plans(inSegments: Set(ids)).count, refusal: refusal)
+    }
+
+    /// Removes a stop, its unearned stamps and the days written in it.
+    /// `false` when it is refused.
+    @discardableResult
+    func removeSegment(_ id: UUID) -> Bool {
+        guard itinerary.allSegments.contains(where: { $0.id == id }) else { return false }
+        return removeStops([id]) { $0.removeSegment(id, now: now) }
+    }
+
+    /// Validated whole, then applied whole (§3.1): nothing is tombstoned until
+    /// every stop in it is known to be removable.
+    private func removeStops(_ ids: [UUID], _ mutate: (inout ItineraryDocument) -> Void) -> Bool {
+        guard !isObserver else { return false }
+        let summary = removalSummary(ofSegments: ids)
+        guard summary.refusal == nil else { return false }
+
+        let stampIDs = Set(summary.stamps.map(\.id))
+        for index in stamps.indices where stampIDs.contains(stamps[index].id) {
+            stamps[index].deletedAt = now
+            stamps[index].updatedAt = now
+        }
+        let segmentIDs = Set(ids)
+        for index in dayPlans.indices
+        where !dayPlans[index].isDeleted && dayPlans[index].segmentID.map(segmentIDs.contains) == true {
+            dayPlans[index].deletedAt = now
+            dayPlans[index].updatedAt = now
+        }
+        mutate(&itinerary)
         reflowWaypoints()
+        return true
     }
 
     /// Returns the stop it made, so the sheet that asks for a stop and its
@@ -781,9 +932,68 @@ final class TripStore: ObservableObject {
         return made
     }
 
-    func removeLeg(_ id: UUID) {
-        itinerary.removeLeg(id, now: now)
-        reflowWaypoints()
+    /// Removes a country: every stop in it, on the stop's terms.
+    @discardableResult
+    func removeLeg(_ id: UUID) -> Bool {
+        guard let leg = legs.first(where: { $0.id == id }) else { return false }
+        return removeStops(leg.segments.map(\.id)) { $0.removeLeg(id, now: now) }
+    }
+
+    /// Renames a stop and keeps its stamps on it.
+    ///
+    /// A stamp that found this stop by name — one saved before the join, or a
+    /// stop naming two places, which `backfillWaypointJoins()` won't guess at —
+    /// would lose it with the old name, so it is given the id first, as an
+    /// edit. `Stamp.city` is never rewritten: a `.place` letter is sealed to it,
+    /// and the stamp editor already offers the drifted city as a choice.
+    @discardableResult
+    func renameSegment(_ id: UUID, title: String) -> Bool {
+        guard !isObserver else { return false }
+        let trimmed = title.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty,
+              let segment = itinerary.allSegments.first(where: { $0.id == id }) else { return false }
+        guard trimmed != segment.title else { return true }
+        for index in stamps.indices
+        where !stamps[index].isDeleted && stamps[index].segmentID != id && self.segment(for: stamps[index])?.id == id {
+            stamps[index].segmentID = id
+            stamps[index].updatedAt = now
+        }
+        itinerary.renameSegment(id, title: trimmed, now: now)
+        return true
+    }
+
+    /// Renames a country, and the lines spent there with it.
+    ///
+    /// An expense is stamped with the country it was spent in and is never
+    /// re-resolved (§3.4), so renaming "Viet Nam" to "Vietnam" would leave
+    /// every line under the old name and out of "by country". The lines that
+    /// carry the old name *and* fall in this visit are re-stamped, as edits so
+    /// the other phone keeps them; a country entered twice keeps the other
+    /// visit's lines.
+    @discardableResult
+    func renameLeg(_ id: UUID, country: String) -> Bool {
+        guard !isObserver else { return false }
+        let trimmed = country.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty, let leg = legs.first(where: { $0.id == id }) else { return false }
+        guard trimmed != leg.country else { return true }
+        for index in expenses.indices
+        where expenses[index].country.trimmingCharacters(in: .whitespaces) == leg.country
+            && self.leg(forDay: dayNumber(for: expenses[index].date))?.id == id {
+            expenses[index].country = trimmed
+            expenses[index].updatedAt = now
+        }
+        itinerary.renameLeg(id, country: trimmed, now: now)
+        return true
+    }
+
+    /// What new lines in this country default to. Every line already spent
+    /// keeps the currency it was spent in.
+    @discardableResult
+    func setCurrency(_ currency: Currency, forLeg id: UUID) -> Bool {
+        guard !isObserver, let leg = legs.first(where: { $0.id == id }) else { return false }
+        guard leg.currency != currency else { return true }
+        itinerary.setCurrency(currency, forLeg: id, now: now)
+        return true
     }
 
     func moveLegs(from offsets: IndexSet, to destination: Int) {
@@ -806,16 +1016,22 @@ final class TripStore: ObservableObject {
     /// the moment of writing; it is what the note was *about*, and the screens
     /// prefer the live segment over it.
     private func editPlan(forDay day: Int, _ mutate: (inout DayPlan) -> Void) {
-        if let index = dayPlans.firstIndex(where: { $0.dayNumber == day }) {
+        if let index = planIndex(forDay: day) {
             mutate(&dayPlans[index])
+            dayPlans[index].dayNumber = day
             dayPlans[index].updatedAt = now
             // Writing to a day that had been cleared brings it back, the way
             // `restore` does for an expense. Typing into it is the undo.
             dayPlans[index].deletedAt = nil
         } else {
+            let key = planKey(forDay: day)
             var plan = DayPlan(dayNumber: day,
                                city: lastKnownSegment(forDay: day)?.primaryPlace ?? "",
                                blurb: "", items: [])
+            if case .stop(let segmentID, let offset) = key {
+                plan.segmentID = segmentID
+                plan.dayOfStop = offset
+            }
             mutate(&plan)
             plan.updatedAt = now
             dayPlans.append(plan)
@@ -862,17 +1078,22 @@ final class TripStore: ObservableObject {
         editPlan(forDay: day) { $0.items.removeAll { $0.id == id } }
     }
 
-    func moveItems(onDay day: Int, from offsets: IndexSet, to destination: Int) {
-        editPlan(forDay: day) { $0.items.moveElements(fromOffsets: offsets, toOffset: destination) }
-    }
-
     /// Tombstoned rather than removed, so a clear here beats an edit made on
     /// the other phone before the round — same reasoning as `delete(_ expense:)`.
     func clearPlan(forDay day: Int) {
-        guard let index = dayPlans.firstIndex(where: { $0.dayNumber == day }),
-              !dayPlans[index].isDeleted else { return }
+        guard let index = planIndex(forDay: day), !dayPlans[index].isDeleted else { return }
         dayPlans[index].deletedAt = now
         dayPlans[index].updatedAt = now
+    }
+
+    /// The record a day's edits land on: the one `plan(forDay:)` shows, or
+    /// failing that the newest cleared one, so writing into a cleared day
+    /// brings it back rather than minting a second record beside it.
+    private func planIndex(forDay day: Int) -> Int? {
+        let key = planKey(forDay: day)
+        let matching = dayPlans.indices.filter { planKey(of: dayPlans[$0]) == key }
+        let newest: (Int, Int) -> Bool = { self.dayPlans[$0].updatedAt < self.dayPlans[$1].updatedAt }
+        return matching.filter { !dayPlans[$0].isDeleted }.max(by: newest) ?? matching.max(by: newest)
     }
 
     // MARK: - Editing the show-this cards
@@ -1797,12 +2018,21 @@ final class TripStore: ObservableObject {
     ///
     /// Renumbering is an *edit* to every waypoint that moved, so each one is
     /// re-stamped. Without that the other phone merges the new order back out.
+    ///
+    /// The earned ones come first, in the order they were earned: the trail is
+    /// where they have been, then where they are going. Ordering them by plan
+    /// too sent an earned stamp to the end of the trail the moment its stop was
+    /// removed, behind places nobody has reached.
     func reflowWaypoints() {
         var positions: [UUID: Int] = [:]
         for (offset, segment) in itinerary.allSegments.enumerated() { positions[segment.id] = offset }
-        let live = stamps.live.sorted {
+        let earned = stamps.live.filter(\.earned).sorted {
+            ($0.earnedOn ?? .distantPast, $0.index) < ($1.earnedOn ?? .distantPast, $1.index)
+        }
+        let ahead = stamps.live.filter { !$0.earned }.sorted {
             planPosition(of: $0, in: positions) < planPosition(of: $1, in: positions)
         }
+        let live = earned + ahead
         var wanted: [UUID: Int] = [:]
         for (offset, stamp) in live.enumerated() { wanted[stamp.id] = offset + 1 }
         for index in stamps.indices {
@@ -1813,6 +2043,30 @@ final class TripStore: ObservableObject {
     }
 
     // MARK: - Editing the waypoints
+
+    /// Stamps nobody has earned whose stop is gone.
+    ///
+    /// Removing a stop takes its stamps now, but a merge can still make one:
+    /// the other phone removes a stop while this one gives it a stamp. Left
+    /// alone it is "next" on the trail, reachable from no stop, and holds every
+    /// letter sealed to the last stamp shut — so the editor lists them, and
+    /// each one is put on a stop or let go.
+    var orphanedWaypoints: [Stamp] {
+        orderedStamps.filter { !$0.earned && segment(for: $0) == nil }
+    }
+
+    /// Puts a waypoint on a stop. Refuses an earned one, which is a record.
+    @discardableResult
+    func attachWaypoint(_ id: UUID, toSegment segmentID: UUID) -> Bool {
+        guard !isObserver else { return false }
+        guard let index = stamps.firstIndex(where: { $0.id == id }), !stamps[index].isDeleted,
+              !stamps[index].earned,
+              itinerary.allSegments.contains(where: { $0.id == segmentID }) else { return false }
+        stamps[index].segmentID = segmentID
+        stamps[index].updatedAt = now
+        reflowWaypoints()
+        return true
+    }
 
     /// The waypoints on a stop, in plan order.
     ///
@@ -2000,6 +2254,40 @@ final class TripStore: ObservableObject {
         return (2...9).lazy.map { stem + String($0) }.first { codeIsAvailable($0) }
     }
 
+    // MARK: - Where a typed waypoint is
+
+    /// Where a city is, looked up in the bundled list inside one country.
+    /// The stop sheets ask before the stop exists, so this takes the country.
+    func position(ofCity city: String, inCountry country: String) -> CityPositions.Position? {
+        cityList()?.position(of: city, inCountry: country)
+    }
+
+    private func position(ofCity city: String, onSegment id: UUID?) -> CityPositions.Position? {
+        guard let id, let leg = legs.first(where: { $0.segments.contains { $0.id == id } }) else { return nil }
+        return position(ofCity: city, inCountry: leg.country)
+    }
+
+    /// Gives every waypoint nobody has stood in, and that has no position, the
+    /// one the city list has for it.
+    ///
+    /// Without one, the nudge, the distance to the next stop and the map ahead
+    /// never happen on a trip that was typed. Both phones read the same list,
+    /// so it is not an edit and `updatedAt` stays put, the way
+    /// `backfillWaypointJoins()` leaves it. Only a blank is filled: an earned
+    /// waypoint keeps the fix it was earned with, and a packed one its own.
+    func backfillWaypointPositions() {
+        let missing = stamps.indices.filter {
+            !stamps[$0].isDeleted && !stamps[$0].earned && !stamps[$0].hasLocation
+        }
+        guard !missing.isEmpty else { return }
+        for index in missing {
+            guard let found = position(ofCity: stamps[index].city,
+                                       onSegment: segment(for: stamps[index])?.id) else { continue }
+            stamps[index].latitude = found.latitude
+            stamps[index].longitude = found.longitude
+        }
+    }
+
     /// Gives a stop a waypoint. `nil` when it is refused.
     @discardableResult
     func addWaypoint(code: String, city: String, arrivalNote: String,
@@ -2013,13 +2301,17 @@ final class TripStore: ObservableObject {
         // No cap on how many a stop may hold: one that names two places has
         // two, and refusing the second leaves the first standing for both.
 
-        let stamp = Stamp(code: trimmedCode, city: trimmedCity,
+        var stamp = Stamp(code: trimmedCode, city: trimmedCity,
                           // Reflowed immediately, so this is only a starting
                           // position — past any tombstone, so a removed
                           // waypoint can't leave a new one in its slot.
                           index: (stamps.map(\.index).max() ?? 0) + 1,
                           arrivalNote: arrivalNote.trimmingCharacters(in: .whitespacesAndNewlines),
                           segmentID: segmentID, updatedAt: now)
+        if let found = position(ofCity: trimmedCity, onSegment: segmentID) {
+            stamp.latitude = found.latitude
+            stamp.longitude = found.longitude
+        }
         stamps.append(stamp)
         reflowWaypoints()
         return stamp
@@ -2061,9 +2353,14 @@ final class TripStore: ObservableObject {
             rekeyDrafts(from: stamps[index].code, to: newCode, city: nil)
             stamps[index].code = newCode
         }
-        if let newCity {
+        if let newCity, newCity != stamps[index].city {
             rekeyDrafts(from: nil, to: nil, city: (stamps[index].city, newCity))
             stamps[index].city = newCity
+            // Never earned (that is refused above), so whatever position it
+            // had was the old city's, not a fix of somebody standing in it.
+            let found = position(ofCity: newCity, onSegment: segment(for: stamps[index])?.id)
+            stamps[index].latitude = found?.latitude ?? 0
+            stamps[index].longitude = found?.longitude ?? 0
         }
         if let arrivalNote {
             stamps[index].arrivalNote = arrivalNote.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -3156,8 +3453,10 @@ final class TripStore: ObservableObject {
         applyConfirmedSettlements()
         // The itinerary that just arrived carries its own stop ids, so a
         // waypoint that had no join — or one whose stop went with the merge —
-        // gets another go at finding it.
+        // gets another go at finding it. So does a plan from the older build.
         backfillWaypointJoins()
+        backfillPlanKeys()
+        backfillWaypointPositions()
     }
 
     func syncNow() async {

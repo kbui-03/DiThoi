@@ -499,12 +499,12 @@ struct TodayView: View {
         Button { going = .today } label: {
             Panel {
                 Mono("Today together", size: 9.5)
-                // The first thing they wrote down, not the one at a literal
-                // "12:00". That string match was written against a seeded day
-                // plan whose hours happened to include noon; now the hours are
+                // The first hour of the day, not the one at a literal "12:00".
+                // That string match was written against a seeded day plan
+                // whose hours happened to include noon; now the hours are
                 // typed by hand, it would miss almost every time and quietly
                 // fall through to the same `first` anyway.
-                Text(plan?.items.first?.title ?? "Nothing planned")
+                Text(plan?.orderedItems.first?.title ?? "Nothing planned")
                     .font(Typeface.heading(19, .semibold))
                     .foregroundStyle(Palette.text)
                     .padding(.top, 5)
