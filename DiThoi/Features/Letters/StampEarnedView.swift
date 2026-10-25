@@ -7,7 +7,10 @@ struct StampEarnedView: View {
     @Environment(\.dismiss) private var dismiss
 
     let stamp: Stamp
-    let unlockedLetter: Letter?
+    /// Every letter the arrival opened, in number order. Plural because a
+    /// stamp, the place it names and the last stamp can all fall due on one
+    /// tap, and the second used to open with nobody told.
+    let unlockedLetters: [Letter]
     var onReadLetter: (Letter) -> Void
     /// "Keep a moment here" — arriving is the moment people most want to
     /// keep, and the screen used to end in two ways out and no way to. Nil
@@ -46,7 +49,9 @@ struct StampEarnedView: View {
                         .frame(maxWidth: 250)
                         .padding(.bottom, Space.s6)
 
-                    if let letter = unlockedLetter {
+                    if unlockedLetters.count > 1 {
+                        severalLetters
+                    } else if let letter = unlockedLetters.first {
                         Panel(border: Palette.a400) {
                             Mono(isLast ? "One letter left, and it's this one" : "Something came with it",
                                  size: 9.5, color: Palette.a300)
@@ -100,12 +105,13 @@ struct StampEarnedView: View {
                 }
                 .buttonStyle(.plain)
 
-                if let letter = unlockedLetter {
+                if let letter = unlockedLetters.first {
                     Button {
                         dismiss()
                         onReadLetter(letter)
                     } label: {
-                        Mono("Read it", size: 10, trackingRatio: 0.12, color: Palette.a300)
+                        Mono(unlockedLetters.count > 1 ? "Read No. \(letter.numberLabel)" : "Read it",
+                             size: 10, trackingRatio: 0.12, color: Palette.a300)
                             .frame(maxWidth: .infinity)
                             .frame(minHeight: 46)
                             .overlay(RoundedRectangle(cornerRadius: Radius.sm).strokeBorder(Palette.a400, lineWidth: 1))
@@ -138,9 +144,49 @@ struct StampEarnedView: View {
         return isLast ? "\(label) · the last one" : label
     }
 
+    /// The distance is a clause of its own, dropped when it is nought: a
+    /// trail of typed waypoints that nobody's phone could place measures
+    /// nothing, and "0 km" read as though they hadn't moved.
     private var finalNote: String {
         let places = store.earnedStamps.count
-        return "That's all of them. \(Formatting.spelledCount(store.dayCount, "day", spellingUpTo: 0)), \(Formatting.decimal(Double(store.kilometresTravelled), places: 0)) km, \(Formatting.spelledCount(places, "place", spellingUpTo: 0)) you actually stood."
+        let km = store.kilometresTravelled
+        var clauses = [Formatting.spelledCount(store.dayCount, "day", spellingUpTo: 0)]
+        if km > 0 { clauses.append("\(Formatting.decimal(Double(km), places: 0)) km") }
+        clauses.append("\(Formatting.spelledCount(places, "place", spellingUpTo: 0)) you actually stood")
+        return "That's all of them. \(clauses.joined(separator: ", "))."
+    }
+
+    /// Two or more at once: a row each, every one a way in. Folding them into
+    /// "letters 06 and 09 are open" behind one button left all but the first
+    /// to be found later in the letter box, which is the off-screen opening
+    /// this screen exists to replace.
+    private var severalLetters: some View {
+        Panel(border: Palette.a400) {
+            Mono("\(Formatting.spelledCount(unlockedLetters.count, "letter")) came with it",
+                 size: 9.5, color: Palette.a300)
+            ForEach(Array(unlockedLetters.enumerated()), id: \.element.id) { offset, letter in
+                if offset > 0 {
+                    Rectangle().fill(Palette.n700).frame(height: 1)
+                }
+                Button {
+                    dismiss()
+                    onReadLetter(letter)
+                } label: {
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        Text("No. \(letter.numberLabel) is open")
+                            .font(Typeface.heading(17, .semibold))
+                            .foregroundStyle(Palette.n100)
+                        Spacer(minLength: 4)
+                        Mono("read", size: 9.5, trackingRatio: 0.12, color: Palette.a300)
+                    }
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Letter \(letter.number) is open")
+                .accessibilityHint("Reads it")
+            }
+        }
     }
 
     private var seal: some View {

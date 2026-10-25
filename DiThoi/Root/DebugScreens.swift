@@ -818,7 +818,7 @@ struct DebugScreenHost: View {
         screen.onAppear {
             DebugScreen.applyDay(to: store)
             DebugScreen.seedTripIfAsked(into: store)
-            if ["moments", "momentslist", "trailmap", "nudge", "stamp", "printfile",
+            if ["moments", "momentslist", "trailmap", "nudge", "stamp", "stampletters", "printfile",
                 "replay", "ending", "entry", "editororphan", "placestamp"].contains(id) {
                 if DebugScreen.wantsItinerary { DebugScreen.seedWaypoints(into: store) }
                 DebugScreen.seedMoments(into: store)
@@ -937,12 +937,14 @@ struct DebugScreenHost: View {
             } else {
                 NavigationStack { LettersView() }
             }
-        case "stamp":
+        case "stamp", "stampletters":
+            // `stampletters` is the arrival that opened two at once, which is
+            // the other shape the panel takes: needs `-seedLetters`.
             if let stamp = store.stamps.first(where: { $0.index == 7 }) ?? store.stamps.first {
                 StampEarnedView(stamp: stamp,
-                                unlockedLetter: store.letters.first {
-                                    $0.number == stamp.unlocksLetter
-                                },
+                                unlockedLetters: id == "stampletters"
+                                    ? Array(store.letters.prefix(2))
+                                    : store.letters.filter { $0.number == stamp.unlocksLetter },
                                 onReadLetter: { _ in },
                                 onKeepMoment: { _ in })
             } else {

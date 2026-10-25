@@ -325,9 +325,9 @@ struct Verify {
         check("Hội An is number 7", store.stamps.first { $0.code == "HOI" }?.index == 7)
         let unlocked = store.arrive(at: store.nextStamp!)
         check("arriving earns the stamp", store.earnedStamps.count == 5)
-        check("Chiang Rai unlocks nothing", unlocked == nil, "got \(String(describing: unlocked?.number))")
-        let hanoiLetter = store.arrive(at: store.nextStamp!)
-        check("Hanoi opens letter 5", hanoiLetter?.number == 5, "got \(String(describing: hanoiLetter?.number))")
+        check("Chiang Rai unlocks nothing", unlocked.isEmpty, "got \(unlocked.map(\.number))")
+        let hanoiLetters = store.arrive(at: store.nextStamp!)
+        check("Hanoi opens letter 5", hanoiLetters.map(\.number) == [5], "got \(hanoiLetters.map(\.number))")
         check("that letter is now open", store.letters.first { $0.number == 5 }?.isOpen == true)
 
         print("— journal —")
@@ -1777,11 +1777,14 @@ struct Verify {
                   "\(sealedFields)")
 
             // Standing in Sài Gòn is what opens it — nothing else.
+            // On the tap itself, and handed back for the stamp screen — not
+            // left for the next wake to open with nobody looking.
+            var opened: [Letter] = []
             if let sgn = hers.stamps.first(where: { $0.city == "Sài Gòn" }) {
-                hers.arrive(at: sgn)
+                opened = hers.arrive(at: sgn)
             }
-            let opened = hers.openDueLetters()
             check("arriving opens it", opened.count == 1 && hers.letters[0].isOpen)
+            check("and nothing is left for the next wake", hers.openDueLetters().isEmpty)
             check("and she records where, for her own book",
                   hers.letters[0].openedPlace != nil)
 
@@ -2570,8 +2573,7 @@ struct Verify {
                 far.letters = [Letter(number: 91, title: "For Hội An", writtenOn: far.now,
                                       condition: .place("Hội An"), hint: "", paragraphs: [],
                                       signature: "", sealedAt: far.now)]
-                far.arrive(at: hoiAn)
-                let opened = far.openDueLetters()
+                let opened = far.arrive(at: hoiAn)
                 check("a letter records the place that opened it",
                       opened.first?.openedPlace == "Hội An",
                       "got \(opened.first?.openedPlace ?? "nothing") while standing in \(far.currentCity)")
@@ -2914,9 +2916,9 @@ struct Verify {
             }
             let earnedBefore = home.earnedStamps.count
             let openBefore = home.letters.filter(\.isOpen).count
-            let letter = home.arrive(at: next)
+            let letters = home.arrive(at: next)
 
-            check("the observer's arrival earns nothing", letter == nil)
+            check("the observer's arrival earns nothing", letters.isEmpty)
             check("and the trail does not move",
                   home.earnedStamps.count == earnedBefore,
                   "\(earnedBefore) -> \(home.earnedStamps.count)")
@@ -7204,6 +7206,89 @@ struct Verify {
             check("readiness asks the caller for every photograph it measures",
                   store.printReadiness { _ in nil }.missingPhotos > 0,
                   "\(store.printReadiness { _ in nil }.missingPhotos)")
+        }
+
+        print("— arriving opens the letters written from home —")
+        do {
+            // Only the packed trip sets `unlocksLetter`. Everything sealed at
+            // home is keyed to a code, a place or the last stamp, and arriving
+            // used to leave all of those for the next wake to open unseen.
+            let fixture = CityPositions(tsv: """
+            #\tTH\tThailand
+            #\tVN\tVietnam
+            TH\t13.754\t100.501\t5104476\tBangkok
+            TH\t18.790\t98.985\t127240\tChiang Mai
+            VN\t15.879\t108.335\t32757\tHoi An
+            """)
+            let phone = TripStore(storeKey: nil, ritual: SilentRitualScheduler(),
+                                  library: TripLibrary(key: "dithoi.library.checks-arrival-letters"))
+            phone.cityList = { fixture }
+            phone.participant = .one
+            phone.role = .one
+            phone.features.letters = true
+            check("a trip with no stops has nowhere to frame", phone.itineraryPositions.isEmpty)
+            phone.setDayCount(20)
+            guard let bangkok = phone.addLeg(country: "Thailand", currency: .thb, firstStop: "Bangkok", nights: 4),
+                  let chiangMai = phone.addSegment(title: "Chiang Mai", nights: 5, toLeg: phone.legs[0].id),
+                  let camp = phone.addSegment(title: "Doi Inthanon camp", nights: 1, toLeg: phone.legs[0].id),
+                  let hoiAn = phone.addLeg(country: "Vietnam", currency: .vnd, firstStop: "Hoi An", nights: 4),
+                  let bkk = phone.addWaypoint(code: "BKK", city: "Bangkok", arrivalNote: "", toSegment: bangkok.id),
+                  let cnx = phone.addWaypoint(code: "CNX", city: "Chiang Mai", arrivalNote: "", toSegment: chiangMai.id),
+                  let hoi = phone.addWaypoint(code: "HOI", city: "Hoi An", arrivalNote: "", toSegment: hoiAn.id)
+            else {
+                check("the trip was made", false)
+                return
+            }
+            _ = camp
+            check("the map frames the plan, in order, skipping what the list doesn't know",
+                  phone.itineraryPositions.map(\.latitude) == [13.754, 18.79, 15.879],
+                  "\(phone.itineraryPositions.map(\.latitude))")
+
+            func sealed(_ number: Int, _ condition: LetterCondition, secret: Bool = false) -> Letter {
+                Letter(number: number, title: "No. \(number)", writtenOn: phone.now, condition: condition,
+                       hint: "", paragraphs: ["…"], signature: "", sealedAt: phone.now,
+                       secretCondition: secret)
+            }
+            phone.letters = [sealed(1, .stamp("CNX")), sealed(2, .place("Hoi An")), sealed(3, .finalStamp),
+                             sealed(4, .stamp("HOI"), secret: true), sealed(5, .hidden), sealed(6, .day(18))]
+
+            check("a stamp with nothing sealed to it promises nothing",
+                  phone.lettersOpening(onArrivalAt: bkk).isEmpty)
+            check("the next letter is named by where it opens",
+                  phone.nextLetterLine == "The next one opens in Chiang Mai.", phone.nextLetterLine ?? "nil")
+            check("and arriving there opens nothing else",
+                  phone.arrive(at: bkk).isEmpty && phone.letters.allSatisfy { !$0.isOpen })
+
+            check("the trail promises the letter keyed to the code",
+                  phone.lettersOpening(onArrivalAt: cnx).map(\.number) == [1],
+                  "\(phone.lettersOpening(onArrivalAt: cnx).map(\.number))")
+            let atChiangMai = phone.arrive(at: cnx)
+            check("and arriving opens it, on the tap, for the stamp screen",
+                  atChiangMai.map(\.number) == [1], "\(atChiangMai.map(\.number))")
+            check("recording the place that opened it",
+                  phone.letters.first { $0.number == 1 }?.openedPlace == "Chiang Mai")
+            check("so the next wake has nothing left to open", phone.openDueLetters().isEmpty)
+            check("the next letter moves on to the next place",
+                  phone.nextLetterLine == "The next one opens in Hoi An.", phone.nextLetterLine ?? "nil")
+
+            check("the last stamp promises its place and the final letter, never the secret one",
+                  phone.lettersOpening(onArrivalAt: hoi).map(\.number) == [2, 3],
+                  "\(phone.lettersOpening(onArrivalAt: hoi).map(\.number))")
+            let atHoiAn = phone.arrive(at: hoi)
+            check("arriving opens all three, the secret one included",
+                  atHoiAn.map(\.number) == [2, 3, 4], "\(atHoiAn.map(\.number))")
+            check("and a hidden condition still never fires",
+                  phone.letters.first { $0.number == 5 }?.isOpen == false)
+            check("which leaves the day letter as the next one, never the hidden one",
+                  phone.nextLetterLine == "The next one opens on day 18."
+                  || (phone.dayNumber == 17 && phone.nextLetterLine == "The next one opens tomorrow."),
+                  phone.nextLetterLine ?? "nil")
+
+            // A withheld condition is never the next one, even when it is the
+            // only one left.
+            phone.letters = [sealed(7, .stamp("CNX"), secret: true)]
+            check("a secret letter is never named as the next", phone.nextLetterLine == nil,
+                  phone.nextLetterLine ?? "nil")
         }
 
         print("— a reset names the keys the app uses —")
