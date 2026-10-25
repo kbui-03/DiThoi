@@ -2971,8 +2971,22 @@ struct Verify {
             writing.addItem(time: "14:00", title: "Ferry", note: "Buy the ticket at the pier", toDay: 20)
             check("hours go on the day", writing.plan(forDay: 20)?.items.count == 2)
 
-            writing.moveItems(onDay: 20, from: IndexSet(integer: 1), to: 0)
-            check("and can be reordered", writing.plan(forDay: 20)?.items.first?.title == "Ferry")
+            writing.addItem(time: "after dark", title: "Night market", note: "", toDay: 20)
+            writing.addItem(time: "7am", title: "Sunrise", note: "", toDay: 20)
+            writing.addItem(time: "12:30 pm", title: "Lunch", note: "", toDay: 20)
+            check("and are read in the order the day happens",
+                  writing.plan(forDay: 20)?.orderedItems.map(\.title)
+                      == ["Sunrise", "Coffee", "Lunch", "Ferry", "Night market"],
+                  "\(writing.plan(forDay: 20)?.orderedItems.map(\.title) ?? [])")
+            check("without rewriting the order they were written in",
+                  writing.plan(forDay: 20)?.items.first?.title == "Coffee")
+            check("and a time that isn't one sorts nowhere rather than at midnight",
+                  PlanItem(time: "25:00", title: "", note: "").minutes == nil
+                  && PlanItem(time: "12am", title: "", note: "").minutes == 0
+                  && PlanItem(time: "19.15", title: "", note: "").minutes == 19 * 60 + 15)
+            for item in writing.plan(forDay: 20)?.items ?? [] where item.time != "07:30" && item.time != "14:00" {
+                writing.removeItem(item.id, fromDay: 20)
+            }
 
             writing.removeItem(first.id, fromDay: 20)
             check("and removed", writing.plan(forDay: 20)?.items.count == 1)
@@ -4505,7 +4519,7 @@ struct Verify {
 
         print("— a waypoint's number comes from the plan —")
         do {
-            let phone = TripStore(storeKey: nil, snapshot: store.snapshot,
+            let phone = TripStore(storeKey: nil, snapshot: CheckTrip.snapshot(),
                                   ritual: SilentRitualScheduler(),
                                   library: TripLibrary(key: "dithoi.library.checks-reflow"))
             func numbers() -> [Int] { phone.orderedStamps.map(\.index) }
@@ -4524,20 +4538,30 @@ struct Verify {
                   codes() == ["BKK", "AYU", "PAI", "CNX", "CEI", "HAN", "HOI", "SGN", "SEL", "PUS", "CJU"],
                   "\(codes())")
 
-            // Move the last stop of Thailand to the front of it. Chiang Rai
-            // has to come with it, because the number follows the plan.
-            let thailand = phone.legs[0]
-            let before = phone.stamps.first { $0.code == "CEI" }?.updatedAt
-            phone.moveSegments(inLeg: thailand.id, from: IndexSet(integer: 3), to: 0)
+            // Move the last stop of Vietnam to the front of it. Sài Gòn has to
+            // come with it, because the number follows the plan.
+            let vietnam = phone.legs[1]
+            let before = phone.stamps.first { $0.code == "SGN" }?.updatedAt
+            phone.moveSegments(inLeg: vietnam.id, from: IndexSet(integer: 2), to: 0)
             check("moving a stop renumbers the waypoints",
-                  codes().first == "CEI", "\(codes())")
+                  codes().firstIndex(of: "SGN") == codes().firstIndex(of: "CEI").map { $0 + 1 },
+                  "\(codes())")
             check("and the numbers still run one to n",
                   numbers() == Array(1...count), "\(numbers())")
             check("and renumbering is an edit, so the other phone keeps it",
-                  phone.stamps.first { $0.code == "CEI" }?.updatedAt != before)
+                  phone.stamps.first { $0.code == "SGN" }?.updatedAt != before)
 
-            // Put it back, then remove a stop from the middle. The gap closes.
+            // Earned stamps don't follow the plan: they are where somebody has
+            // already been. Dragging Chiang Rai ahead of them reorders what is
+            // still to come, never what happened.
+            let thailand = phone.legs[0]
+            phone.moveSegments(inLeg: thailand.id, from: IndexSet(integer: 3), to: 0)
+            check("an earned stamp keeps its place when its stop is dragged behind another",
+                  Array(codes().prefix(5)) == ["BKK", "AYU", "PAI", "CNX", "CEI"], "\(codes())")
+
+            // Put them back, then remove a stop from the middle. The gap closes.
             phone.moveSegments(inLeg: thailand.id, from: IndexSet(integer: 0), to: 4)
+            phone.moveSegments(inLeg: vietnam.id, from: IndexSet(integer: 0), to: 3)
             if let bangkok = phone.itinerary.allSegments.first(where: { $0.title == "Bangkok" }) {
                 phone.removeSegment(bangkok.id)
                 check("removing a stop closes the gap it left",
@@ -4701,6 +4725,347 @@ struct Verify {
             check("and earning it without a fix leaves it that way, rather than at zero-zero",
                   blank.earnedStamps.first?.hasLocation == false,
                   "\(blank.earnedStamps.first?.latitude ?? -1)")
+        }
+
+        print("— removing a stop takes its stamps —")
+        do {
+            let phone = TripStore(storeKey: nil, snapshot: CheckTrip.snapshot(),
+                                  ritual: SilentRitualScheduler(),
+                                  library: TripLibrary(key: "dithoi.library.checks-stop-removal"))
+            func codes() -> [String] { phone.orderedStamps.map(\.code) }
+            func segment(_ title: String) -> Segment? {
+                phone.itinerary.allSegments.first { $0.title == title }
+            }
+
+            // What the dialog says, before anything is taken.
+            if let hoiAn = segment("Hội An · Đà Nẵng") {
+                let summary = phone.removalSummary(ofSegments: [hoiAn.id])
+                check("removing a stop names the stamp that goes with it",
+                      summary.stamps.map(\.code) == ["HOI"], "\(summary.stamps.map(\.code))")
+                check("and the sealed letter that will never open",
+                      summary.letterCost?.contains("06") == true, summary.letterCost ?? "nothing said")
+                check("and is not refused", summary.refusal == nil)
+            } else {
+                check("there was a Hội An stop", false)
+            }
+            if let chiangMai = segment("Chiang Mai · Songkran") {
+                check("an earned stamp is not among what goes",
+                      phone.removalSummary(ofSegments: [chiangMai.id]).stamps.isEmpty)
+                check("but the days written in it are counted",
+                      phone.removalSummary(ofSegments: [chiangMai.id]).planCount == 3,
+                      "\(phone.removalSummary(ofSegments: [chiangMai.id]).planCount)")
+            }
+
+            // Chiang Rai holds CEI, which is next. Removing the stop used to
+            // leave it next, on no stop, reachable from no editor.
+            guard let chiangRai = segment("Chiang Rai") else {
+                check("there was a Chiang Rai stop", false)
+                return
+            }
+            check("Chiang Rai's stamp is next before", phone.nextStamp?.code == "CEI")
+            check("the stop can be removed", phone.removeSegment(chiangRai.id))
+            check("and its unearned stamp goes with it",
+                  !codes().contains("CEI") && phone.stamps.contains { $0.code == "CEI" && $0.isDeleted },
+                  "\(codes())")
+            check("so the next stop is the next one there is", phone.nextStamp?.code == "HAN",
+                  phone.nextStamp?.code ?? "nil")
+            check("and no stamp is left without a stop", phone.orphanedWaypoints.isEmpty)
+            check("and the numbers still run one to n",
+                  phone.orderedStamps.map(\.index) == Array(1...phone.orderedStamps.count))
+
+            // An earned one stays, and stays where it was on the trail.
+            if let chiangMai = segment("Chiang Mai · Songkran") {
+                check("a stop with an earned stamp can be removed", phone.removeSegment(chiangMai.id))
+                check("and the earned stamp stays where it was on the trail",
+                      Array(codes().prefix(4)) == ["BKK", "AYU", "PAI", "CNX"], "\(codes())")
+                check("and the days written in it go, as tombstones",
+                      phone.plan(forDay: 12) == nil || phone.plan(forDay: 12)?.blurb.contains("moat") == false)
+            }
+
+            // With nothing stranded, the last stamp can be reached at last.
+            for stamp in phone.orderedStamps where !stamp.earned { phone.arrive(at: stamp) }
+            check("a letter sealed to the last stamp can open once the rest are earned",
+                  phone.letterMoment.allStampsEarned)
+
+            // Taking away the last stamps nobody has stood in would open that
+            // letter on the spot, so a whole country can be refused.
+            let refusing = TripStore(storeKey: nil, snapshot: CheckTrip.snapshot(),
+                                     ritual: SilentRitualScheduler(),
+                                     library: TripLibrary(key: "dithoi.library.checks-stop-refusal"))
+            if refusing.legs.count == 3 {
+                let vietnam = refusing.legs[1], korea = refusing.legs[2]
+                check("a whole country can be removed", refusing.removeLeg(vietnam.id))
+                check("and its stamps go with it",
+                      !refusing.orderedStamps.contains { ["HAN", "HOI", "SGN"].contains($0.code) },
+                      "\(refusing.orderedStamps.map(\.code))")
+                if let rai = refusing.itinerary.allSegments.first(where: { $0.title == "Chiang Rai" }) {
+                    refusing.removeSegment(rai.id)
+                }
+                let summary = refusing.removalSummary(ofSegments: korea.segments.map(\.id))
+                check("removing the last stamps nobody has stood in is refused",
+                      summary.refusal != nil && refusing.removeLeg(korea.id) == false)
+                check("and refusing leaves the country where it was",
+                      refusing.legs.contains { $0.id == korea.id })
+                check("but one of its stops alone can still go",
+                      korea.segments.first.map { refusing.removeSegment($0.id) } == true)
+            } else {
+                check("there were three countries", false)
+            }
+
+            // A merge can still strand one: the other phone removes the stop
+            // while this one gives it a stamp.
+            let merged = TripStore(storeKey: nil, snapshot: CheckTrip.snapshot(),
+                                   ritual: SilentRitualScheduler(),
+                                   library: TripLibrary(key: "dithoi.library.checks-stop-orphan"))
+            if let busan = merged.itinerary.allSegments.first(where: { $0.title == "Busan" }),
+               let seoul = merged.itinerary.allSegments.first(where: { $0.title == "Seoul" }),
+               let gyeongju = merged.addWaypoint(code: "GYE", city: "Gyeongju", arrivalNote: "",
+                                                  toSegment: busan.id) {
+                merged.itinerary.removeSegment(busan.id)
+                check("every stamp whose stop went in a merge is listed",
+                      merged.orphanedWaypoints.map(\.code) == ["PUS", "GYE"],
+                      "\(merged.orphanedWaypoints.map(\.code))")
+                check("and can be put on a stop", merged.attachWaypoint(gyeongju.id, toSegment: seoul.id))
+                check("after which it is reachable from that stop",
+                      merged.waypoints(forSegment: seoul.id).map(\.code).contains("GYE")
+                      && merged.orphanedWaypoints.map(\.code) == ["PUS"],
+                      "\(merged.orphanedWaypoints.map(\.code))")
+                if let earned = merged.earnedStamps.first {
+                    check("an earned stamp can't be moved", !merged.attachWaypoint(earned.id, toSegment: seoul.id))
+                }
+            } else {
+                check("there was a Busan stop to stamp", false)
+            }
+
+            // Removing a stop is a claim about the travellers' own trip.
+            let home = TripStore(storeKey: nil, snapshot: CheckTrip.snapshot(),
+                                 ritual: SilentRitualScheduler(),
+                                 library: TripLibrary(key: "dithoi.library.checks-stop-home"))
+            home.participant = .writer
+            if let seoul = home.itinerary.allSegments.first(where: { $0.title == "Seoul" }) {
+                check("home cannot remove a stop",
+                      !home.removeSegment(seoul.id) && home.itinerary.allSegments.contains { $0.id == seoul.id })
+            }
+            for key in ["dithoi.library.checks-stop-removal", "dithoi.library.checks-stop-refusal",
+                        "dithoi.library.checks-stop-orphan", "dithoi.library.checks-stop-home"] {
+                Storage.forget(key)
+            }
+        }
+
+        print("— a day's plan goes where its stop goes —")
+        do {
+            let phone = TripStore(storeKey: nil, snapshot: CheckTrip.snapshot(),
+                                  ritual: SilentRitualScheduler(),
+                                  library: TripLibrary(key: "dithoi.library.checks-plan-keys"))
+            guard let chiangMai = phone.itinerary.allSegments.first(where: { $0.title == "Chiang Mai · Songkran" }),
+                  let thailand = phone.legs.first else {
+                check("there was a Chiang Mai stop", false)
+                return
+            }
+            let songkran = phone.plan(forDay: 12)
+            check("a plan from the older build is filed under its stop",
+                  songkran?.segmentID == chiangMai.id && songkran?.dayOfStop == 12 - chiangMai.startDay,
+                  "\(String(describing: songkran?.dayOfStop))")
+
+            // Drag Chiang Rai ahead of Chiang Mai. Day 12 is Chiang Rai's now,
+            // and nothing was written there; Songkran went with Chiang Mai.
+            phone.moveSegments(inLeg: thailand.id, from: IndexSet(integer: 3), to: 2)
+            let movedMai = phone.itinerary.allSegments.first { $0.id == chiangMai.id }!
+            check("dragging a stop takes its plans with it",
+                  phone.plan(forDay: movedMai.startDay + 3)?.id == songkran?.id,
+                  "day \(movedMai.startDay + 3)")
+            check("and leaves nothing of them on the day it left", phone.plan(forDay: 12)?.id != songkran?.id)
+            phone.moveSegments(inLeg: thailand.id, from: IndexSet(integer: 2), to: 4)
+
+            // Shorten it past day 12's offset: the plan waits, and nothing is written.
+            let stamped = phone.dayPlans.map(\.updatedAt)
+            phone.setNights(3, forSegment: chiangMai.id)
+            check("a stop shortened past a written day sets that plan aside",
+                  phone.setAsidePlans(forSegment: chiangMai.id).map(\.dayOfStop) == [3, 4],
+                  "\(phone.setAsidePlans(forSegment: chiangMai.id).map(\.dayOfStop))")
+            check("and it doesn't draw on whatever day now has that number",
+                  phone.plan(forDay: 12)?.id != songkran?.id)
+            phone.setNights(8, forSegment: chiangMai.id)
+            check("lengthening it brings the plan back", phone.plan(forDay: 12)?.id == songkran?.id)
+            check("and none of that was an edit", phone.dayPlans.map(\.updatedAt) == stamped)
+
+            // The newest of two records for one day, whichever way the merge
+            // handed them back.
+            var snapshot = CheckTrip.snapshot()
+            let older = Date(timeIntervalSince1970: 1_000), newer = Date(timeIntervalSince1970: 2_000)
+            snapshot.dayPlans += [
+                DayPlan(dayNumber: 20, city: "Chiang Rai", blurb: "newer", items: [], updatedAt: newer),
+                DayPlan(dayNumber: 20, city: "Chiang Rai", blurb: "older", items: [], updatedAt: older),
+            ]
+            let twice = TripStore(storeKey: nil, snapshot: snapshot,
+                                  ritual: SilentRitualScheduler(),
+                                  library: TripLibrary(key: "dithoi.library.checks-plan-twice"))
+            check("two phones writing one day show the newer", twice.plan(forDay: 20)?.blurb == "newer",
+                  twice.plan(forDay: 20)?.blurb ?? "nil")
+            twice.setBlurb("edited", forDay: 20)
+            check("and an edit lands on the one shown", twice.plan(forDay: 20)?.blurb == "edited"
+                  && twice.dayPlans.filter { $0.blurb == "older" }.count == 1)
+
+            // A day no stop covers is filed by its number, and once a stop
+            // covers it, under the stop.
+            let typed = TripStore(storeKey: nil, ritual: SilentRitualScheduler(),
+                                  library: TripLibrary(key: "dithoi.library.checks-plan-gap"))
+            typed.setDayCount(10)
+            typed.addLeg(country: "Portugal", currency: .eur, firstStop: "Lisbon", nights: 3)
+            typed.setBlurb("Whatever turns up", forDay: 7)
+            check("a day no stop covers is filed by its number",
+                  typed.plan(forDay: 7)?.segmentID == nil && typed.plan(forDay: 7)?.blurb == "Whatever turns up")
+            typed.addSegment(title: "Porto", nights: 5, toLeg: typed.legs[0].id)
+            check("and under the stop that comes to cover it",
+                  typed.plan(forDay: 7)?.segmentID == typed.itinerary.allSegments.last?.id
+                  && typed.plan(forDay: 7)?.blurb == "Whatever turns up")
+
+            // The new keys are optional on the wire.
+            if let encoded = try? JSONEncoder().encode(songkran),
+               var object = try? JSONSerialization.jsonObject(with: encoded) as? [String: Any] {
+                object.removeValue(forKey: "segmentID")
+                object.removeValue(forKey: "dayOfStop")
+                let stripped = try? JSONDecoder().decode(DayPlan.self,
+                                                         from: JSONSerialization.data(withJSONObject: object))
+                check("a plan without the stop keys still decodes",
+                      stripped?.segmentID == nil && stripped?.blurb == songkran?.blurb)
+            } else {
+                check("the plan encodes", false)
+            }
+            for key in ["dithoi.library.checks-plan-keys", "dithoi.library.checks-plan-twice",
+                        "dithoi.library.checks-plan-gap"] {
+                Storage.forget(key)
+            }
+        }
+
+        print("— renaming a stop or a country —")
+        do {
+            let phone = TripStore(storeKey: nil, snapshot: CheckTrip.snapshot(),
+                                  ritual: SilentRitualScheduler(),
+                                  library: TripLibrary(key: "dithoi.library.checks-renames"))
+            guard let shared = phone.itinerary.allSegments.first(where: { $0.title == "Ayutthaya · Pai" }),
+                  let thailand = phone.legs.first else {
+                check("there was a stop naming two places", false)
+                return
+            }
+            // AYU and PAI find their stop by name, so a rename would have
+            // stranded both.
+            check("a renamed stop keeps the stamps it found by name",
+                  phone.renameSegment(shared.id, title: "  The old capital ")
+                  && phone.waypoints(forSegment: shared.id).map(\.code) == ["AYU", "PAI"],
+                  "\(phone.waypoints(forSegment: shared.id).map(\.code))")
+            check("trimmed", phone.itinerary.allSegments.contains { $0.title == "The old capital" })
+            check("and the stamps keep the cities their letters are sealed to",
+                  phone.stamps.live.filter { ["AYU", "PAI"].contains($0.code) }.map(\.city) == ["Ayutthaya", "Pai"])
+            check("a blank title is refused", !phone.renameSegment(shared.id, title: "  "))
+
+            let thaiLines = phone.expenses.filter { $0.country == "Thailand" }.count
+            let otherLines = phone.expenses.filter { $0.country != "Thailand" }.map(\.id)
+            check("there are lines spent in Thailand", thaiLines > 0, "\(thaiLines)")
+            check("a country can be renamed", phone.renameLeg(thailand.id, country: "Siam"))
+            check("and the lines spent there go with it",
+                  phone.expenses.filter { $0.country == "Siam" }.count == thaiLines
+                  && !phone.expenses.contains { $0.country == "Thailand" })
+            check("and no other line moves",
+                  phone.expenses.filter { $0.country != "Siam" }.map(\.id) == otherLines)
+
+            // Entered twice: renaming the second visit leaves the first's lines.
+            phone.renameLeg(thailand.id, country: "Thailand")
+            phone.addLeg(country: "Thailand", currency: .thb, firstStop: "Krabi", nights: 3)
+            if let again = phone.legs.last {
+                phone.renameLeg(again.id, country: "Thailand, again")
+                check("renaming the second visit to a country leaves the first visit's lines",
+                      phone.expenses.filter { $0.country == "Thailand" }.count == thaiLines)
+            }
+
+            let currencies = phone.expenses.map(\.currency)
+            check("a country's money can change", phone.setCurrency(.usd, forLeg: thailand.id)
+                  && phone.legs.first?.currency == .usd && phone.localCurrency == .usd)
+            check("and every line already spent keeps its own", phone.expenses.map(\.currency) == currencies)
+
+            let home = TripStore(storeKey: nil, snapshot: CheckTrip.snapshot(),
+                                 ritual: SilentRitualScheduler(),
+                                 library: TripLibrary(key: "dithoi.library.checks-renames-home"))
+            home.participant = .writer
+            if let leg = home.legs.first, let stop = leg.segments.first {
+                check("home renames nothing",
+                      !home.renameSegment(stop.id, title: "Elsewhere") && !home.renameLeg(leg.id, country: "Elsewhere")
+                      && !home.setCurrency(.usd, forLeg: leg.id))
+            }
+            Storage.forget("dithoi.library.checks-renames")
+            Storage.forget("dithoi.library.checks-renames-home")
+        }
+
+        print("— a typed stop knows where it is —")
+        do {
+            // A slice of the bundled list's own format: countries, then cities
+            // by country, largest first.
+            let fixture = CityPositions(tsv: """
+            #\tTH\tThailand
+            #\tVN\tVietnam
+            #\tUS\tUnited States
+            TH\t13.754\t100.501\t5104476\tBangkok\tKrung Thep
+            TH\t13.763\t100.478\t117793\tBangkok Noi
+            TH\t18.790\t98.985\t127240\tChiang Mai\tChiangmai
+            VN\t10.823\t106.630\t14002598\tHo Chi Minh City\tSaigon\tSài Gòn
+            VN\t15.879\t108.335\t32757\tHoi An
+            US\t39.802\t-89.644\t114394\tSpringfield
+            """)
+            check("a city is found inside its country",
+                  fixture.position(of: "Chiang Mai", inCountry: "Thailand")?.latitude == 18.79)
+            check("under another spelling, diacritics and all",
+                  fixture.position(of: "Sài Gòn", inCountry: "Viet Nam")?.longitude == 106.63
+                  && fixture.position(of: "Hội An", inCountry: "vietnam") != nil)
+            check("the largest of two with the name", fixture.position(of: "bangkok", inCountry: "Thailand")?.latitude == 13.754)
+            check("and never in another country",
+                  fixture.position(of: "Springfield", inCountry: "Thailand") == nil
+                  && fixture.position(of: "Chiang Mai", inCountry: "Atlantis") == nil)
+
+            let typed = TripStore(storeKey: nil, ritual: SilentRitualScheduler(),
+                                  library: TripLibrary(key: "dithoi.library.checks-positions"))
+            typed.cityList = { fixture }
+            typed.setDayCount(20)
+            guard let bangkok = typed.addLeg(country: "Thailand", currency: .thb, firstStop: "Bangkok", nights: 4),
+                  let chiangMai = typed.addSegment(title: "Chiang Mai", nights: 5, toLeg: typed.legs[0].id),
+                  let camp = typed.addSegment(title: "Doi Inthanon camp", nights: 2, toLeg: typed.legs[0].id) else {
+                check("the stops were made", false)
+                return
+            }
+            let bkk = typed.addWaypoint(code: "BKK", city: "Bangkok", arrivalNote: "", toSegment: bangkok.id)
+            let cnx = typed.addWaypoint(code: "CNX", city: "Chiang Mai", arrivalNote: "", toSegment: chiangMai.id)
+            let doi = typed.addWaypoint(code: "DOI", city: "Doi Inthanon camp", arrivalNote: "", toSegment: camp.id)
+            check("a typed waypoint gets its city's position", bkk?.hasLocation == true && cnx?.hasLocation == true)
+            check("and one the list doesn't know still has none, rather than a guess",
+                  doi?.hasLocation == false)
+            check("so the distance to the next stop answers",
+                  typed.kilometresToNextStop(fromLatitude: 13.75, longitude: 100.5) != nil)
+            check("and standing in Bangkok is close to it",
+                  typed.nearNextStop(latitude: 13.76, longitude: 100.5) != nil)
+
+            // Renaming the stamp's city moves it; a city the list can't find
+            // leaves no position behind rather than the old city's.
+            if let cnx {
+                typed.updateWaypoint(cnx.id, city: "Somewhere unlisted")
+                check("a city changed to one the list can't find drops the old position",
+                      typed.stamps.first { $0.id == cnx.id }?.hasLocation == false)
+            }
+
+            // The backfill fills blanks, and only blanks, without an edit.
+            let quiet = TripStore(storeKey: nil, ritual: SilentRitualScheduler(),
+                                  library: TripLibrary(key: "dithoi.library.checks-positions-backfill"))
+            quiet.cityList = { nil }
+            quiet.addLeg(country: "Vietnam", currency: .vnd, firstStop: "Hoi An", nights: 3)
+            if let stop = quiet.itinerary.allSegments.first,
+               let hoi = quiet.addWaypoint(code: "HOI", city: "Hoi An", arrivalNote: "", toSegment: stop.id) {
+                check("with no list, a typed waypoint has no position", !hoi.hasLocation)
+                let stamped = quiet.stamps.map(\.updatedAt)
+                quiet.cityList = { fixture }
+                quiet.backfillWaypointPositions()
+                check("the backfill finds it", quiet.stamps.first { $0.id == hoi.id }?.latitude == 15.879)
+                check("and is not an edit anybody made", quiet.stamps.map(\.updatedAt) == stamped)
+            }
+            Storage.forget("dithoi.library.checks-positions")
+            Storage.forget("dithoi.library.checks-positions-backfill")
         }
 
         print("— four holes the review found —")
@@ -5204,7 +5569,10 @@ struct Verify {
             let blank = TripStore(storeKey: nil, snapshot: store.snapshot,
                                   ritual: SilentRitualScheduler(),
                                   library: TripLibrary(key: "dithoi.library.checks-moments-blank"))
-            for leg in blank.legs { blank.removeLeg(leg.id) }
+            // Emptied by hand rather than through `removeLeg`, which refuses
+            // the last country here: it holds the last stamps nobody has stood
+            // in, and a letter is sealed to the last stamp.
+            blank.itinerary = ItineraryDocument(legs: [])
             let nowhere = blank.addMoment(note: "Somewhere")
             check("a moment on a blank trip stores no em-dash",
                   nowhere?.city == "" && nowhere?.caption == "day \(blank.dayNumber)",

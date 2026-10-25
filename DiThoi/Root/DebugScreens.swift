@@ -819,9 +819,16 @@ struct DebugScreenHost: View {
             DebugScreen.applyDay(to: store)
             DebugScreen.seedTripIfAsked(into: store)
             if ["moments", "momentslist", "trailmap", "nudge", "stamp", "printfile",
-                "replay", "ending", "entry"].contains(id) {
+                "replay", "ending", "entry", "editororphan", "placestamp"].contains(id) {
                 if DebugScreen.wantsItinerary { DebugScreen.seedWaypoints(into: store) }
                 DebugScreen.seedMoments(into: store)
+            }
+            // A stamp whose stop went in a merge: the stop is taken out of the
+            // document directly, the way a merged itinerary would arrive,
+            // rather than through `removeSegment`, which takes its stamps.
+            if ["editororphan", "placestamp"].contains(id),
+               let hue = store.itinerary.allSegments.first(where: { $0.title == "Huế" }) {
+                store.itinerary.removeSegment(hue.id)
             }
             if DebugScreen.wantsSpending { DebugScreen.seedSpending(into: store) }
             if DebugScreen.wantsLetters { DebugScreen.seedLetters(into: store) }
@@ -887,8 +894,25 @@ struct DebugScreenHost: View {
             NavigationStack { TripSetupView() }
         case "itinerary":
             NavigationStack { ItineraryView() }
-        case "editor":
+        case "editor", "editororphan":
             ItineraryEditorView()
+        case "countryedit", "renamestop", "addstop":
+            // Each needs something to edit; an empty trip gets the editor.
+            if let leg = store.legs.first, let stop = leg.segments.first {
+                switch id {
+                case "countryedit": CountryEditorView(leg: leg)
+                case "renamestop": RenameStopView(segment: stop)
+                default: AddStopView(leg: leg, initialTitle: "Chiang Rai")
+                }
+            } else {
+                ItineraryEditorView()
+            }
+        case "placestamp":
+            if let stamp = store.orphanedWaypoints.first {
+                PlaceStampView(stamp: stamp)
+            } else {
+                ItineraryEditorView()
+            }
         case "day":
             // Needs a stop to be a day *of*, so an empty trip gets the
             // itinerary editor instead of a crash.

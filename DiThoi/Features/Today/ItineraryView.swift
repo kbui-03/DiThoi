@@ -120,7 +120,9 @@ struct ItineraryView: View {
 
     @ViewBuilder
     private func segmentRow(_ segment: Segment, isLast: Bool) -> some View {
-        let current = segment.contains(day: store.dayNumber)
+        // Only while they are away. `dayNumber` clamps to 1 before departure,
+        // so the first stop used to say "you're here" from a sofa at home.
+        let current = store.phase == .during && segment.contains(day: store.dayNumber)
         let beyondReturn = segment.startDay > store.dayCount
 
         NavigationLink {
@@ -134,6 +136,8 @@ struct ItineraryView: View {
                     Spacer(minLength: 8)
                     if current {
                         Mono("you're here", size: 10, trackingRatio: 0.06, color: Palette.a700)
+                    } else if let countdown = firstStopCountdown(segment) {
+                        Mono(countdown, size: 10, trackingRatio: 0.06, color: Palette.a700)
                     } else {
                         Text(dateRange(segment))
                             .font(Typeface.mono(11))
@@ -151,6 +155,15 @@ struct ItineraryView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+
+    /// Before they leave, the first stop says when it starts instead of where
+    /// they are. The dates are one tap away, on the day itself.
+    private func firstStopCountdown(_ segment: Segment) -> String? {
+        guard case .before(let daysUntil) = store.phase,
+              segment.id == store.itinerary.allSegments.first?.id else { return nil }
+        return daysUntil == 1 ? "first · tomorrow"
+            : "first · in \(Formatting.spelledCount(daysUntil, "day", spellingUpTo: 0))"
     }
 
     private func dateRange(_ segment: Segment) -> String {

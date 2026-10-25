@@ -14,6 +14,14 @@ struct DayDetailView: View {
     /// survivable while this screen only read and isn't now that it writes.
     @State private var day: Int
     @State private var editing = false
+    @State private var writingNight = false
+    @State private var destination: Destination?
+
+    /// Pushed through one `navigationDestination(item:)` (§5.1).
+    private enum Destination: Hashable, Identifiable {
+        case moments(Int)
+        var id: Self { self }
+    }
 
     init(day: Int, segment: Segment) {
         self.segment = segment
@@ -93,7 +101,7 @@ struct DayDetailView: View {
 
             Rule()
 
-            if let items = plan?.items, !items.isEmpty {
+            if let items = plan?.orderedItems, !items.isEmpty {
                 ForEach(items) { item in
                     HStack(alignment: .top, spacing: Space.s3) {
                         Text(item.time)
@@ -138,6 +146,8 @@ struct DayDetailView: View {
                 .padding(.top, Space.s3)
             }
 
+            nightAndMoments
+
             VStack(alignment: .leading, spacing: 3) {
                 HStack(alignment: .firstTextBaseline) {
                     Mono("Spent this day", size: 10)
@@ -154,17 +164,77 @@ struct DayDetailView: View {
         .sheet(isPresented: $editing) {
             DayPlanEditorView(day: day, city: cityName)
         }
+        .sheet(isPresented: $writingNight) {
+            TonightEntryView(day: day)
+        }
+        .navigationDestination(item: $destination) { destination in
+            switch destination {
+            case .moments(let day): MomentsView(day: day)
+            }
+        }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    // MARK: - The rest of the day
+
+    /// That night's page and that day's moments, each a worded row (§5.1).
+    ///
+    /// The page is this phone's own — journals don't travel — so it is offered
+    /// only where it could be written: a day that has come, on a traveller's
+    /// live trip. A page already written is always offered.
+    @ViewBuilder
+    private var nightAndMoments: some View {
+        let entry = store.myEntries.first { $0.dayNumber == day }
+        let canWrite = !isReadOnly && store.isLive && !store.isObserver && day <= store.trueDayNumber
+        let moments = store.moments(onDay: day)
+
+        if entry != nil || canWrite {
+            linkRow(label: "That night's page", title: entry.map(nightSummary) ?? "Not written yet",
+                    verb: entry == nil ? "write it" : "open") { writingNight = true }
+                .padding(.top, Space.s3)
+            Rule()
+        }
+        if !moments.isEmpty {
+            linkRow(label: "Moments that day",
+                    title: Formatting.spelledCount(moments.count, "moment"),
+                    verb: "see them") { destination = .moments(day) }
+                .padding(.top, entry != nil || canWrite ? 0 : Space.s3)
+            Rule()
+        }
+    }
+
+    private func linkRow(label: String, title: String, verb: String,
+                         action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Mono(label, size: 9.5)
+                    Text(title)
+                        .font(Typeface.heading(16, .semibold))
+                        .foregroundStyle(Palette.text)
+                }
+                Spacer(minLength: Space.s2)
+                Mono(verb, size: 10, color: Palette.a700)
+            }
+            .padding(.vertical, Space.s2)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func nightSummary(_ entry: JournalEntry) -> String {
+        let photos = (entry.hasPhoto ? 1 : 0) + entry.extraPhotoIDs.count
+        return photos == 0 ? "Written"
+            : "Written · \(Formatting.spelledCount(photos, "photo").lowercased())"
     }
 
     /// The stop covering this day, and only then what the plan was written
     /// about.
     ///
-    /// The segment first: plans join on `dayNumber` while `reflow()` renumbers
-    /// every day on any itinerary edit, so a stored city goes stale the moment
-    /// somebody drags a stop. `plan?.city` only answers for the days no segment
-    /// covers, which is the day they fly home.
+    /// The segment first. Plans are filed under their stop now and move with
+    /// it, but `plan?.city` is still only what the day was written *about* —
+    /// and it only answers for a day no segment covers.
     private var cityName: String {
         // `places` drops blanks, so `first` is genuinely nil for a stop nobody
         // named and the fallback below actually runs. Splitting the raw title

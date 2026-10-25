@@ -14,12 +14,19 @@ struct MomentsView: View {
     @State private var editing: Moment?
     @State private var deleted: Moment?
     @State private var kept: Moment?
+    /// One day's moments only, when opened from that day.
+    var day: Int?
+
+    private var shown: [Moment] {
+        guard let day else { return store.moments }
+        return store.moments.filter { $0.dayNumber == day }
+    }
 
     private var canMark: Bool { !isReadOnly && store.isLive && !store.isObserver }
 
     var body: some View {
         Screen(context: .syncState) {
-            MarkMomentLabel("Along the way", size: 10.5, canMark: canMark,
+            MarkMomentLabel(day.map { "Day \($0)" } ?? "Along the way", size: 10.5, canMark: canMark,
                             onKeepSpot: {
                                 let fix = store.location.current.flatMap(TrailView.fresh)?.coordinate
                                 kept = store.addMoment(note: "", latitude: fix?.latitude ?? 0,
@@ -32,7 +39,7 @@ struct MomentsView: View {
                 .padding(.top, 8)
                 .padding(.bottom, Space.s3)
 
-            if store.orderedMoments.isEmpty {
+            if shown.isEmpty {
                 // Reachable by deleting the last one from here.
                 Aside(text: "Anything worth keeping that isn't a stamp goes here, and prints in your book, beside the days it happened.",
                       size: 12.5)
@@ -43,7 +50,7 @@ struct MomentsView: View {
                 }
                 // Built once per pass and handed down — a derived value read
                 // from `body` is not re-derived per row.
-                ForEach(Moment.groupedByStop(store.moments)) { group in
+                ForEach(Moment.groupedByStop(shown)) { group in
                     SectionRule(top: Space.s3, bottom: Space.s2)
                     HStack(alignment: .firstTextBaseline) {
                         Mono(group.heading, size: 10)
@@ -90,7 +97,7 @@ struct MomentsView: View {
         // `spelledCount` agrees the noun and capitalises, so a single one
         // reads "One moment" rather than "One moments".
         // And "Zero moments kept" is a count of nothing stated as an answer.
-        let count = store.orderedMoments.count
+        let count = shown.count
         return count == 0 ? "Nothing\nkept yet" : "\(Formatting.spelledCount(count, "moment"))\nkept"
     }
 }

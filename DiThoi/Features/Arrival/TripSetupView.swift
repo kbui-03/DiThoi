@@ -102,6 +102,11 @@ struct TripSetupView: View {
                         SectionRule()
                         finish
                     }
+                    // The licence the city list ships under asks for this.
+                    // Remove it and the list has to go with it.
+                    Aside(text: "Where a typed stop is on the map comes from GeoNames (geonames.org), CC BY 4.0, kept on this phone.",
+                          size: 11, color: Palette.n600)
+                        .padding(.top, Space.s4)
                 }
             }
 
