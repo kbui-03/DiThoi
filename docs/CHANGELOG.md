@@ -11,6 +11,20 @@ change gets its own line under **Unreleased**.
 ## [Unreleased]
 
 ### Added
+- The whole ledger. "The whole ledger · N lines" under Money's recent lines
+  opens every line, grouped by day with each day's total, filterable by
+  country and settlements. Older lines can be edited and deleted from there.
+- A decimal key. Currencies with cents get "." where "000" was, so €3.50 can
+  be typed; baht, đồng and won keep "000". Lines with cents can be edited.
+- "When" on the expense sheet: today, yesterday, any earlier day of the trip,
+  or before you left. A backdated line is filed under where you were that
+  day.
+- Settling up on one phone. While the build has no sync, "We're both here ·
+  clear it" proposes and agrees in one step, after asking whether the other
+  traveller is there. The settlement is marked as agreed together.
+- "Export as a spreadsheet" at the bottom of the ledger: a CSV of every line,
+  home money at today's rates, shared and then deleted from the phone like
+  the book.
 - Renaming a stop and editing a country. "rename" on each stop row keeps the
   stamps on it and the cities their letters are sealed to. "edit" on each
   country opens one sheet for its name, its currency and removing the whole
@@ -26,6 +40,11 @@ change gets its own line under **Unreleased**.
   was removed on the other phone. Each one can be put on a stop or let go.
 
 ### Changed
+- Tapping a ledger line opens it to edit, with "Counts as" chips for its
+  category; holding it deletes. Tapping used to cycle the category in place.
+  New expenses show the chips too, with the guess from the note selected.
+- "Nudge" on Settle up is "Check for X's answer", with when it last checked.
+  It only ever re-ran sync.
 - Today says where the next sealed letter opens, under the letters row.
 - The trail's closing line ("X is the last one, and it's just a stamp") is
   gone.
@@ -38,6 +57,14 @@ change gets its own line under **Unreleased**.
   the rest in plan order.
 
 ### Fixed
+- A trip with no budget reads "€810 spent" and "€67 a day so far" instead of
+  "€810 of €0" and "exactly on the burn". The bar, the forecast and the empty
+  "Is this cheap?" panel are gone, and Money offers to set a budget for the
+  first three visits.
+- "By country" counts card payments made in the home currency, converted and
+  marked "≈", with a line saying why. Settle up lists every currency a shared
+  line was paid in, so its rows add up to the net, and counts them instead of
+  saying "three currencies". "1 shared items" is "1 shared item".
 - Arriving opens the letters written from home. Letters sealed to a stamp, a
   place or the last stamp opened on the next wake, off screen; the stamp
   screen now shows every letter that opened, one row each. "Arriving here
@@ -246,14 +273,11 @@ is lost.
   15,000 people) still has no position until somebody stands in it.
 
 ### Money
-- **Must:** only the newest six expenses can be reached to edit or delete.
-- **Must:** no decimal key, so €3.50 can't be entered.
-- **Must:** every expense is dated now, so yesterday's can't be recorded.
-- **Must:** settling up can't complete without the other phone.
-- **Should:** a trip with no budget reads "€120 of €0", "exactly on the burn",
-  and shows an empty "Is this cheap?" panel.
-- **Should:** "Across three currencies" is fixed text, "Nudge" only re-syncs,
-  and tapping a line cycles its category.
+- **Should:** the rates are today's, so the home-money column of the CSV and
+  every converted figure move with the rate rather than recording what a line
+  cost the day it was spent.
+- **Should:** with sync on, nothing tells the other phone a settlement is
+  waiting; "Check for X's answer" only looks again.
 
 ### Book
 - **Should:** a page written on a trip with nowhere planned stores "—" as its

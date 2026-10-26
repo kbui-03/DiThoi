@@ -15,6 +15,17 @@ struct MoneyView: View {
     /// re-entry of what was typed.
     @State private var undoable: Expense?
     @State private var undoTimer: Task<Void, Never>?
+    @State private var destination: Destination?
+    /// Whether this visit offers to set a budget. Decided once as the screen
+    /// appears, because counting the showing is what retires the offer — read
+    /// live, the third visit would take it away while it was being read.
+    @State private var showsBudgetNudge = false
+
+    /// Pushed through one `navigationDestination(item:)` (§5.1).
+    private enum Destination: Hashable {
+        case ledger
+        case tripSettings
+    }
 
     @ViewBuilder
     var body: some View {
@@ -32,15 +43,20 @@ struct MoneyView: View {
                 // out, on the one screen whose subject is which they are.
                 Mono(ledgerLine, size: 10.5)
 
-                Display(text: "\(store.homeTextRounded(store.spentHome)) of \(store.homeTextRounded(store.budget))", size: 38)
+                // "€1,627 of €8,000", or "€1,627 spent" — it read "of €0".
+                Display(text: store.moneyHeadline, size: 38)
                     .padding(.top, 8)
                     .padding(.bottom, 4)
 
-                Aside(text: paceLine, size: 12.5)
+                Aside(text: store.burnLine, size: 12.5)
                 RateStamp(size: 11.5, color: Palette.n600)
                     .padding(.bottom, Space.s3)
 
-                budgetBar
+                if store.hasBudget {
+                    budgetBar
+                } else if showsBudgetNudge {
+                    budgetNudge
+                }
 
                 SectionRule(top: Space.s4)
 
@@ -98,38 +114,35 @@ struct MoneyView: View {
                 Mono("Recent", size: 10).padding(.bottom, 4)
 
                 ForEach(recentExpenses) { expense in
-                    // A settlement can't be recategorised, edited or deleted:
-                    // its id and amount belong to the proposal both phones
-                    // agreed on. Drawn plain rather than as a button that
-                    // silently does nothing.
-                    if expense.kind == .spend, !isReadOnly {
-                        Button {
-                            // 2.5 · the guess is correctable, and a correction
-                            // is remembered. Tapping cycles rather than opening
-                            // a picker — it's a two-second fix on a line that
-                            // was categorised without being asked. Edit and
-                            // delete are on the long press precisely so they
-                            // don't take this gesture away.
-                            store.correctCategory(nextCategory(after: expense.category), for: expense.id)
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        } label: {
-                            row(expense).contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .contextMenu {
-                            if expense.isEditable {
-                                Button("Edit") { editingExpense = expense }
-                            }
-                            Button("Delete", role: .destructive) { remove(expense) }
-                        }
-                    } else {
-                        row(expense)
-                    }
+                    LedgerLine(expense: expense,
+                               onEdit: { editingExpense = expense },
+                               onDelete: { remove(expense) })
                 }
 
-                Aside(text: isReadOnly
+                // Everything older than the newest few, which used to be
+                // unreachable — neither correctable nor deletable.
+                if !store.ledger.isEmpty {
+                    Button {
+                        destination = .ledger
+                    } label: {
+                        HStack {
+                            Text("The whole ledger · \(store.ledger.count) \(store.ledger.count == 1 ? "line" : "lines")")
+                                .font(Typeface.heading(15, .semibold))
+                                .foregroundStyle(Palette.a700)
+                            Spacer()
+                            Text("→")
+                                .font(Typeface.heading(15))
+                                .foregroundStyle(Palette.a700)
+                        }
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                Aside(text: isReadOnly || !store.isLive
                       ? "This trip is closed, so the ledger is as they left it."
-                      : "Tap a line to change what it counts as; hold it to edit or delete.",
+                      : "Tap a line to edit it; hold it to delete.",
                       size: 11.5)
                     .padding(.top, Space.s2)
             }
@@ -159,19 +172,21 @@ struct MoneyView: View {
             undoTimer = nil
             undoable = nil
         }
-        .sheet(isPresented: $addingExpense) { AddExpenseView() }
-        .sheet(item: $editingExpense) { line in AddExpenseView(editing: line) }
-        .sheet(isPresented: $settling) { SettleUpView() }
-    }
-
-    private func row(_ expense: Expense) -> some View {
-        DetailRow(title: expense.note.isEmpty ? "Untitled" : expense.note,
-                  subtitle: subtitle(for: expense)) {
-            Text(expense.currency.format(expense.amount))
-                .font(Typeface.mono(13))
-                .monospacedDigit()
-                .foregroundStyle(Palette.text)
+        .onAppear {
+            showsBudgetNudge = store.offersBudgetNudge && !isReadOnly
+            if showsBudgetNudge { store.noteBudgetNudgeShown() }
         }
+        .navigationDestination(item: $destination) { destination in
+            switch destination {
+            case .ledger: LedgerView()
+            case .tripSettings: TripSetupView()
+            }
+        }
+        .sheet(isPresented: $addingExpense) { AddExpenseView() }
+        .sheet(item: $editingExpense) { line in
+            AddExpenseView(editing: line, onDelete: { remove($0) })
+        }
+        .sheet(isPresented: $settling) { SettleUpView() }
     }
 
     // MARK: - Deleting, and taking it back
@@ -225,23 +240,40 @@ struct MoneyView: View {
         }
     }
 
+    /// No budget, so no pace to keep — said once a visit, three visits at
+    /// most, and then left to Papers → The trip, where the budget always is.
+    private var budgetNudge: some View {
+        Button {
+            destination = .tripSettings
+        } label: {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text("No budget, so no pace to keep.")
+                    .font(Typeface.body(13))
+                    .foregroundStyle(Palette.n700)
+                Text("Set one →")
+                    .font(Typeface.body(13, .semibold))
+                    .foregroundStyle(Palette.a700)
+                Spacer(minLength: 0)
+            }
+            .padding(.vertical, Space.s2)
+            .frame(minHeight: 44)
+            // Dashed above only: the section rule beneath is its other edge.
+            .overlay(alignment: .top) { DashedLine().stroke(Palette.divider, style: StrokeStyle(lineWidth: 1, dash: [3, 3])).frame(height: 1) }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("No budget set. Set one.")
+    }
+
     /// "Ledger · ฿ ₫ ₩", from the itinerary rather than from a literal.
     private var ledgerLine: String {
         let symbols = store.tripCurrencies.map(\.symbol).joined(separator: " ")
         return symbols.isEmpty ? "Ledger" : "Ledger · \(symbols)"
     }
 
-    private var paceLine: String {
-        let ahead = store.paceDaysAhead
-        let day = "Day \(store.dayNumber) of \(store.dayCount)"
-        if ahead > 0 { return "\(day) — \(Formatting.spelledCount(ahead, "day", spellingUpTo: 0)) ahead of the burn." }
-        if ahead < 0 { return "\(day) — \(Formatting.spelledCount(-ahead, "day", spellingUpTo: 0)) behind the burn." }
-        return "\(day) — exactly on the burn."
-    }
-
     @ViewBuilder
     private func countryRow(_ country: String, isLast: Bool) -> some View {
-        let spend = store.spent(inCountry: country)
+        let spend = store.spentText(inCountry: country)
         let days = spend == nil ? 0 : store.daysSpent(inCountry: country)
 
         VStack(spacing: 0) {
@@ -252,12 +284,22 @@ struct MoneyView: View {
                     .font(Typeface.body(13))
                     .foregroundStyle(spend == nil ? Palette.n700 : Palette.text)
                 Spacer()
-                Text(spend.map { $0.currency.format($0.local) } ?? "—")
+                // Every line spent there, card payments in other money
+                // included — "≈" when one needed a rate.
+                Text(spend ?? "—")
                     .font(Typeface.mono(13))
                     .monospacedDigit()
                     .foregroundStyle(spend == nil ? Palette.n700 : Palette.text)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
             .padding(.vertical, 8)
+            if let note = store.conversionNote(inCountry: country) {
+                Aside(text: note, size: 11.5)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, -4)
+                    .padding(.bottom, 6)
+            }
             if !isLast { Rule() }
         }
     }
@@ -265,7 +307,9 @@ struct MoneyView: View {
     /// What the last country will cost at the current burn, worked out from
     /// the ledger rather than written down.
     private var forecast: (title: String, body: String)? {
-        guard let last = store.legs.last else { return nil }
+        // Every sentence below is a verdict against the budget. With none,
+        // "doesn't fit" was the only one it could reach.
+        guard store.hasBudget, let last = store.legs.last else { return nil }
         let daysUntil = last.startDay - store.dayNumber
         guard daysUntil > 0, store.dayNumber > 0 else { return nil }
 
@@ -307,9 +351,9 @@ struct MoneyView: View {
 
     // MARK: - 2.5 · what it went on
 
-    /// Inferred from the note, corrected by tapping, and never asked for at the
-    /// counter — which is the only moment at which a category picker would
-    /// actually cost something.
+    /// Inferred from the note and corrected in the editor, where the guess is
+    /// already selected — so it is never *asked* at the counter, which is the
+    /// only moment a category picker would actually cost something.
     private var categories: some View {
         VStack(alignment: .leading, spacing: 0) {
             Mono("What it went on", size: 10).padding(.bottom, 9)
@@ -358,32 +402,9 @@ struct MoneyView: View {
         return "\(store.homeTextRounded(cheapest.perDay))/day in \(shortName(cheapest.country)), \(store.homeTextRounded(dearest.perDay))/day in \(shortName(dearest.country))."
     }
 
-    private func subtitle(for expense: Expense) -> String {
-        if expense.kind == .transfer, let payer = expense.payer.traveller {
-            return "\(store.name(for: payer)) → \(store.name(for: payer.other))"
-        }
-        let corrected = expense.categoryWasCorrected ? "" : " · guessed"
-        return "\(store.label(for: expense.payer)) · \(expense.category.label.lowercased())\(corrected)"
-    }
-
-    private func nextCategory(after category: SpendCategory) -> SpendCategory {
-        let all = SpendCategory.allCases
-        let index = all.firstIndex(of: category) ?? 0
-        return all[(index + 1) % all.count]
-    }
-
-    /// `.live` rather than `expenses`, so a deleted line actually leaves the
-    /// screen. This read the raw array back when nothing could set `deletedAt`,
-    /// which meant the tombstones would have shown up here the moment deleting
-    /// worked.
+    /// The newest few, in the ledger's own order (`TripStore.ledger`, which
+    /// reads `.live` and tie-breaks on the id). The rest are one tap away.
     private var recentExpenses: [Expense] {
-        store.expenses.live
-            // Tie-broken on the id. `merged(with:)` hands back
-            // `Array(byID.values)` — a dictionary's order — and `sorted` isn't
-            // stable, so two lines spent on the same day could swap places
-            // between one draw and the next.
-            .sorted { $0.date == $1.date ? $0.id.uuidString < $1.id.uuidString : $0.date > $1.date }
-            .prefix(6)
-            .map { $0 }
+        Array(store.ledger.prefix(6))
     }
 }

@@ -116,7 +116,7 @@ enum DebugScreen {
                                   split: .evenly, note: note, country: country))
             }
             if day == 2 {
-                store.add(Expense(date: store.date(forDay: day), amount: 24, currency: store.homeCurrency,
+                store.add(Expense(date: store.date(forDay: day), amount: 23.5, currency: store.homeCurrency,
                                   payer: .one, split: .evenly, note: "Card", country: country))
             }
         }
@@ -980,6 +980,21 @@ struct DebugScreenHost: View {
             NavigationStack { MomentsView() }
         case "addexpense":
             AddExpenseView()
+        case "editexpense":
+            // A line with cents where there is one — `-seedSpending` pays a
+            // card in euros on day 2 — so the point key and an earlier day
+            // are both on screen. Delete is offered because the route passes
+            // a handler, as Money and the ledger do.
+            if let line = store.ledger.first(where: { $0.isEditable && $0.currency.decimals > 0 })
+                ?? store.ledger.first(where: \.isEditable) {
+                AddExpenseView(editing: line, onDelete: { _ in })
+            } else {
+                AddExpenseView()
+            }
+        case "ledger":
+            // Every line, past the six Money lists. Empty without
+            // `-seedSpending`, which is the other half of it.
+            NavigationStack { LedgerView() }
         case "settle":
             SettleUpView()
         case "entry":

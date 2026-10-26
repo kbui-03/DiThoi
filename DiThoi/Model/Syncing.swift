@@ -176,6 +176,11 @@ struct SettlementProposal: Identifiable, Codable, Hashable {
     var proposedAt: Date
     var confirmedBy: Traveller?
     var confirmedAt: Date?
+    /// Agreed with both of them at one phone, which is the only way a build
+    /// with no sync can clear a tab. Optional so that a proposal written
+    /// before it existed still decodes — the synthesised decoder throws on a
+    /// missing non-optional key — and so the history can say which it was.
+    var confirmedInPerson: Bool?
     var cancelledAt: Date?
     var updatedAt: Date = .distantPast
     var deletedAt: Date?

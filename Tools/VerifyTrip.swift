@@ -2197,7 +2197,7 @@ struct Verify {
                   store.expenses.first { $0.kind == .transfer }?.isEditable == false)
             var fractional = typo
             fractional.amount = 12.5
-            check("and neither is an amount the keypad can't type",
+            check("and neither is baht with cents, which the keypad can't type",
                   !fractional.isEditable)
         }
 
@@ -7289,6 +7289,265 @@ struct Verify {
             phone.letters = [sealed(7, .stamp("CNX"), secret: true)]
             check("a secret letter is never named as the next", phone.nextLetterLine == nil,
                   phone.nextLetterLine ?? "nil")
+        }
+
+        print("— the keypad types money, not whole numbers —")
+        do {
+            // There was no point key, so €3.50 could not be entered at all,
+            // and `isEditable` refused any line with cents in it.
+            var euros = AmountEntry(currency: .eur)
+            check("a currency with cents gets a point", euros.keys.contains(.point) && !euros.keys.contains(.thousands))
+            for key: AmountEntry.Key in [.digit(3), .point, .digit(5), .digit(0)] { euros.press(key) }
+            check("3 . 5 0 is €3.50", euros.text == "3.50" && near(euros.amount, 3.5), euros.text)
+            check("and shows its trailing zero", euros.display == "3.50", euros.display)
+            euros.press(.digit(1))
+            check("a third place is refused", euros.text == "3.50", euros.text)
+            euros.press(.point)
+            check("and so is a second point", euros.text == "3.50", euros.text)
+            euros.switchCurrency(to: .thb)
+            check("into baht the cents go, visibly", euros.text == "3" && euros.currency == .thb, euros.text)
+
+            var baht = AmountEntry(currency: .thb)
+            check("a currency without cents keeps 000", baht.keys.contains(.thousands) && !baht.keys.contains(.point))
+            baht.press(.point)
+            check("and a point does nothing there", baht.text.isEmpty, baht.text)
+            baht.press(.digit(0))
+            baht.press(.thousands)
+            check("no leading zeros", baht.text.isEmpty, baht.text)
+            for key: AmountEntry.Key in [.digit(4), .digit(5), .thousands] { baht.press(key) }
+            check("4 5 000 is ฿45,000", baht.text == "45000" && baht.display == "45,000", baht.display)
+            for _ in 0..<20 { baht.press(.digit(9)) }
+            check("and it stops at twelve characters", baht.text.count == AmountEntry.maxLength, "\(baht.text.count)")
+
+            var started = AmountEntry(currency: .eur)
+            started.press(.point)
+            check("a point on nothing is 0.", started.text == "0." && started.display == "0.", started.text)
+
+            check("a whole amount reopens without a .00",
+                  AmountEntry(amount: 12, currency: .eur).text == "12")
+            check("cents reopen as typed", AmountEntry(amount: 3.5, currency: .eur).text == "3.50")
+            check("and grouping is the display's, not the text's",
+                  AmountEntry(amount: 1_250.5, currency: .eur).display == "1,250.50")
+
+            let line = Expense(date: store.now, amount: 3.5, currency: .eur, payer: .one,
+                               split: .evenly, note: "Coffee", country: "Thailand")
+            check("€3.50 can be edited", line.isEditable)
+            var bahtCents = line
+            bahtCents.currency = .thb
+            check("฿3.50 can't — the keypad has no point for baht", !bahtCents.isEditable)
+            var tooFine = line
+            tooFine.amount = 3.505
+            check("nor can a third decimal place", !tooFine.isEditable)
+        }
+
+        print("— the whole ledger, not the newest six —")
+        do {
+            let fixture = CheckTrip.snapshot()
+            let ledgerStore = TripStore(storeKey: nil, snapshot: fixture,
+                                        clock: { Calendar.trip.date(byAdding: DateComponents(day: 11, hour: 20),
+                                                                    to: fixture.start)! },
+                                        ritual: SilentRitualScheduler())
+            let all = ledgerStore.ledger
+            check("every live line is reachable", all.count == ledgerStore.expenses.live.count && all.count > 6,
+                  "\(all.count)")
+            check("newest first", all.first?.note == "Dry bags and a poncho", all.first?.note ?? "nil")
+            let days = ledgerStore.ledgerDays
+            check("grouped by day, today first", days.first?.day == 12 && days.last?.day == 1,
+                  "\(days.first?.day ?? -1)…\(days.last?.day ?? -1)")
+            check("a day's heading names its date", ledgerStore.ledgerHeading(forDay: 12).hasPrefix("Day 12 · "),
+                  ledgerStore.ledgerHeading(forDay: 12))
+            check("and its total is that day's spending", ledgerStore.ledgerTotal(forDay: 12) == "฿1,240",
+                  ledgerStore.ledgerTotal(forDay: 12) ?? "nil")
+            ledgerStore.delete(all[0].id)
+            check("a deleted line leaves the ledger", !ledgerStore.ledger.contains { $0.id == all[0].id })
+
+            print("— filing a line under another day —")
+            check("today, every earlier day, and before we left",
+                  ledgerStore.expenseDays == Array((0...12).reversed()), "\(ledgerStore.expenseDays)")
+            check("today is now", ledgerStore.expenseDate(forDay: 12) == ledgerStore.now)
+            let lastNight = ledgerStore.expenseDate(forDay: 11)
+            check("yesterday is yesterday at this time of day",
+                  ledgerStore.dayNumber(for: lastNight) == 11
+                    && Calendar.trip.component(.hour, from: lastNight)
+                        == Calendar.trip.component(.hour, from: ledgerStore.now),
+                  "\(Calendar.trip.component(.hour, from: lastNight)) vs \(Calendar.trip.component(.hour, from: ledgerStore.now))")
+            check("the chips say it in words",
+                  ledgerStore.expenseDayLabel(12) == "Today" && ledgerStore.expenseDayLabel(11) == "Yesterday"
+                    && ledgerStore.expenseDayLabel(0) == "Before we left"
+                    && ledgerStore.expenseDayLabel(5).hasPrefix("Day 5 · "),
+                  ledgerStore.expenseDayLabel(5))
+            let vietnamDay = ledgerStore.legs[1].startDay
+            check("a backdated line is stamped with where they were that day",
+                  ledgerStore.expenseCountry(forDay: vietnamDay) == ledgerStore.legs[1].country
+                    && ledgerStore.expenseCountry(forDay: 3) == "Thailand",
+                  ledgerStore.expenseCountry(forDay: vietnamDay))
+            check("and one from before they left with nowhere", ledgerStore.expenseCountry(forDay: 0) == "")
+
+            let thaiBefore = ledgerStore.spent(inCountry: "Thailand")?.local ?? 0
+            let spentBefore = ledgerStore.spentHome
+            ledgerStore.add(Expense(date: ledgerStore.expenseDate(forDay: 0), amount: 400, currency: .eur,
+                                    payer: .one, split: .evenly, note: "Flights",
+                                    country: ledgerStore.expenseCountry(forDay: 0)))
+            check("a deposit before day 1 counts towards the trip",
+                  near(ledgerStore.spentHome, spentBefore + 400, 0.01))
+            check("but towards no country", near(ledgerStore.spent(inCountry: "Thailand")?.local ?? 0, thaiBefore, 0.5))
+            check("and files under its own day", ledgerStore.ledgerDays.last?.day == 0
+                    && ledgerStore.ledgerHeading(forDay: 0).hasPrefix("Before day 1 · "),
+                  ledgerStore.ledgerHeading(forDay: 0))
+
+            let early = TripStore(storeKey: nil, snapshot: fixture,
+                                  clock: { Calendar.trip.date(byAdding: .day, value: -5, to: fixture.start)! },
+                                  ritual: SilentRitualScheduler())
+            check("before departure, today is the only answer", early.expenseDays == [early.trueDayNumber],
+                  "\(early.expenseDays)")
+        }
+
+        print("— a trip with no budget —")
+        do {
+            var fixture = CheckTrip.snapshot()
+            fixture.budget = 0
+            let free = TripStore(storeKey: nil, snapshot: fixture,
+                                 clock: { Calendar.trip.date(byAdding: .day, value: 11, to: fixture.start)! },
+                                 ritual: SilentRitualScheduler())
+            check("no budget is not \"of €0\"", free.moneyHeadline == "\(free.homeTextRounded(free.spentHome)) spent",
+                  free.moneyHeadline)
+            check("nor \"on the burn\"", !free.burnLine.contains("burn") && free.burnLine.hasSuffix("a day so far."),
+                  free.burnLine)
+            check("and \"is this cheap?\" has nothing to say", free.budgetComparison(forHome: 25) == nil)
+            check("Money offers to set one", free.offersBudgetNudge)
+            for _ in 0..<3 { free.noteBudgetNudgeShown() }
+            check("three times, and then lets it go", !free.offersBudgetNudge && free.budgetNudgeShows == 3)
+            free.noteBudgetNudgeShown()
+            check("and stops counting", free.budgetNudgeShows == 3)
+            let reopened = TripStore(storeKey: nil, snapshot: free.snapshot, ritual: SilentRitualScheduler())
+            check("which survives a relaunch", reopened.budgetNudgeShows == 3 && !reopened.offersBudgetNudge)
+
+            free.expenses.removeAll()
+            check("nothing spent says so", free.burnLine.hasSuffix("nothing spent yet."), free.burnLine)
+
+            free.budget = 8_000
+            check("with a budget the headline is \"of\"", free.moneyHeadline.contains(" of "), free.moneyHeadline)
+            check("the verdict comes back", free.burnLine.contains("burn"), free.burnLine)
+            check("and so does the comparison", free.budgetComparison(forHome: 25) != nil)
+
+            var watching = CheckTrip.snapshot()
+            watching.budget = 0
+            watching.participant = .writer
+            let home = TripStore(storeKey: nil, snapshot: watching, ritual: SilentRitualScheduler())
+            check("the observer is never asked for a budget", !home.offersBudgetNudge)
+        }
+
+        print("— by country counts the card payments —")
+        do {
+            let fixture = CheckTrip.snapshot()
+            let carded = TripStore(storeKey: nil, snapshot: fixture,
+                                   clock: { Calendar.trip.date(byAdding: .day, value: 11, to: fixture.start)! },
+                                   ritual: SilentRitualScheduler())
+            check("a baht-only country is exact", carded.spentText(inCountry: "Thailand") == "฿62,400"
+                    && carded.conversionNote(inCountry: "Thailand") == nil,
+                  carded.spentText(inCountry: "Thailand") ?? "nil")
+            carded.add(Expense(date: carded.now, amount: 52, currency: .eur, payer: .one, split: .evenly,
+                               note: "Elephant sanctuary", country: "Thailand"))
+            let withCard = carded.spent(inCountry: "Thailand")
+            let expected = 62_400 + carded.rates.snapshot.convert(52, from: .eur, to: .thb)
+            check("a euro card payment in Thailand counts in Thailand",
+                  near(withCard?.local ?? 0, expected, 0.5) && withCard?.converted == true,
+                  "\(withCard?.local ?? -1) vs \(expected)")
+            check("and the figure says it was converted",
+                  carded.spentText(inCountry: "Thailand")?.hasPrefix("≈฿") == true,
+                  carded.spentText(inCountry: "Thailand") ?? "nil")
+            check("and why", carded.conversionNote(inCountry: "Thailand") == "≈ because €52.00 of it was paid in another currency.",
+                  carded.conversionNote(inCountry: "Thailand") ?? "nil")
+
+            print("— settle up counts its currencies —")
+            let plain = TripStore(storeKey: nil, snapshot: fixture, ritual: SilentRitualScheduler())
+            check("all in baht", plain.settleCurrencyLine == "All in one currency, so nothing to convert.",
+                  plain.settleCurrencyLine)
+            check("and the euro card payment joins the rows", carded.settleCurrencies.contains(.eur)
+                    && carded.settleCurrencyLine == "Across two currencies, netted down to one number.",
+                  carded.settleCurrencyLine)
+            plain.expenses.removeAll()
+            check("nothing shared says so", plain.settleCurrencyLine == "Nothing shared yet.",
+                  plain.settleCurrencyLine)
+        }
+
+        print("— settling with both of you at one phone —")
+        do {
+            let fixture = CheckTrip.snapshot()
+            let alone = TripStore(storeKey: nil, snapshot: fixture, ritual: SilentRitualScheduler())
+            check("this build can't invite, so one phone may settle", !alone.sync.canInvite && alone.settlesOnOnePhone)
+            let owed = alone.balanceAmountHome
+            let debtor = alone.debtor
+            let spend = alone.spentHome
+            check("there is something to settle", owed > 1)
+            let settled = alone.settleTogether(note: "Settled in cash", in: .thb)
+            check("it clears at once", settled?.isConfirmed == true && near(alone.netBalanceHome, 0),
+                  "left \(alone.netBalanceHome)")
+            check("agreed by the one who was asked, in person",
+                  settled?.confirmedBy == settled?.awaiting && settled?.confirmedInPerson == true)
+            check("and the debtor is the one who paid", alone.ledger.first { $0.kind == .transfer }?.payer.traveller == debtor)
+            check("it moves the balance, never the burn", near(alone.spentHome, spend))
+
+            let waiting = TripStore(storeKey: nil, snapshot: fixture, ritual: SilentRitualScheduler())
+            let proposal = waiting.proposeSettlement(note: "Written off")!
+            waiting.confirmSettlement(proposal.id, inPerson: true)
+            check("a pending proposal can be agreed in person too",
+                  waiting.pendingSettlement == nil && near(waiting.netBalanceHome, 0)
+                    && waiting.settlements.first?.confirmedBy == proposal.awaiting)
+
+            var watching = fixture
+            watching.participant = .writer
+            let home = TripStore(storeKey: nil, snapshot: watching, ritual: SilentRitualScheduler())
+            check("the observer settles nothing", !home.settlesOnOnePhone && home.settleTogether(note: "x") == nil)
+
+            // A proposal written before the field existed still decodes.
+            if let encoded = try? JSONEncoder().encode(proposal),
+               var json = try? JSONSerialization.jsonObject(with: encoded) as? [String: Any] {
+                json.removeValue(forKey: "confirmedInPerson")
+                let data = (try? JSONSerialization.data(withJSONObject: json)) ?? Data()
+                let decoded = try? JSONDecoder().decode(SettlementProposal.self, from: data)
+                check("an older proposal opens without the in-person flag",
+                      decoded != nil && decoded?.confirmedInPerson == nil)
+            } else {
+                check("an older proposal opens without the in-person flag", false, "couldn't encode")
+            }
+        }
+
+        print("— the ledger as a spreadsheet —")
+        do {
+            check("a formula is defused", LedgerExport.field("=HYPERLINK(\"x\")") == "\"'=HYPERLINK(\"\"x\"\")\"",
+                  LedgerExport.field("=HYPERLINK(\"x\")"))
+            check("so is a leading minus or at", LedgerExport.field("-5") == "'-5" && LedgerExport.field("@me") == "'@me")
+            check("a comma is quoted", LedgerExport.field("Dinner, old town") == "\"Dinner, old town\"")
+            check("a plain field is left alone", LedgerExport.field("Khao soi") == "Khao soi")
+
+            let fixture = CheckTrip.snapshot()
+            let exporting = TripStore(storeKey: nil, snapshot: fixture, ritual: SilentRitualScheduler())
+            let gone = exporting.ledger[0]
+            exporting.delete(gone.id)
+            let rows = exporting.ledgerCSV.components(separatedBy: "\r\n").filter { !$0.isEmpty }
+            check("one row a live line, and a header", rows.count == exporting.expenses.live.count + 1,
+                  "\(rows.count) rows")
+            check("the home column says which rate", rows.first?.contains("EUR at today's rate") == true)
+            check("oldest first", rows.dropFirst().first?.contains("\"Guesthouse, Bangkok\"") == true,
+                  rows.dropFirst().first ?? "nil")
+            check("a deleted line isn't in it", !rows.contains { $0.contains(gone.note) })
+            check("named for the trip", exporting.ledgerFileName == "Ledger — \(CheckTrip.defaultTripName).csv",
+                  exporting.ledgerFileName)
+            exporting.tripName = "Laos / Thai: '26"
+            check("with nothing a file system objects to", exporting.ledgerFileName == "Ledger — Laos  Thai '26.csv",
+                  exporting.ledgerFileName)
+            exporting.tripName = ""
+            check("and plainly when nobody named it", exporting.ledgerFileName == "Ledger.csv")
+
+            let stray = Storage.exportDirectory.appendingPathComponent("stray.pdf")
+            try? Data("x".utf8).write(to: stray)
+            let written = exporting.writeLedgerCSV()
+            let names = (try? FileManager.default.contentsOfDirectory(atPath: Storage.exportDirectory.path)) ?? []
+            check("it goes to the export folder, alone", written != nil && names == ["Ledger.csv"], "\(names)")
+            check("and is what was built",
+                  written.flatMap { try? String(contentsOf: $0, encoding: .utf8) } == exporting.ledgerCSV)
+            Storage.clearExports()
         }
 
         print("— a reset names the keys the app uses —")
