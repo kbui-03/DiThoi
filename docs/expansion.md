@@ -76,7 +76,8 @@ survives week five:
 
 - **Money that can't be written down.** Six currencies, no decimal key, every
   expense dated "now", and only the newest six lines reachable to edit or
-  delete. Each is a reason to keep the real ledger somewhere else.
+  delete. Each was a reason to keep the real ledger somewhere else; all four
+  are fixed (see the changelog), along with settling up on one phone.
 - **Writing that can be lost.** Tonight's page and a letter from home are
   discarded by a swipe down, with no warning. The journal is the payload of the
   whole product.

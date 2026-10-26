@@ -168,7 +168,7 @@ Everything is a `Codable` struct or enum. Notable shapes:
 `CountryFacts` plus the common travel ones. Raw values are lowercase ISO codes
 and are persisted, so cases are added and never renamed. Symbol, name and
 decimal places come from one `faces` table. No case has three decimals (the
-keypad is whole units), and no symbol but the US dollar's is a bare "$". It was
+keypad's point stops at `decimals` places, and nothing tests a third), and no symbol but the US dollar's is a bare "$". It was
 six cases, which left Japan, Laos, Cambodia and most of Europe outside the euro
 with nothing to record spending in. It deliberately does *not* carry an
 exchange rate; see §3.3.
@@ -565,8 +565,73 @@ budget alone. An earlier version used mirrored ±expenses and left half the bala
 behind.
 
 **`Expense.isEditable` is why the edit sheet refuses some lines.** A `.transfer`
-borrows its proposal's id and amount, and the keypad is whole units, so a
-fractional amount can't be typed back in.
+borrows its proposal's id and amount. And an amount finer than its currency's
+own units — ฿3.50, €3.505 — can't be typed back in, because the keypad stops at
+`decimals` places; `Currency.holds(_:)` asks that. Nothing in the app writes such
+a line, so in practice it is the settlements.
+
+**The whole ledger is `ledger`, and Money shows six of it.** Money listed the
+newest six lines and nothing else, so an older line could be neither corrected
+nor deleted. `TripStore.ledger` is every live line, newest first, tie-broken on
+the id (the merge hands back a dictionary's order and `sorted` isn't stable);
+Money's recent lines and `LedgerView` both read it, so a line is never above
+another on one screen and below it on the other. `ledgerDays` groups it by trip
+day, a line from before departure keeping its own zero or negative day.
+
+**Tapping a line opens the editor; holding deletes.** Tapping used to cycle the
+category in place — a mutating default on the commonest gesture, which said what
+it had done only in the subtitle. `LedgerLine` is the row both screens draw. The
+editor's "Counts as" chips start on the guess from the note, follow the note as
+it is typed, and set `correctedCategory` only when touched, so a line saved
+without touching them still reads "guessed". A settlement opens nothing, and a
+line finer than its currency can be typed in can be deleted but not reopened.
+
+**The keypad's rules are `AmountEntry`'s.** Text, not a number, because "3." and
+"3.50" are both on screen and a `Double` holds neither. A currency with cents
+gets a point where "000" was; input stops at `decimals` places; switching to a
+currency without cents drops them, visibly. `Expense.isEditable` asks
+`Currency.holds(_:)` — whether the amount fits the currency's own units — so €3.50
+reopens and ฿3.50 does not.
+
+**A line can be filed under another day, and is stamped with that day's
+country.** `expenseDays` is today, every earlier day of the trip, and day 0 for
+"before we left"; before departure today is the only answer. `expenseDate(forDay:)`
+keeps the time of day so lines still sort the way they were added.
+`expenseCountry(forDay:)` asks `leg(forDay:)` for any day but today (which is
+`countryNow`, as a new line always was) — last night's dinner in Hanoi was not
+spent in the country they reached this morning. An edit that
+leaves the day alone keeps its exact moment and its stamp; one that moves the day
+is re-stamped, because a person said when it was. That is the one re-stamp, and
+it is not a reader resolving a line. The sheet keeps "today" as `nil` rather than
+a number, so a sheet left open past midnight files it today.
+
+**With no budget, nothing judges.** `moneyHeadline` is "€810 spent", `burnLine` is
+the cost per day so far, `budgetComparison(forHome:)` is nil and the panel goes
+with it, and the forecast guards on `hasBudget` — it said "doesn't fit" whenever
+the budget was nought. Money offers to set one while `offersBudgetNudge`: three
+showings, counted once per visit by `noteBudgetNudgeShown()`, and read as the
+screen appears so the third visit doesn't take it away mid-read.
+`budgetNudgeShows` is on the snapshot and never on the payload: it is this
+phone's habit, not a fact about the trip. The observer is never asked.
+
+**"By country" counts every line spent there.** `spent(inCountry:)` filtered on
+the country's currency, so a card payment in euros counted towards the trip and
+towards no country, and the rows didn't add up to the headline. It converts the
+other currencies through today's rate and returns `converted`; `spentText` puts
+"≈" in front only then, and `conversionNote` says why without pluralising a
+currency's name ("us dollars"). Settle up's rows are `settleCurrencies` — the
+itinerary's, then any other a shared line was paid in — and `settleCurrencyLine`
+counts them instead of saying "three currencies".
+
+**Without sync, both of them settle at one phone.** Propose-then-confirm needs a
+second phone, and a build with no sync has none, so the tab could never clear.
+While `settlesOnOnePhone` (`!sync.canInvite`, never the observer),
+`settleTogether` proposes and confirms in one step behind "Is X with you?", and
+`confirmSettlement(_:inPerson:)` agrees to a pending one; the confirmer is the
+one who was asked, and `confirmedInPerson` records it. It is optional because the
+synthesised decoder throws on a missing non-optional key. Once there is somebody
+to invite it goes back to taking two phones. "Nudge" was renamed "Check for X's
+answer": it re-runs sync and has never sent anything.
 
 ### 3.5 Syncing (`Syncing.swift`, `SyncTransports.swift`, `SyncCoordinator.swift`)
 
@@ -943,6 +1008,13 @@ app may rely on. It is `Storage.exportDirectory` now
 cleared before each build, on share-sheet completion, and on `.background`. The
 PDF metadata carries the trip's title and **not** the traveller's name — metadata
 travels with the file.
+
+**The ledger CSV is handled as the book is.** `writeLedgerCSV()` clears
+`Storage.exportDirectory` and writes one file there; `LedgerView` clears it on
+share completion and the app on `.background`. A field that starts with `=`, `+`,
+`-` or `@` gets a leading apostrophe (`LedgerExport.field`), because a note is a
+formula to every spreadsheet that opens it. Home money is at today's rates and
+the column heading says so: the phone keeps no history of rates.
 
 **A moment's photograph must be walked by `referencedPhotoIDs` in both halves** —
 the live trip *and* every shelved snapshot. `pruneOrphanedPhotos()` runs on
@@ -2019,7 +2091,7 @@ There is no simulator in CI and no XCTest target. Verification is two things:
 ### 6.1 `./Tools/run-checks.sh`
 
 Compiles everything in `DiThoi/Model/` and `Shared/` plus `Tools/VerifyTrip.swift`
-for **macOS** and runs 1,610 assertions — no simulator; the compile takes a
+for **macOS** and runs 1,685 assertions — no simulator; the compile takes a
 few minutes, the run a few seconds. It
 covers trip shape, rate conversion and round-tripping, budget derivation, the
 date-shift invariants, itinerary reflow after all four edit operations, the
@@ -2071,7 +2143,9 @@ To reach a screen without walking a flow (`#if DEBUG`, out of Release):
 xcrun simctl launch <device> com.lovedones.dithoi -resetTrip -screen money
 ```
 
-77 routes. `stampletters` is the stamp screen with two letters opened at
+79 routes. `ledger` is every line (empty without `-seedSpending`), and
+`editexpense` opens the newest line with cents — `-seedSpending` pays €23.50 by
+card on day 2 — so the point key and an earlier day are on screen. `stampletters` is the stamp screen with two letters opened at
 once (`-seedLetters`). `savedpostcard` is the saved page on a night the book reaches a
 multiple of seven (`-seedItinerary -seedJournal -day 14`); `postcard -week n` is
 the postcard sheet; `exportpostcard -week n` writes the PNG and prints where.

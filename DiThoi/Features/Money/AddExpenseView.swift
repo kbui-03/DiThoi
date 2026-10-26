@@ -13,32 +13,52 @@ struct AddExpenseView: View {
 
     /// The line being changed, or nil for a new one.
     var editing: Expense?
+    /// Called with the line once it has been deleted from here, so the screen
+    /// underneath can offer the undo — the sheet is gone before it could.
+    var onDelete: ((Expense) -> Void)?
 
-    @State private var digits = ""
-    @State private var currency: Currency = .thb
+    @State private var entry = AmountEntry(currency: .thb)
     @State private var payer: Payer = .one
     @State private var split: Split = .evenly
     @State private var note = ""
     @State private var customShare: Double = 0.5
     /// 2.5 · a stay that repeats. One is the normal answer.
     @State private var nights = 1
+    /// The trip day it is filed under; nil is today, whichever day that is
+    /// when Save is pressed. Last night's dinner is logged the morning after.
+    @State private var day: Int?
+    /// The day the line had when the sheet opened, so an edit that doesn't
+    /// move it keeps its exact moment and its country stamp.
+    @State private var openedDay: Int?
+    /// Nil follows the guess from the note; set means somebody chose.
+    @State private var category: SpendCategory?
     @State private var askingToDiscard = false
+    @State private var askingToDelete = false
     /// Every field as the sheet opened. Nil until `onAppear` has filled them.
     @State private var opened: Fields?
 
     private struct Fields: Equatable {
-        var digits: String, currency: Currency, payer: Payer, split: Split
+        var entry: AmountEntry, payer: Payer, split: Split
         var note: String, customShare: Double, nights: Int
+        var day: Int?, category: SpendCategory?
     }
 
     private var current: Fields {
-        Fields(digits: digits, currency: currency, payer: payer, split: split,
-               note: note, customShare: customShare, nights: nights)
+        Fields(entry: entry, payer: payer, split: split,
+               note: note, customShare: customShare, nights: nights,
+               day: day, category: category)
     }
 
     private var isDirty: Bool { opened.map { $0 != current } ?? false }
 
-    private var amount: Double { Double(digits) ?? 0 }
+    private var amount: Double { entry.amount }
+    private var chosenDay: Int { day ?? store.trueDayNumber }
+    private var currency: Currency { entry.currency }
+
+    /// What the note says it was, until somebody says otherwise.
+    private var guessedCategory: SpendCategory {
+        editing?.correctedCategory ?? SpendCategory.inferred(from: note)
+    }
 
     /// Whoever didn't pay — the person a custom split is being carved out for.
     private var otherPerson: Traveller {
@@ -58,7 +78,11 @@ struct AddExpenseView: View {
                     currencyPicker
                     SectionRule(top: Space.s4)
 
-                    Mono("Who paid", size: 10).padding(.bottom, 8)
+                    whenPicker
+
+                    Mono("Who paid", size: 10)
+                        .padding(.top, Space.s3)
+                        .padding(.bottom, 8)
                     HStack(spacing: Space.s2) {
                         ForEach(Payer.allCases) { option in
                             SegmentTile(text: store.label(for: option), selected: payer == option) { payer = option }
@@ -102,6 +126,8 @@ struct AddExpenseView: View {
                         .frame(minHeight: 44)
                         .overlay(alignment: .bottom) { Rule() }
 
+                    categoryPicker
+
                     // 2.5 · the guesthouse you're in for four nights. One line
                     // becomes four dated a night apart, each its own entry, so
                     // any of them can still be edited or deleted on its own.
@@ -131,7 +157,7 @@ struct AddExpenseView: View {
                         }
                     }
 
-                    if amount > 0 {
+                    if let comparison = store.budgetComparison(forHome: store.inHome(amount, from: currency)) {
                         Panel(border: Palette.a300, fill: Palette.a100) {
                             Mono("Is this cheap?", size: 9.5, color: Palette.a700)
                             Text(comparison)
@@ -143,12 +169,25 @@ struct AddExpenseView: View {
                         }
                         .padding(.top, Space.s4)
                     }
+
+                    if editing != nil, onDelete != nil {
+                        Button {
+                            askingToDelete = true
+                        } label: {
+                            Mono("Delete this line", size: 10, trackingRatio: 0.1, color: Palette.n700)
+                                .frame(maxWidth: .infinity)
+                                .frame(minHeight: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.top, Space.s4)
+                    }
                 }
                 .padding(.horizontal, Space.gutter)
                 .padding(.bottom, Space.s4)
             }
 
-            Keypad(digits: $digits)
+            Keypad(entry: $entry)
                 .padding(.horizontal, Space.gutter)
 
             VStack {
@@ -165,21 +204,38 @@ struct AddExpenseView: View {
                            whatGoes: editing == nil ? "This expense isn't recorded." : "Your changes go.") {
             dismiss()
         }
+        .confirmationDialog("Delete this line?", isPresented: $askingToDelete, titleVisibility: .visible) {
+            Button("Delete", role: .destructive) {
+                guard let line = editing else { return }
+                onDelete?(line)
+                dismiss()
+            }
+            Button("Keep it", role: .cancel) {}
+        } message: {
+            Text("You can take it back for a few seconds afterwards.")
+        }
         .onAppear {
-            defer { if opened == nil { opened = current } }
+            // Filled again on a later `onAppear` only while nothing has been
+            // touched: refreshing a default nobody has seen yet costs nothing,
+            // and filling over what was typed would undo it.
+            guard opened == nil || !isDirty else { return }
+            defer { opened = current }
             guard let line = editing else {
-                currency = store.localCurrency
+                entry = AmountEntry(currency: store.localCurrency)
                 payer = store.role == .one ? .one : .two
                 return
             }
-            // Whole units only, which is why `Expense.isEditable` refuses a
-            // fractional line rather than letting this round it.
-            digits = String(Int(line.amount))
-            currency = line.currency
+            // Only to the currency's own places, which is why
+            // `Expense.isEditable` refuses a finer line rather than letting
+            // this round it.
+            entry = AmountEntry(amount: line.amount, currency: line.currency)
             payer = line.payer
             split = line.split
             note = line.note == "Untitled" ? "" : line.note
             customShare = line.customShare
+            day = store.dayNumber(for: line.date)
+            openedDay = day
+            category = line.correctedCategory
         }
     }
 
@@ -191,11 +247,11 @@ struct AddExpenseView: View {
                 Text(currency.symbol)
                     .font(Typeface.heading(34))
                     .foregroundStyle(Palette.n500)
-                Text(digits.isEmpty ? "0" : formattedDigits)
+                Text(entry.display)
                     .font(Typeface.heading(62))
                     .tracking(-1.24)
                     .monospacedDigit()
-                    .foregroundStyle(digits.isEmpty ? Palette.n400 : Palette.text)
+                    .foregroundStyle(entry.isEmpty ? Palette.n400 : Palette.text)
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
             }
@@ -225,7 +281,7 @@ struct AddExpenseView: View {
         HStack(spacing: 6) {
             ForEach(pickerCurrencies) { option in
                 Button {
-                    currency = option
+                    entry.switchCurrency(to: option)
                 } label: {
                     Mono(option.chipLabel, size: 11, trackingRatio: 0.06,
                          color: currency == option ? Palette.a700 : Palette.n600)
@@ -244,8 +300,75 @@ struct AddExpenseView: View {
         .padding(.top, Space.s3)
     }
 
-    private var formattedDigits: String {
-        Formatting.decimal(amount, places: 0)
+    // MARK: - When, and what it counts as
+
+    /// Today, yesterday, and every other day behind a menu — including
+    /// "before we left" for the flights and the deposit. A line being edited
+    /// keeps its own day on offer even when it is one this list wouldn't
+    /// otherwise reach.
+    private var dayChoices: [Int] {
+        var days = store.expenseDays
+        if let openedDay, !days.contains(openedDay) { days.append(openedDay) }
+        return days
+    }
+
+    @ViewBuilder
+    private var whenPicker: some View {
+        let today = store.trueDayNumber
+        let quick = [today, today - 1].filter { $0 >= 1 || $0 == today }
+        let rest = dayChoices.filter { !quick.contains($0) }
+
+        Mono("When", size: 10).padding(.bottom, 8)
+        FlowRow(spacing: Space.s2) {
+            ForEach(quick, id: \.self) { option in
+                Chip(text: store.expenseDayLabel(option), selected: chosenDay == option) {
+                    // Today is kept as "today" rather than as a number, so a
+                    // sheet left open past midnight still files it today.
+                    day = option == today && editing == nil ? nil : option
+                }
+            }
+            if !rest.isEmpty {
+                Menu {
+                    ForEach(rest, id: \.self) { option in
+                        Button(store.expenseDayLabel(option)) { day = option }
+                    }
+                } label: {
+                    let picked = rest.contains(chosenDay)
+                    Mono(picked ? "\(store.expenseDayLabel(chosenDay)) ▾" : "Earlier ▾",
+                         size: 10, trackingRatio: 0.08,
+                         color: picked ? Palette.a800 : Palette.n700)
+                        .padding(.horizontal, 12)
+                        .frame(minHeight: 34)
+                        .background(RoundedRectangle(cornerRadius: Radius.sm).fill(picked ? Palette.a100 : .clear))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: Radius.sm)
+                                .strokeBorder(picked ? Palette.accent : Palette.divider, lineWidth: 1)
+                        )
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel("Another day")
+            }
+        }
+    }
+
+    /// 2.5 · what it went on. Never asked: the guess from the note is already
+    /// selected, follows the note as it is typed, and is marked as a guess
+    /// until somebody touches a chip. Touching the guessed one confirms it.
+    @ViewBuilder
+    private var categoryPicker: some View {
+        Mono("Counts as", size: 10)
+            .padding(.top, Space.s3)
+            .padding(.bottom, 8)
+        FlowRow(spacing: Space.s2) {
+            ForEach(SpendCategory.allCases) { option in
+                let isGuess = category == nil && option == guessedCategory
+                Chip(text: isGuess ? "\(option.label) · guessed" : option.label,
+                     selected: (category ?? guessedCategory) == option) {
+                    category = option
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                }
+            }
+        }
     }
 
     private var saveTitle: String {
@@ -259,30 +382,22 @@ struct AddExpenseView: View {
         return "Save · \(store.name(for: who)) owes \(currency.format(abs(owed)))"
     }
 
-    /// What this amount is worth against the budget, priced off the trip's
-    /// own numbers rather than a fixed scale.
-    private var comparison: String {
-        let home = store.inHome(amount, from: currency)
-        guard home > 0, store.budgetPerDay > 0 else { return "" }
-        // Everything is priced against the budget they set, so the verdict
-        // means something different for a €2,000 trip than a €9,000 one.
-        let share = home / store.budgetPerDay
-        if share < 0.1 {
-            return "Under a tenth of a day's budget."
-        }
-        if share < 1 {
-            return "About \(Int((share * 100).rounded()))% of a day's budget — \(store.homeTextRounded(store.budgetPerDay)) is what a day is worth on this trip."
-        }
-        return "That's \(String(format: "%.1f", share)) days of budget, at \(store.homeTextRounded(store.budgetPerDay)) a day."
-    }
-
     private func save() {
-        // An edit keeps the line's id, its date and the country it was spent
-        // in. The id is what makes the other phone read this as a correction
-        // rather than a second expense; the date is where it sits in the trip,
-        // which fixing a typo three days later must not move.
+        // An edit keeps the line's id, and — unless its day was changed — its
+        // exact moment and the country it was spent in. The id is what makes
+        // the other phone read this as a correction rather than a second
+        // expense; the date is where it sits in the trip, which fixing a typo
+        // three days later must not move.
+        //
+        // A day somebody chose is different: they said when it was, so the
+        // line is filed there and stamped with where they were *that* day.
+        // That is the one time a stamped line is re-stamped, and it is the
+        // person doing it, not a reader resolving it (§3.4).
+        let keepsMoment = editing != nil && day == openedDay
+        let date = keepsMoment ? editing!.date : store.expenseDate(forDay: chosenDay)
+        let country = keepsMoment ? editing!.country : store.expenseCountry(forDay: chosenDay)
         let expense = Expense(id: editing?.id ?? UUID(),
-                              date: editing?.date ?? store.now,
+                              date: date,
                               amount: amount, currency: currency,
                               payer: payer, split: split,
                               note: note.isEmpty ? "Untitled" : note,
@@ -291,10 +406,10 @@ struct AddExpenseView: View {
                               // onto a ledger line is a country that does not
                               // exist. Empty means nobody had said yet, and
                               // `TripStore.country(of:)` resolves it later.
-                              country: editing?.country ?? store.countryNow,
+                              country: country,
                               kind: editing?.kind ?? .spend,
                               customShare: customShare,
-                              correctedCategory: editing?.correctedCategory)
+                              correctedCategory: category ?? editing?.correctedCategory)
         if editing != nil {
             store.update(expense)
         } else if nights > 1 {
@@ -310,19 +425,23 @@ struct AddExpenseView: View {
 // MARK: - Keypad
 
 /// A numbers-only pad, because this screen is used one-handed with a wet phone.
+///
+/// The bottom-left key belongs to the currency: a point where it has cents,
+/// "000" where it doesn't — €3.50 and ₫45,000 are both three taps from
+/// nothing. What each key does is `AmountEntry`'s, where it is checked.
 struct Keypad: View {
-    @Binding var digits: String
+    @Binding var entry: AmountEntry
 
-    private let keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "000", "0", "⌫"]
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 3)
 
     var body: some View {
         LazyVGrid(columns: columns, spacing: 6) {
-            ForEach(keys, id: \.self) { key in
+            ForEach(Array(entry.keys.enumerated()), id: \.offset) { _, key in
                 Button {
-                    tap(key)
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    entry.press(key)
                 } label: {
-                    Text(key)
+                    Text(face(key))
                         .font(Typeface.heading(22))
                         .monospacedDigit()
                         .foregroundStyle(Palette.text)
@@ -332,20 +451,26 @@ struct Keypad: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(key == "⌫" ? "Delete" : key)
+                .accessibilityLabel(spoken(key))
             }
         }
     }
 
-    private func tap(_ key: String) {
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    private func face(_ key: AmountEntry.Key) -> String {
         switch key {
-        case "⌫":
-            if !digits.isEmpty { digits.removeLast() }
-        default:
-            guard digits.count + key.count <= 12 else { return }
-            if digits.isEmpty && key.hasPrefix("0") { return }
-            digits += key
+        case .digit(let digit): String(digit)
+        case .thousands: "000"
+        case .point: "."
+        case .delete: "⌫"
+        }
+    }
+
+    private func spoken(_ key: AmountEntry.Key) -> String {
+        switch key {
+        case .digit(let digit): String(digit)
+        case .thousands: "Three zeros"
+        case .point: "Decimal point"
+        case .delete: "Delete"
         }
     }
 }

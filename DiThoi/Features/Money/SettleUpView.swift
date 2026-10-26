@@ -1,12 +1,18 @@
 import SwiftUI
 
-/// D3 · Settle up. Three currencies netted to one number, and — now that there
-/// are two phones — genuinely no way to clear the tab on your own.
+/// D3 · Settle up. Every currency netted to one number, and — where there are
+/// two phones — genuinely no way to clear the tab on your own.
+///
+/// Where there aren't (a build with no sync, which is every build until the
+/// paid membership), "the other phone agrees" is a promise nothing can keep,
+/// so the tab is cleared here with both of them in the room, behind a
+/// question that says so.
 struct SettleUpView: View {
     @EnvironmentObject private var store: TripStore
     @Environment(\.dismiss) private var dismiss
 
     @State private var method: Method = .cash
+    @State private var askingTogether = false
 
     private enum Method: String, CaseIterable, Identifiable {
         case cash, roll, forget
@@ -35,12 +41,15 @@ struct SettleUpView: View {
                         .padding(.top, 8)
                         .padding(.bottom, 4)
 
-                    Aside(text: "Across three currencies, netted down to one number.", size: 12.5)
+                    // Counted — it said "three currencies" on every trip.
+                    Aside(text: store.settleCurrencyLine, size: 12.5)
                         .padding(.bottom, Space.s3)
 
                     Rule()
 
-                    ForEach(store.tripCurrencies) { currency in
+                    // The itinerary's currencies and any other a shared line
+                    // was paid in, so the rows add up to the net beneath them.
+                    ForEach(store.settleCurrencies) { currency in
                         DetailRow(title: currencyName(currency),
                                   subtitle: itemsCaption(currency)) {
                             Text(store.sharedItemCount(currency: currency) == 0
@@ -75,7 +84,10 @@ struct SettleUpView: View {
                         methodChooser
                     }
 
-                    Aside(text: "Both phones agree before it clears — no one can settle a tab alone.", size: 12)
+                    Aside(text: store.settlesOnOnePhone
+                          ? "This build can't reach \(store.otherName)'s phone, so you agree here, together."
+                          : "Both phones agree before it clears — no one can settle a tab alone.",
+                          size: 12)
                         .padding(.top, Space.s3)
                 }
                 .padding(.horizontal, Space.gutter)
@@ -87,6 +99,13 @@ struct SettleUpView: View {
                 .padding(.bottom, Space.gutter)
         }
         .background(Palette.bg)
+        .confirmationDialog("Is \(store.otherName) with you?", isPresented: $askingTogether,
+                            titleVisibility: .visible) {
+            Button("Yes, clear it") { settleTogether() }
+            Button("Not yet", role: .cancel) {}
+        } message: {
+            Text("\(togetherSummary) This clears the tab and can't be taken back.")
+        }
     }
 
     // MARK: - Choosing how
@@ -127,9 +146,7 @@ struct SettleUpView: View {
                 .font(Typeface.heading(19, .semibold))
                 .foregroundStyle(Palette.text)
                 .padding(.top, 5)
-            Text(proposal.awaiting == store.role
-                 ? "\(store.name(for: proposal.proposedBy)) proposed this at \(proposal.proposedAt.text("HH:mm")). Agreeing clears the tab on both phones."
-                 : "Proposed at \(proposal.proposedAt.text("HH:mm")). Nothing clears until \(store.name(for: proposal.awaiting)) agrees on the other phone.")
+            Text(proposalDetail(proposal))
                 .font(Typeface.body(12.5))
                 .foregroundStyle(Palette.n700)
                 .lineSpacing(4)
@@ -157,7 +174,13 @@ struct SettleUpView: View {
                 Mono("syncing…", size: 10, trackingRatio: 0.1, color: Palette.a700)
             }
 
-            if let pending {
+            if store.settlesOnOnePhone, pending != nil || method != .roll {
+                OutlineButton(title: pending == nil ? "We're both here · clear it" : "We're both here · agree") {
+                    askingTogether = true
+                }
+                .disabled(pending == nil && store.balanceAmountHome < 0.01)
+                .opacity(pending == nil && store.balanceAmountHome < 0.01 ? 0.4 : 1)
+            } else if let pending {
                 if pending.awaiting == store.role {
                     OutlineButton(title: "Agree · clear it") {
                         store.confirmSettlement(pending.id)
@@ -166,9 +189,14 @@ struct SettleUpView: View {
                         dismiss()
                     }
                 } else {
-                    OutlineButton(title: "Nudge \(store.name(for: pending.awaiting))",
+                    // Named for what it does. It was "Nudge", and sent the
+                    // other phone nothing: all it has ever done is look again.
+                    OutlineButton(title: "Check for \(store.name(for: pending.awaiting))'s answer",
                                   border: Palette.divider, foreground: Palette.n700) {
                         Task { await store.syncNow() }
+                    }
+                    if let checked = store.sync.lastSyncedAt, !store.sync.isSyncing {
+                        Aside(text: "last checked \(checked.text("HH:mm")) · nothing yet", size: 11.5)
                     }
                 }
             } else {
@@ -177,6 +205,48 @@ struct SettleUpView: View {
                     .opacity(store.balanceAmountHome < 0.01 ? 0.4 : 1)
             }
         }
+    }
+
+    /// One step, both of them here: a new settlement proposed and agreed at
+    /// once, or the pending one agreed on the spot.
+    private func settleTogether() {
+        if let pending {
+            store.confirmSettlement(pending.id, inPerson: true)
+        } else {
+            switch method {
+            case .roll: return
+            case .cash: store.settleTogether(note: "Settled in cash", in: store.localCurrency)
+            case .forget: store.settleTogether(note: "Written off")
+            }
+        }
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        dismiss()
+    }
+
+    /// What the question under "Is … with you?" says is about to happen.
+    private var togetherSummary: String {
+        let debtor = store.name(for: store.debtor)
+        let creditor = store.name(for: store.creditor)
+        if let pending {
+            return "\(store.name(for: pending.debtor)) pays \(store.name(for: pending.debtor.other)) \(pending.paidIn.format(pending.amountPaid))."
+        }
+        switch method {
+        case .cash:
+            let local = store.localCurrency
+            return "\(debtor) pays \(creditor) \(local.format(store.fromHome(store.balanceAmountHome, to: local).rounded())) in cash."
+        case .forget, .roll:
+            return "\(store.homeText(store.balanceAmountHome)) is written off."
+        }
+    }
+
+    private func proposalDetail(_ proposal: SettlementProposal) -> String {
+        let at = proposal.proposedAt.text("HH:mm")
+        if store.settlesOnOnePhone {
+            return "Proposed at \(at). With \(store.name(for: proposal.awaiting)) beside you, agree to it here."
+        }
+        return proposal.awaiting == store.role
+            ? "\(store.name(for: proposal.proposedBy)) proposed this at \(at). Agreeing clears the tab on both phones."
+            : "Proposed at \(at). Nothing clears until \(store.name(for: proposal.awaiting)) agrees on the other phone."
     }
 
     private var settleTitle: String {
@@ -212,7 +282,7 @@ struct SettleUpView: View {
 
     private func itemsCaption(_ currency: Currency) -> String {
         let count = store.sharedItemCount(currency: currency)
-        return count == 0 ? "nothing yet" : "\(count) shared items"
+        return count == 0 ? "nothing yet" : "\(count) shared \(count == 1 ? "item" : "items")"
     }
 
     private func detail(for option: Method) -> String {

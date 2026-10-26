@@ -156,6 +156,14 @@ enum Currency: String, Codable, CaseIterable, Identifiable {
     var name: String { face.name }
     var decimals: Int { face.decimals }
 
+    /// Whether this amount can be written in this currency's own units — €3.50
+    /// can, ฿3.50 can't. What the keypad can type, and so what the edit sheet
+    /// can reopen without rounding.
+    func holds(_ amount: Double) -> Bool {
+        let scaled = amount * pow(10, Double(decimals))
+        return abs(scaled - scaled.rounded()) < 0.000_1
+    }
+
     /// "฿ THB", or just "CHF" where the symbol is the code.
     var chipLabel: String { symbol == code ? code : "\(symbol) \(code)" }
 
@@ -522,11 +530,14 @@ struct Expense: Identifiable, Codable, Hashable {
     ///   that is what makes both phones converge on one ledger line — and its
     ///   amount is what the two of them agreed. Neither is this screen's to
     ///   alter; the way to undo a settlement is to raise another one.
-    /// - The keypad is whole units only, so a fractional amount cannot be typed
-    ///   back in. Opening one would silently round it, and a ledger that rounds
-    ///   a number because you looked at it is worse than one you can't edit.
+    /// - An amount finer than its currency's smallest unit cannot be typed
+    ///   back in — the keypad stops at `decimals` places, and baht, đồng and
+    ///   won have none. Opening one would silently round it, and a ledger that
+    ///   rounds a number because you looked at it is worse than one you can't
+    ///   edit. Nothing in the app writes such a line; a converted or imported
+    ///   one could.
     var isEditable: Bool {
-        kind == .spend && amount == amount.rounded()
+        kind == .spend && currency.holds(amount)
     }
 
     /// The part of this line the non-payer owes back.

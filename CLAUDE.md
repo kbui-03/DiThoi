@@ -34,7 +34,7 @@ DiThoi/Model/      TripStore, Models, SampleTrip (commented out), TripShape,
                    PhotoStore, PhotoCrop, DocumentStore, ScanVault,
                    DocumentCrypto, Storage, WidgetBridge, Book, SetupSteps,
                    Ritual, LetterDelivery, TripLibrary, DayFacts, LinePrompts,
-                   BookScrub, Postcard
+                   BookScrub, Postcard, AmountEntry, LedgerExport
 DiThoi/Design/     Components, AppLock, ReadOnly
 DiThoi/Features/   41 screens grouped by tab, incl. Arrival/, Home/ and Trips/
 DiThoi/Root/       RootView, MainTabs, HomeTabs, ClassicalTabBar, DebugScreens,
@@ -46,7 +46,7 @@ DiThoiWidget/      WidgetBundle, DayWidget (timeline), MarkMomentControl (iOS 18
 docs/              README, architecture, expansion, CHANGELOG; archive/
 Tools/             run-checks.sh, CheckTrip.swift, VerifyTrip.swift,
                    render-icons.sh, RenderIcons, build-cities.sh
-Screenshots/       117 files: every screen, most at 3 text sizes
+Screenshots/       128 files: every screen, most at 3 text sizes
 ```
 
 About 33k lines of Swift, no third-party dependencies. Not every model rule is in a
@@ -55,14 +55,14 @@ check: `Features/` and `Root/` aren't compiled by the checks.
 ## Before you change anything
 
 ```bash
-./Tools/run-checks.sh          # 1,610 model assertions, macOS, no simulator
+./Tools/run-checks.sh          # 1,685 model assertions, macOS, no simulator
 ./Tools/render-icons.sh        # regenerates the icon set and re-tests actool
 ```
 
 - Run the checks after touching `Model/` or `Shared/`. They also run two stores
   against one loopback box, which is how sync is verified with no account. (§6.1)
 - Reach any screen with `xcrun simctl launch <device> com.lovedones.dithoi
-  -resetTrip -screen <route>`. There are 77 routes, plus `-day N` (zero or
+  -resetTrip -screen <route>`. There are 79 routes, plus `-day N` (zero or
   negative allowed), `-seedItinerary`, `-seedJournal`, `-seedSpending`,
   `-seedLetters` (with `-openLetter`), `-noBudget` and `-planned`. The empty states are half of what there is to look at, which is
   why seeding is a flag, not a route. (§6.2)
@@ -96,6 +96,9 @@ The general lessons behind them are §11; the debt kept on purpose is §7.
 - The widget gets one scalar-only key, `dithoi.widget.v1`, and never the trip.
   `Storage.defaults` stays `.standard`. (§8.8)
 - The imported PDF is opened in place and never copied. (§3.6)
+- The ledger CSV is handled as the book is: `Storage.exportDirectory`, cleared
+  on share and on background, formula fields defused by `LedgerExport.field`.
+  (§3.6)
 
 ### Files, scans and photos
 - `ScanVault.prune` keeps the live trip alone; `PhotoStore.prune` walks the shelf
@@ -327,7 +330,24 @@ The general lessons behind them are §11; the debt kept on purpose is §7.
 - Deleting writes `deletedAt`. Draw from `expenses.live`. (§3.4)
 - Settlement is a `.transfer` that borrows the proposal's id. It is
   propose-then-confirm, and `debtor` is stored. (§3.4, §3.5)
-- `Expense.isEditable` refuses fractional transfers. (§3.4)
+- `Expense.isEditable` refuses transfers and amounts finer than the currency's
+  `decimals` (`Currency.holds`). The keypad's rules are `AmountEntry`'s: a point
+  only where there are cents. (§3.4)
+- Every screen reads `ledger` (sorted, tie-broken on the id). Money shows six;
+  `LedgerView` has the rest. Tap opens the editor, hold deletes; never a tap
+  that mutates. (§3.4)
+- A line filed under another day is stamped through `expenseCountry(forDay:)`.
+  An edit re-stamps only when its day changed. The sheet keeps today as `nil`.
+  (§3.4)
+- No budget is no verdict on Money either: `moneyHeadline`, `burnLine`,
+  `budgetComparison` and the forecast all ask `hasBudget`. `budgetNudgeShows`
+  is this phone's, never on the payload, and stops at three. (§3.4)
+- `spent(inCountry:)` counts every line in the country through today's rate and
+  says `converted`. Settle up lists `settleCurrencies`, never `tripCurrencies`.
+  (§3.4)
+- Without sync (`settlesOnOnePhone`), both settle at one phone behind a
+  question; the confirmer is the one asked, and `confirmedInPerson` stays
+  optional. (§3.4)
 - No rate is baked into logic. Every converted figure gets a `RateStamp`.
   (§3.3)
 - A fetched rate must sit within ×4 of `RateSnapshot.builtIn`, or of the last

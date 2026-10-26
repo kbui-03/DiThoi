@@ -103,6 +103,11 @@ final class TripStore: ObservableObject {
     /// Countries whose "that's done" moment Today has already shown. Asked
     /// once, like the backfill: a moment that repeats is a reminder.
     @Published private(set) var countriesMarkedDone: Set<UUID> { didSet { save() } }
+    /// How many times Money has offered to set a budget on a trip without one.
+    /// Three and it stops: a line that asks on every visit is a line people
+    /// learn not to read, and the budget is still in Papers → The trip. This
+    /// phone's habit, not a fact about the trip, so it never syncs.
+    @Published private(set) var budgetNudgeShows: Int { didSet { save() } }
 
     /// What happened the last time this phone tried to post its sealed letters,
     /// and when it last succeeded.
@@ -255,6 +260,7 @@ final class TripStore: ObservableObject {
             backfill = snapshot.backfill
             customTags = snapshot.customTags
             countriesMarkedDone = snapshot.countriesMarkedDone
+            budgetNudgeShows = snapshot.budgetNudgeShows
             dayPlans = snapshot.dayPlans
             documents = snapshot.documents
             showCards = snapshot.showCards
@@ -300,6 +306,7 @@ final class TripStore: ObservableObject {
             backfill = BackfillOffers()
             customTags = []
             countriesMarkedDone = []
+            budgetNudgeShows = 0
             dayPlans = []
             documents = []
             showCards = []
@@ -1457,16 +1464,51 @@ final class TripStore: ObservableObject {
         legs.filter { $0.country == country }
     }
 
-    func spent(inCountry country: String) -> (local: Double, currency: Currency)? {
+    /// What a country cost, in its own money.
+    ///
+    /// Every line spent there, not only the ones already in its currency. It
+    /// used to filter on `currency == ` the country's, so a card payment made
+    /// in euros in Thailand counted towards the trip and towards nowhere —
+    /// "by country" didn't add up to the total above it, with nothing on
+    /// screen to say why. The other currencies come in through today's rate,
+    /// and `converted` says so, for the reason `spentTodayIsConverted` does.
+    func spent(inCountry country: String) -> (local: Double, currency: Currency, converted: Bool)? {
         // The currency belongs to the country, not to one crossing of it. Two
         // legs in one country spend the same money.
         guard let currency = legs(inCountry: country).first?.currency else { return nil }
         // Through `country(of:)`, so a line stamped before the itinerary
         // existed joins the country it was actually spent in. The stamped
         // case short-circuits, so this costs nothing on an ordinary trip.
-        let lines = spending.filter { self.country(of: $0) == country && $0.currency == currency }
+        let lines = spending.filter { self.country(of: $0) == country }
         guard !lines.isEmpty else { return nil }
-        return (lines.reduce(0) { $0 + $1.amount }, currency)
+        let total = lines.reduce(0) { $0 + rates.snapshot.convert($1.amount, from: $1.currency, to: currency) }
+        return (total, currency, lines.contains { $0.currency != currency })
+    }
+
+    /// The figure on a "by country" row: "฿62,400", or "≈฿64,180" once a rate
+    /// was needed — rounded then, because the cents of an estimate are noise.
+    func spentText(inCountry country: String) -> String? {
+        guard let spend = spent(inCountry: country) else { return nil }
+        return spend.converted
+            ? "≈\(spend.currency.formatRounded(spend.local))"
+            : spend.currency.format(spend.local)
+    }
+
+    /// Why a row has a "≈" in front of it: "≈ because €52 of it was paid in
+    /// another currency." Nil when nothing was converted. The amount names the
+    /// money by its symbol; a currency's *name* is never pluralised, because
+    /// "us dollars" and "thai bahts" are what that produces. More than one
+    /// foreign currency is said as such, since a list of four amounts under
+    /// one row is a second ledger.
+    func conversionNote(inCountry country: String) -> String? {
+        guard let spend = spent(inCountry: country), spend.converted else { return nil }
+        let foreign = spending.filter { self.country(of: $0) == country && $0.currency != spend.currency }
+        let currencies = Set(foreign.map(\.currency))
+        guard currencies.count == 1, let other = currencies.first else {
+            return "≈ because some of it was paid in other currencies."
+        }
+        let total = foreign.reduce(0) { $0 + $1.amount }
+        return "≈ because \(other.format(total)) of it was paid in another currency."
     }
 
     func daysSpent(in leg: Leg) -> Int {
@@ -1535,6 +1577,163 @@ final class TripStore: ObservableObject {
         expenses[index].updatedAt = now
     }
 
+    // MARK: - The ledger, all of it
+
+    /// Every live line, newest first.
+    ///
+    /// Tie-broken on the id. `merged(with:)` hands back `Array(byID.values)` —
+    /// a dictionary's order — and `sorted` isn't stable, so two lines spent at
+    /// the same moment could swap places between one draw and the next. One
+    /// order for Money's recent lines and the full ledger, so the same line
+    /// is never above another on one screen and below it on the other.
+    var ledger: [Expense] {
+        expenses.live.sorted {
+            $0.date == $1.date ? $0.id.uuidString < $1.id.uuidString : $0.date > $1.date
+        }
+    }
+
+    /// The ledger by trip day, newest day first. A line from before day 1
+    /// keeps its own (zero or negative) day, so a deposit paid in March
+    /// doesn't pretend to be the first night.
+    var ledgerDays: [(day: Int, lines: [Expense])] {
+        var order: [Int] = []
+        var byDay: [Int: [Expense]] = [:]
+        for line in ledger {
+            let day = dayNumber(for: line.date)
+            if byDay[day] == nil { order.append(day) }
+            byDay[day, default: []].append(line)
+        }
+        return order.map { ($0, byDay[$0] ?? []) }
+    }
+
+    /// The heading over a day's lines: "Day 12 · Thu 16 Oct", or "Before day 1
+    /// · 2 Mar" for money spent before they left.
+    func ledgerHeading(forDay day: Int) -> String {
+        let date = date(forDay: day)
+        return day < 1
+            ? "Before day 1 · \(date.text("d MMM"))"
+            : "Day \(day) · \(date.text("EEE d MMM"))"
+    }
+
+    /// What a day's lines came to, in the money of the country they were in —
+    /// with "≈" when a rate was needed. Settlements aren't spending and don't
+    /// count; a day with only a settlement on it has no total.
+    func ledgerTotal(forDay day: Int) -> String? {
+        let lines = ledger.filter { $0.kind == .spend && dayNumber(for: $0.date) == day }
+        guard !lines.isEmpty else { return nil }
+        let money = leg(forDay: day)?.currency ?? homeCurrency
+        let total = lines.reduce(0) { $0 + rates.snapshot.convert($1.amount, from: $1.currency, to: money) }
+        return lines.contains { $0.currency != money }
+            ? "≈\(money.formatRounded(total))"
+            : money.format(total)
+    }
+
+    // MARK: - When it was spent
+
+    /// The days an expense can be filed under, newest first: today, every
+    /// earlier day of the trip, and day 0 for "before we left" — the flights
+    /// and the deposit paid weeks ahead. Before departure "today" already *is*
+    /// before they left, so it is the only answer.
+    var expenseDays: [Int] {
+        let today = trueDayNumber
+        guard today >= 1 else { return [today] }
+        return Array((0...today).reversed())
+    }
+
+    /// The moment to file a line under a day: now, for today; otherwise that
+    /// day at this time of day, so lines still sort the way they were added.
+    ///
+    /// The clock time is *set*, not added. Adding 20 hours to midnight is 19:00
+    /// on the day the clocks go back, and the checks caught it on exactly that
+    /// day.
+    func expenseDate(forDay day: Int) -> Date {
+        guard day != trueDayNumber else { return now }
+        let clock = Calendar.trip.dateComponents([.hour, .minute, .second], from: now)
+        return Calendar.trip.date(bySettingHour: clock.hour ?? 12, minute: clock.minute ?? 0,
+                                  second: clock.second ?? 0, of: date(forDay: day))
+            ?? date(forDay: day)
+    }
+
+    /// The country to stamp on a line filed under a day — where they were
+    /// *that* day, not today. Empty before day 1, and wherever no leg covers
+    /// it, which `country(of:)` reads as "nobody had said".
+    ///
+    /// Today goes through `countryNow`, exactly as a new line always has.
+    func expenseCountry(forDay day: Int) -> String {
+        if day == trueDayNumber { return countryNow }
+        guard day >= 1 else { return "" }
+        return leg(forDay: day)?.country ?? ""
+    }
+
+    /// The chip that says which day a line is filed under.
+    func expenseDayLabel(_ day: Int) -> String {
+        let today = trueDayNumber
+        if day == today { return "Today" }
+        if day == today - 1, day >= 1 { return "Yesterday" }
+        if day < 1 { return "Before we left" }
+        return "Day \(day) · \(date(forDay: day).text("d MMM"))"
+    }
+
+    // MARK: - With no budget
+
+    /// Nought is allowed, and means "we didn't set one" — not "we may spend
+    /// nothing". Every sentence that judges spending against the budget asks
+    /// this first.
+    var hasBudget: Bool { budget > 0 }
+
+    /// Money's headline: "€1,627 of €8,000", or "€1,627 spent" with no budget.
+    /// It read "€1,627 of €0".
+    var moneyHeadline: String {
+        hasBudget
+            ? "\(homeTextRounded(spentHome)) of \(homeTextRounded(budget))"
+            : "\(homeTextRounded(spentHome)) spent"
+    }
+
+    /// The line under it. Against a budget, how far ahead of the burn they
+    /// are; with none, what a day has cost so far, since "exactly on the
+    /// burn" against a budget of nothing was the one verdict it could reach.
+    var burnLine: String {
+        let day = "Day \(dayNumber) of \(dayCount)"
+        guard hasBudget else {
+            guard spentHome > 0 else { return "\(day) · nothing spent yet." }
+            return "\(day) · \(homeTextRounded(spentHome / Double(max(dayNumber, 1)))) a day so far."
+        }
+        let ahead = paceDaysAhead
+        if ahead > 0 { return "\(day) — \(Formatting.spelledCount(ahead, "day", spellingUpTo: 0)) ahead of the burn." }
+        if ahead < 0 { return "\(day) — \(Formatting.spelledCount(-ahead, "day", spellingUpTo: 0)) behind the burn." }
+        return "\(day) — exactly on the burn."
+    }
+
+    /// The add-expense sheet's "Is this cheap?" — this amount against what a
+    /// day is worth. Nil with no budget, and the panel goes with it; it drew
+    /// as an empty box.
+    func budgetComparison(forHome home: Double) -> String? {
+        guard home > 0, hasBudget else { return nil }
+        // Everything is priced against the budget they set, so the verdict
+        // means something different for a €2,000 trip than a €9,000 one.
+        let share = home / budgetPerDay
+        if share < 0.1 {
+            return "Under a tenth of a day's budget."
+        }
+        if share < 1 {
+            return "About \(Int((share * 100).rounded()))% of a day's budget — \(homeTextRounded(budgetPerDay)) is what a day is worth on this trip."
+        }
+        return "That's \(String(format: "%.1f", share)) days of budget, at \(homeTextRounded(budgetPerDay)) a day."
+    }
+
+    /// Whether Money should offer to set a budget: none set, a traveller's
+    /// phone on a live trip — the observer sets no trip parameters — and
+    /// offered fewer than three times.
+    var offersBudgetNudge: Bool {
+        !hasBudget && !isObserver && isLive && budgetNudgeShows < 3
+    }
+
+    /// Counts one showing. Called once per visit to Money, never per draw.
+    func noteBudgetNudgeShown() {
+        guard offersBudgetNudge else { return }
+        budgetNudgeShows += 1
+    }
+
     // MARK: - Settling, which takes both of them
 
     var pendingSettlement: SettlementProposal? {
@@ -1566,13 +1765,67 @@ final class TripStore: ObservableObject {
         return proposal
     }
 
-    func confirmSettlement(_ id: UUID) {
+    /// Agrees to a pending proposal.
+    ///
+    /// - Parameter inPerson: both of them at this phone. The one who agrees
+    ///   is then whoever the proposal is waiting on, not whoever holds the
+    ///   phone — the phone's holder is usually the one who proposed it.
+    func confirmSettlement(_ id: UUID, inPerson: Bool = false) {
         guard let index = settlements.firstIndex(where: { $0.id == id }),
               settlements[index].isPending else { return }
-        settlements[index].confirmedBy = role
+        settlements[index].confirmedBy = inPerson ? settlements[index].awaiting : role
         settlements[index].confirmedAt = now
+        if inPerson { settlements[index].confirmedInPerson = true }
         settlements[index].updatedAt = now
         applyConfirmedSettlements()
+    }
+
+    /// Whether a tab can be cleared at one phone, with both of them there.
+    ///
+    /// Only while this build can't reach the other phone. Two phones confirming
+    /// is the design; without sync it is also a promise nothing can keep, and
+    /// a tab that can never clear is a ledger that is wrong forever. Once
+    /// there is somebody to invite, settling goes back to taking both phones.
+    var settlesOnOnePhone: Bool { !sync.canInvite && !isObserver }
+
+    /// Proposes and agrees in one step, both of them at this phone.
+    @discardableResult
+    func settleTogether(note: String, in currency: Currency? = nil) -> SettlementProposal? {
+        guard settlesOnOnePhone, let proposal = proposeSettlement(note: note, in: currency) else { return nil }
+        confirmSettlement(proposal.id, inPerson: true)
+        return settlements.first { $0.id == proposal.id }
+    }
+
+    // MARK: - What settling nets
+
+    /// The currencies Settle up lists: every one the itinerary spends, then any
+    /// other a shared line was paid in — the euro card payment in Thailand.
+    /// Listing only the itinerary's left those lines out of the rows while
+    /// counting them in the net beneath, so the rows didn't add up.
+    var settleCurrencies: [Currency] {
+        var list = tripCurrencies
+        for line in ledger.reversed() where !list.contains(line.currency) && balanceMoves(line) {
+            list.append(line.currency)
+        }
+        return list
+    }
+
+    private func balanceMoves(_ line: Expense) -> Bool {
+        line.kind == .transfer || (line.shareOwedByOther > 0 && line.payer != .both)
+    }
+
+    /// The line under the headline, counted rather than written. It said
+    /// "Across three currencies" on every trip, including one-currency trips
+    /// and trips with nothing shared at all.
+    var settleCurrencyLine: String {
+        let used = settleCurrencies.filter { sharedItemCount(currency: $0) > 0 }
+        switch used.count {
+        case 0: return "Nothing shared yet."
+        case 1: return "All in one currency, so nothing to convert."
+        default:
+            let count = Formatting.spelledCount(used.count, "currency", plural: "currencies", spellingUpTo: 10)
+            return "Across \(count.prefix(1).lowercased() + count.dropFirst()), netted down to one number."
+        }
     }
 
     func cancelSettlement(_ id: UUID) {
@@ -3286,6 +3539,7 @@ final class TripStore: ObservableObject {
         separatedSince = nil
         ritualClock = RitualClock()
         backfill = BackfillOffers()
+        budgetNudgeShows = 0
         meetingPoint = StampedMeetingPoint(
             value: MeetingPoint(place: "", detail: "", localScript: "", setAt: .distantPast),
             updatedAt: .distantPast, setBy: role)
@@ -3720,6 +3974,7 @@ final class TripStore: ObservableObject {
             separatedSince: separatedSince,
             ritualClock: ritualClock, backfill: backfill,
             customTags: customTags, countriesMarkedDone: countriesMarkedDone,
+            budgetNudgeShows: budgetNudgeShows,
             dayPlans: dayPlans, documents: documents,
             showCards: showCards, sharingRules: sharingRules
         )
@@ -3782,6 +4037,7 @@ final class TripStore: ObservableObject {
         separatedSince = nil
         ritualClock = RitualClock()
         backfill = BackfillOffers()
+        budgetNudgeShows = 0
         customTags = []
         countriesMarkedDone = []
         closedOn = nil
@@ -3880,6 +4136,8 @@ struct TripSnapshot: Codable {
     var backfill: BackfillOffers
     var customTags: [String] = []
     var countriesMarkedDone: Set<UUID> = []
+    /// See `TripStore.budgetNudgeShows`. This phone's, never on the payload.
+    var budgetNudgeShows: Int = 0
 
     // Content that belongs to *this* trip, and travels with it, so a trip made
     // from scratch opens with its own papers rather than another trip's.
@@ -4021,6 +4279,7 @@ extension TripSnapshot {
         backfill = try c.decodeIfPresent(BackfillOffers.self, forKey: .backfill) ?? BackfillOffers()
         customTags = try c.decodeIfPresent([String].self, forKey: .customTags) ?? []
         countriesMarkedDone = try c.decodeIfPresent(Set<UUID>.self, forKey: .countriesMarkedDone) ?? []
+        budgetNudgeShows = try c.decodeIfPresent(Int.self, forKey: .budgetNudgeShows) ?? 0
         // `bookOrder` was here: an order that set a flag on this phone and
         // reached no printer. A file saved with one still carries the key, and
         // the keyed decoder passes over it.
