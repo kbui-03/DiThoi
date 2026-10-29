@@ -1058,11 +1058,27 @@ trail. Distance is `Geo.kilometres`, the one great-circle formula, which
 `Stamp.kilometres(to:)` also calls.
 
 It provides a distance and a spoken-word bearing for Separated, which falls back
-to the written directions with no fix. **Two known issues:** nothing gives a
-typed meeting point a position, so the distance never appears; and the bearing
-is *to* the meeting point while the sentence reads "770 m south-west *of* the
-meeting point", which is backwards. See
-[CHANGELOG.md](CHANGELOG.md#known-issues).
+to the written directions with no fix. Both used to be dead or wrong. Nothing
+gave a meeting point a position, so Separated tracked the phone and said
+"Finding you…" for ever; and the bearing was *to* the meeting point while the
+sentence read "770 m south-west *of* the meeting point", which sends somebody
+the opposite way. The picker can pin where it's standing now (§3.11), and the
+sentence is `MeetingPoint.fromHere`: "700 m north-east *of you*". The formula
+moved out of `LocationService` into `Geo.compassPoint`, so a check can ask it
+without a fix — the reversal survived because the only code that could show it
+needed a GPS.
+
+**Separated tracks only while the point is pinned.** `followMeetingPointIfPinned()`
+starts and stops tracking from the point, not from the screen: with no position
+there is nothing to measure to, and asking for location to say "Finding you"
+was a search with no end. It runs on start, on a change to the point (the other
+phone can pin it mid-separation) and on the way back in after a relaunch, where
+`separatedSince` was saved and the location manager wasn't.
+
+A pinned meeting point is the second position that leaves the phone, after a
+pin's spot: it is a field on the `MeetingPoint`, and the point is on the
+payload. That is deliberate — the other phone's Separated needs it — and the
+sharing line names it, held by the same check.
 
 ### 3.8 The itinerary
 
@@ -1496,6 +1512,14 @@ gate somebody can walk to: two phones that both typed "the bridge" mean the same
 bridge, and unioning by id would list it twice — a per-decode id would list it
 twice every launch. `placeKey` (trimmed, folded) is the identity, and
 `setMeetingPoint` trims the place because of it.
+
+**A pin belongs to the place too.** "Pin where I'm standing" takes a fix from
+the last minute, or asks for one (`requestOnce()`, the act that needs it), and
+the pin follows "Where" exactly as the script does: change the place and the
+pin is that place's remembered one, or none. One gate's position left under
+another gate's name would have Separated measure to the wrong side of a city.
+The pin is optional; a place saves without one, and Separated then says to use
+the written directions.
 
 **The local script belongs to the place, not to the screen.** It is a typed
 field on the `MeetingPoint`, and changing "Where" re-derives it from what the
@@ -2091,7 +2115,7 @@ There is no simulator in CI and no XCTest target. Verification is two things:
 ### 6.1 `./Tools/run-checks.sh`
 
 Compiles everything in `DiThoi/Model/` and `Shared/` plus `Tools/VerifyTrip.swift`
-for **macOS** and runs 1,685 assertions — no simulator; the compile takes a
+for **macOS** and runs 1,702 assertions — no simulator; the compile takes a
 few minutes, the run a few seconds. It
 covers trip shape, rate conversion and round-tripping, budget derivation, the
 date-shift invariants, itinerary reflow after all four edit operations, the
@@ -2143,7 +2167,11 @@ To reach a screen without walking a flow (`#if DEBUG`, out of Release):
 xcrun simctl launch <device> com.lovedones.dithoi -resetTrip -screen money
 ```
 
-79 routes. `ledger` is every line (empty without `-seedSpending`), and
+82 routes. `trip` is Papers' Trip screen. `meetingpointpinned` and
+`separatedpinned` seed a meeting point pinned at Wat Phra Singh's north gate;
+set the simulator south-west of it (`simctl location <dev> set 18.7840,98.9770`)
+and Separated reads "north-east of you". `separated` with `-seedItinerary` and
+nothing else is the screen with no meeting point. `ledger` is every line (empty without `-seedSpending`), and
 `editexpense` opens the newest line with cents — `-seedSpending` pays €23.50 by
 card on day 2 — so the point key and an earlier day are on screen. `stampletters` is the stamp screen with two letters opened at
 once (`-seedLetters`). `savedpostcard` is the saved page on a night the book reaches a
@@ -3340,6 +3368,12 @@ medical · fire rendered as "POLIC / E" and "MEDIC / AL" — "SONGKRA / N" again
 the screen where a misread number matters most. `CallTileRow` stacks above the
 threshold and both grounds draw through it, so neither can regress alone.
 
+**A tile dials what it prints, or nothing.** It fell back to `tel://112` when a
+number didn't parse: a tile labelled with one number ringing an emergency line
+nobody chose, in a country that may not answer it. `CountryFacts.dialURL` is
+the link or `nil`, `nil` prints the number undialled, and a check holds every
+number in the table to it.
+
 ### 8.6 The papers (`Model/ScanVault.swift`, `Features/Papers/`)
 
 Everything under the vault had been built and hardened for two phases — the
@@ -3392,6 +3426,25 @@ synthesized decode requires every key, and one missing key throws out of
 `TripSnapshot`'s `decodeIfPresent([TravelDocument])` — which `TripSnapshot.decode`
 catches with `try?`, so the whole trip reads as unreadable and the store starts a
 fresh one over the top. A dropped field must cost a field, never the trip.
+
+**What the tab holds, and what it hands off.** Papers is the tab handed to a
+stranger and reached for in a hurry, and it carried three rows of settings —
+the trip's setup, sharing and the shelf — between the cards and the footer. They
+are one "Trip" row now, opening `TripHubView`, which holds the three as they
+were. The sharing row keeps its gate: "Invite X" only where the build can
+invite, and the sharing screen's own headline follows the same flag, because it
+said "Invite" over a first sentence saying nobody could be.
+
+**Separated is offered for the numbers too.** "We got separated" needed a
+meeting point, which hid the emergency numbers and the two phrases on exactly
+the night nobody had agreed one. `canStartSeparated` is a point *or* a country
+`CountryFacts` knows; with neither the screen would be a headline over nothing,
+so it isn't offered.
+
+**Show-this keeps the screen awake.** It went to full brightness and then dimmed
+and locked in a stranger's hand. `ShowThisView` turns the idle timer off and puts
+back whatever it found. Separated doesn't: it is dark to last on a dying
+battery, and staying awake works against that.
 
 ### 8.7 The mark and the icons (`Shared/TripMark.swift`, `Tools/RenderIcons.swift`)
 

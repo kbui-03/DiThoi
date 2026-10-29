@@ -274,9 +274,10 @@ struct Tag: View {
 /// dark palette, which would have meant a second copy the first time anything
 /// else needed to show a phone number.
 ///
-/// The `tel://` fallback is `112` rather than nothing, because a tile that
-/// silently does nothing when tapped is worse than one that dials the number
-/// most of Europe answers.
+/// A number that won't make a `tel:` link is printed and dials nothing. It
+/// used to fall back to `112`, which put an emergency line nobody chose behind
+/// a tile labelled with a different one. `CountryFacts.dialURL` decides, and a
+/// check holds every number in the table to it.
 struct CallNumber: Identifiable {
     let label: String
     let number: String
@@ -321,21 +322,28 @@ struct CallTile: View {
     var border: Color = Palette.divider
 
     var body: some View {
-        Link(destination: URL(string: "tel://\(number.replacingOccurrences(of: " ", with: ""))") ?? URL(string: "tel://112")!) {
-            VStack(alignment: .leading, spacing: 3) {
-                Mono(label, size: 9, trackingRatio: 0.12, color: labelColor)
-                Text(number)
-                    .font(Typeface.mono(13))
-                    .monospacedDigit()
-                    .foregroundStyle(numberColor)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .overlay(RoundedRectangle(cornerRadius: Radius.md).strokeBorder(border, lineWidth: 1))
-            .contentShape(Rectangle())
+        if let url = CountryFacts.dialURL(number) {
+            Link(destination: url) { face }
+                .accessibilityLabel("Call \(label)")
+        } else {
+            face
+                .accessibilityElement(children: .combine)
         }
-        .accessibilityLabel("Call \(label)")
+    }
+
+    private var face: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Mono(label, size: 9, trackingRatio: 0.12, color: labelColor)
+            Text(number)
+                .font(Typeface.mono(13))
+                .monospacedDigit()
+                .foregroundStyle(numberColor)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .overlay(RoundedRectangle(cornerRadius: Radius.md).strokeBorder(border, lineWidth: 1))
+        .contentShape(Rectangle())
     }
 }
 

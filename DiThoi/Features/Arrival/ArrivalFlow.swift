@@ -742,7 +742,7 @@ struct InviteStepView: View {
 
                 Panel {
                     Mono("You can do this later", size: 9.5)
-                    Text("It lives in Papers, under \(store.otherName)'s name, for whenever they're standing next to you.")
+                    Text("It lives in Papers, under Trip, for whenever they're standing next to you.")
                         .font(Typeface.body(12.5))
                         .foregroundStyle(Palette.n700)
                         .lineSpacing(4)

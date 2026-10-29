@@ -104,24 +104,12 @@ final class LocationService: NSObject, ObservableObject {
         return Measurement(value: current.distance(from: target), unit: .meters)
     }
 
-    /// "north-east" — the way you'd say it to someone, not a bearing in degrees.
+    /// "north-east": the way to walk from here to there. `Geo.compassPoint`
+    /// is the formula.
     func compassDirection(toLatitude latitude: Double, longitude: Double) -> String? {
         guard let current else { return nil }
-        let from = current.coordinate
-        let to = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
-
-        let fromLat = from.latitude * .pi / 180
-        let toLat = to.latitude * .pi / 180
-        let deltaLon = (to.longitude - from.longitude) * .pi / 180
-
-        let y = sin(deltaLon) * cos(toLat)
-        let x = cos(fromLat) * sin(toLat) - sin(fromLat) * cos(toLat) * cos(deltaLon)
-        var degrees = atan2(y, x) * 180 / .pi
-        if degrees < 0 { degrees += 360 }
-
-        let points = ["north", "north-east", "east", "south-east",
-                      "south", "south-west", "west", "north-west"]
-        return points[Int((degrees + 22.5) / 45) % 8]
+        return Geo.compassPoint(current.coordinate.latitude, current.coordinate.longitude,
+                                latitude, longitude)
     }
 }
 
@@ -161,5 +149,17 @@ extension Measurement where UnitType == UnitLength {
             return "\(Int((metres / 10).rounded()) * 10) m"
         }
         return "\(Formatting.decimal(metres / 1000, places: 1)) km"
+    }
+}
+
+extension MeetingPoint {
+    /// "700 m north-east of you": where the meeting point is, from here.
+    ///
+    /// The compass point is the way *to* the meeting point, so the sentence
+    /// has to be about the meeting point. It used to read "700 m north-east of
+    /// the meeting point", which sends somebody the opposite way at 2am.
+    static func fromHere(_ distance: Measurement<UnitLength>, compass: String?) -> String {
+        guard let compass else { return "\(distance.walkingText) away" }
+        return "\(distance.walkingText) \(compass) of you"
     }
 }

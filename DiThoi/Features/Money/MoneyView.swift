@@ -241,7 +241,7 @@ struct MoneyView: View {
     }
 
     /// No budget, so no pace to keep — said once a visit, three visits at
-    /// most, and then left to Papers → The trip, where the budget always is.
+    /// most, and then left to Papers → Trip → Setup, where the budget always is.
     private var budgetNudge: some View {
         Button {
             destination = .tripSettings
