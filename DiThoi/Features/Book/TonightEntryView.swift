@@ -640,7 +640,7 @@ struct TonightEntryView: View {
         let entry = JournalEntry(
             dayNumber: targetDay,
             date: store.date(forDay: targetDay),
-            city: store.city(forDay: targetDay),
+            city: store.cityStamp(forDay: targetDay),
             line: line.trimmingCharacters(in: .whitespaces),
             tags: Array(tags).sorted(),
             // Derived. It was `photoID != nil || hasPhoto` over a flag that

@@ -42,5 +42,22 @@
 	     opening looks like a broken link on the sender's side. -->
 	<key>CKSharingSupported</key>
 	<true/>
+
+	<!-- The day widget's link into tonight's page, `dithoi://tonight`
+	     (`QuickAction.tonightURL`). A widget can only open its app by URL, and
+	     without a registered scheme `widgetURL` does nothing at all. The link
+	     carries no trip data, and `RootView` drops it on any phone that has no
+	     tonight to write. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.lovedones.dithoi</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>dithoi</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

@@ -76,6 +76,13 @@ struct WidgetSnapshot: Codable, Equatable {
         return "\(days) day\(days == 1 ? "" : "s") until \(nextCity)"
     }
 
+    /// Where a tap goes: tonight's page while the trip is on, and otherwise
+    /// just the app. Before departure there is no page to write, and after it
+    /// or on a closed trip there is no tonight.
+    var tapURL: URL? {
+        phase == .during && !isClosed ? QuickAction.tonightURL : nil
+    }
+
     /// Both halves, for the tiles wide enough to hold them.
     var headline: String {
         guard let nextLine else { return place }

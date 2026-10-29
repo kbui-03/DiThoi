@@ -3661,8 +3661,13 @@ struct Verify {
             Storage.forget(key)
             Storage.forget(shelfKey)
 
+            // Day 40, so day 20's page is one that has happened: the store
+            // refuses a page for a night still to come.
+            let protectedTrip = CheckTrip.snapshot()
             let phone = TripStore(storeKey: key,
-                                  snapshot: CheckTrip.snapshot(),
+                                  snapshot: protectedTrip,
+                                  clock: { Calendar.trip.date(byAdding: .day, value: 39,
+                                                              to: protectedTrip.start)! },
                                   sync: SyncCoordinator(transport: {
                                       let box = LoopbackSyncTransport(named: "checks-protected")
                                       box.erase()
@@ -4179,6 +4184,145 @@ struct Verify {
             let proposal = settling.proposeSettlement(note: "square up")
             check("a settlement raised with nowhere in the trip stamps nothing",
                   proposal?.country.isEmpty == true, "'\(proposal?.country ?? "nil")'")
+        }
+
+        print("— a page written before the trip had anywhere in it —")
+        do {
+            let fixture = CheckTrip.snapshot()
+            /// Day 12, the itinerary taken out unless asked otherwise — the
+            /// line's check above, for the journal.
+            func blank(withItinerary keep: Bool = false) -> TripStore {
+                var snapshot = fixture
+                if !keep { snapshot.itinerary = ItineraryDocument(legs: []) }
+                snapshot.journal = []
+                return TripStore(storeKey: nil, snapshot: snapshot,
+                                 clock: { Calendar.trip.date(byAdding: .day, value: 11,
+                                                             to: fixture.start)! },
+                                 ritual: SilentRitualScheduler())
+            }
+            func page(_ store: TripStore, day: Int, city: String) -> JournalEntry {
+                JournalEntry(dayNumber: day, date: store.date(forDay: day), city: city,
+                             line: "rain, then noodles", tags: [], hasPhoto: false,
+                             author: store.role)
+            }
+
+            let nowhere = blank()
+            check("a screen still has a label for the day",
+                  nowhere.city(forDay: 12) == TripStore.unknownPlace, nowhere.city(forDay: 12))
+            check("but a page is stamped with nothing at all",
+                  nowhere.cityStamp(forDay: 12).isEmpty, "'\(nowhere.cityStamp(forDay: 12))'")
+            nowhere.save(entry: page(nowhere, day: 12, city: nowhere.cityStamp(forDay: 12)))
+            let written = nowhere.myEntries.first
+            check("so the em-dash never reaches the journal",
+                  written?.city.isEmpty == true, "'\(written?.city ?? "nil")'")
+            check("and nothing claims to know where it was written",
+                  written.map { nowhere.city(of: $0) == nil } == true)
+            check("and tonight's tags draw on no history from nowhere",
+                  nowhere.suggestedTags(forDay: 11).isEmpty, "\(nowhere.suggestedTags(forDay: 11))")
+
+            let later = blank(withItinerary: true)
+            let here = later.cityStamp(forDay: 12)
+            if let written {
+                later.journal = [written]
+                check("once the itinerary exists the page joins the city it was written in",
+                      !here.isEmpty && later.city(of: written) == here,
+                      later.city(of: written) ?? "nil")
+            }
+            var legacy = page(later, day: 12, city: TripStore.unknownPlace)
+            check("a page already stamped with the em-dash resolves the same way",
+                  later.city(of: legacy) == here, later.city(of: legacy) ?? "nil")
+            legacy.tags = ["food"]
+            later.journal = [legacy]
+            check("and counts as that city's when tags are suggested",
+                  later.suggestedTags(forDay: 13).contains("food")
+                      || later.cityStamp(forDay: 13) != here,
+                  "\(later.suggestedTags(forDay: 13))")
+
+            // A stamp is a record, not a guess: where they were that night
+            // doesn't change because a stop was dragged later.
+            let stamped = page(later, day: 12, city: "Somewhere else")
+            check("a stamped page is never re-resolved",
+                  later.city(of: stamped) == "Somewhere else", later.city(of: stamped) ?? "nil")
+
+            // The last day falls inside no segment, the half-open gap
+            // `lastKnownSegment` exists for.
+            let home = page(later, day: later.dayCount, city: "")
+            check("the night they fly home still resolves",
+                  later.city(of: home) == later.itinerary.allSegments.last?.primaryPlace,
+                  later.city(of: home) ?? "nil")
+        }
+
+        print("— the Book tab before departure —")
+        do {
+            let fixture = CheckTrip.snapshot()
+            func early(withItinerary keep: Bool = true) -> TripStore {
+                var snapshot = fixture
+                if !keep { snapshot.itinerary = ItineraryDocument(legs: []) }
+                snapshot.journal = []
+                return TripStore(storeKey: nil, snapshot: snapshot,
+                                 clock: { Calendar.trip.date(byAdding: .day, value: -9,
+                                                             to: fixture.start)! },
+                                 ritual: SilentRitualScheduler())
+            }
+            let waiting = early()
+            check("nine days early the screens still have a day 1 to draw",
+                  waiting.dayNumber == 1 && waiting.isBeforeDeparture, "\(waiting.dayNumber)")
+            check("but day 1 can't have a page yet", !waiting.canWritePage(forDay: 1))
+            waiting.save(entry: JournalEntry(dayNumber: 1, date: waiting.date(forDay: 1),
+                                             city: waiting.cityStamp(forDay: 1), line: "early",
+                                             tags: [], hasPhoto: false, author: waiting.role))
+            check("and the store refuses one, whoever asks",
+                  waiting.myEntries.isEmpty, "\(waiting.myEntries.map(\.dayNumber))")
+
+            let first = waiting.cityStamp(forDay: 1)
+            check("the sentence names the first night's city",
+                  !first.isEmpty
+                      && waiting.bookNotYetLine == "The first one is written on your first night, in \(first). Nothing to fill in before then.",
+                  waiting.bookNotYetLine)
+            let unplanned = early(withItinerary: false)
+            check("and with nowhere planned it promises no place, and no dash",
+                  unplanned.bookNotYetLine == "The first one is written on your first night. Nothing to fill in before then.",
+                  unplanned.bookNotYetLine)
+
+            let during = TripStore(storeKey: nil, snapshot: fixture,
+                                   clock: { Calendar.trip.date(byAdding: .day, value: 11,
+                                                               to: fixture.start)! },
+                                   ritual: SilentRitualScheduler())
+            check("during the trip tonight and the nights behind can be written",
+                  during.canWritePage(forDay: 12) && during.canWritePage(forDay: 1))
+            check("and tomorrow can't", !during.canWritePage(forDay: 13))
+            check("and nothing before day 1 ever can", !during.canWritePage(forDay: 0))
+        }
+
+        print("— the widget's link into tonight's page —")
+        do {
+            let url = QuickAction.tonightURL
+            check("the link reads back as tonight's page",
+                  QuickAction(url: url) == .writeTonight, url.absoluteString)
+            check("and carries nothing: no path, no query",
+                  url.path.isEmpty && url.query == nil && url.fragment == nil, url.absoluteString)
+            check("a link this app didn't make is not an action",
+                  QuickAction(url: URL(string: "dithoi://somewhere")!) == nil
+                      && QuickAction(url: URL(string: "https://tonight")!) == nil)
+
+            let fixture = CheckTrip.snapshot()
+            let store = TripStore(storeKey: nil, snapshot: fixture,
+                                  clock: { Calendar.trip.date(byAdding: .day, value: -3,
+                                                              to: fixture.start)! },
+                                  ritual: SilentRitualScheduler())
+            let days = store.widgetSnapshots
+            let before = days.first { $0.phase == .before }
+            let during = days.first { $0.phase == .during }
+            check("before departure a tap only opens the app",
+                  before != nil && before?.tapURL == nil)
+            check("once the trip is on it opens tonight's page",
+                  during?.tapURL == QuickAction.tonightURL, during?.tapURL?.absoluteString ?? "nil")
+            var closed = during
+            closed?.isClosed = true
+            check("and a closed trip has no tonight", closed != nil && closed?.tapURL == nil)
+            var after = during
+            after?.phase = .after
+            check("nor a finished one", after != nil && after?.tapURL == nil)
         }
 
         print("— what today cost, in the money in hand —")
@@ -6125,7 +6269,12 @@ struct Verify {
         do {
             let library = TripLibrary(key: "dithoi.library.checks-page-extras")
             library.erase()
-            let phone = TripStore(storeKey: nil, snapshot: store.snapshot,
+            // Day 40, so the pages for days 30 and 31 are nights that have
+            // happened: the store refuses a page for a night still to come.
+            let extrasTrip = store.snapshot
+            let phone = TripStore(storeKey: nil, snapshot: extrasTrip,
+                                  clock: { Calendar.trip.date(byAdding: .day, value: 39,
+                                                              to: extrasTrip.start)! },
                                   ritual: SilentRitualScheduler(), library: library)
             // Old pages carry neither key, and `JournalEntry` decodes the rest
             // with `decode`: a throw there re-seeds the trip.

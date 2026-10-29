@@ -11,6 +11,10 @@ change gets its own line under **Unreleased**.
 ## [Unreleased]
 
 ### Added
+- Tapping the day widget during the trip opens tonight's page, or tonight's
+  written page to edit. Before departure, after the trip, on the observer's
+  phone or with pages switched off, it opens the app as before. The link,
+  `dithoi://tonight`, carries no trip data.
 - The whole ledger. "The whole ledger · N lines" under Money's recent lines
   opens every line, grouped by day with each day's total, filterable by
   country and settlements. Older lines can be edited and deleted from there.
@@ -67,6 +71,15 @@ change gets its own line under **Unreleased**.
   the rest in plan order.
 
 ### Fixed
+- A page written on a trip with nowhere planned stored "—" as its city, and
+  the book printed "Day 3 · 4 Aug · —". Pages now store nothing, and a page
+  with no city, including one an older build stamped "—", takes the city
+  from the itinerary once a stop covers that day.
+- Before departure the Book tab said "One day in" and let you write day 1. It
+  now says "No pages yet" and when the first one is written, and the store
+  refuses a page for any night that hasn't begun.
+- The "Yesterday has no page" offer promised the photos "sorted by hour",
+  which the app can't do: its access to Photos is add-only.
 - Separated's direction read backwards: "north-east of the meeting point"
   when the meeting point was north-east of you.
 - Separated said "Finding you…" for ever, because no meeting point had a
@@ -296,13 +309,6 @@ is lost.
   cost the day it was spent.
 - **Should:** with sync on, nothing tells the other phone a settlement is
   waiting; "Check for X's answer" only looks again.
-
-### Book
-- **Should:** a page written on a trip with nowhere planned stores "—" as its
-  city.
-- **Should:** before departure, the Book tab offers day 1.
-- **Should:** the backfill offer promises photos "sorted by hour", which the app
-  doesn't do.
 
 ### Papers and Separated
 - **Should:** a meeting point whose "Which bit of it" starts with a capital

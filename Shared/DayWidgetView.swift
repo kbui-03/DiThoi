@@ -25,12 +25,17 @@ struct DayWidgetView: View {
     private var family: WidgetFamily { forcedFamily ?? environmentFamily }
 
     var body: some View {
-        switch family {
-        case .accessoryRectangular: rectangular
-        case .accessoryCircular: circular
-        case .systemMedium: medium.tile
-        default: small.tile
+        Group {
+            switch family {
+            case .accessoryRectangular: rectangular
+            case .accessoryCircular: circular
+            case .systemMedium: medium.tile
+            default: small.tile
+            }
         }
+        // One target per widget, every size: the whole tile is the door.
+        // `RootView` decides whether the page can open and drops it if not.
+        .widgetURL(snapshot.tapURL)
     }
 
     // MARK: - Home Screen

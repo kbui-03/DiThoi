@@ -46,7 +46,7 @@ DiThoiWidget/      WidgetBundle, DayWidget (timeline), MarkMomentControl (iOS 18
 docs/              README, architecture, expansion, CHANGELOG; archive/
 Tools/             run-checks.sh, CheckTrip.swift, VerifyTrip.swift,
                    render-icons.sh, RenderIcons, build-cities.sh
-Screenshots/       136 files: every screen, most at 3 text sizes
+Screenshots/       138 files: every screen, most at 3 text sizes
 ```
 
 About 33k lines of Swift, no third-party dependencies. Not every model rule is in a
@@ -55,14 +55,14 @@ check: `Features/` and `Root/` aren't compiled by the checks.
 ## Before you change anything
 
 ```bash
-./Tools/run-checks.sh          # 1,702 model assertions, macOS, no simulator
+./Tools/run-checks.sh          # 1,727 model assertions, macOS, no simulator
 ./Tools/render-icons.sh        # regenerates the icon set and re-tests actool
 ```
 
 - Run the checks after touching `Model/` or `Shared/`. They also run two stores
   against one loopback box, which is how sync is verified with no account. (§6.1)
 - Reach any screen with `xcrun simctl launch <device> com.lovedones.dithoi
-  -resetTrip -screen <route>`. There are 82 routes, plus `-day N` (zero or
+  -resetTrip -screen <route>`. There are 83 routes, plus `-day N` (zero or
   negative allowed), `-seedItinerary`, `-seedJournal`, `-seedSpending`,
   `-seedLetters` (with `-openLetter`), `-noBudget` and `-planned`. The empty states are half of what there is to look at, which is
   why seeding is a flag, not a route. (§6.2)
@@ -451,7 +451,12 @@ The general lessons behind them are §11; the debt kept on purpose is §7.
   still be fixed. (§8.2)
 - `RitualClock` stores its zone and schedules by interval. It never touches
   `UNUserNotificationCenter` without permission. (§8.1)
-- `save(entry:)` replaces on `(dayNumber, author)`. (§8.1)
+- `save(entry:)` replaces on `(dayNumber, author)`, and refuses a night that
+  hasn't begun (`canWritePage(forDay:)`). Before departure the Book tab draws
+  no rows. (§8.1)
+- A page is stamped with `cityStamp(forDay:)`, never `city(forDay:)`'s
+  em-dash, and read through `city(of:)`: a stamp wins, empty resolves against
+  the itinerary. (§8.1)
 - `nextLetterLine` never names a `secretCondition` letter. (§8.3)
 - Dashed hairlines are a stroked `DashedLine`, never a bordered 1pt box.
   (§3.10)
@@ -481,6 +486,8 @@ The general lessons behind them are §11; the debt kept on purpose is §7.
 - `actool` drops per-size children with `appearances` and exits 0. The 20pt
   slots are a second axis. (§8.7)
 - `publishWidget` compares before reloading, and only when `persists`. (§8.8)
+- The widget's tap is `WidgetSnapshot.tapURL`, a link that names nothing.
+  `RootView` drops it on a phone with no tonight to write. (§8.8)
 - Timeline days use `Calendar.trip`, never `+ 86_400`. (§8.8)
 - `DayWidgetView` is in both targets so `-screen widget` can photograph it.
   Compute countdowns; the design's "11 days until Seoul" is wrong. (§8.8)

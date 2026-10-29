@@ -297,7 +297,7 @@ enum DebugScreen {
         let day = store.legs[1].startDay
         guard day <= store.dayNumber else { return }
         let when = Calendar.trip.date(byAdding: .hour, value: (day - 1) * 24 + 10, to: store.start) ?? store.now
-        store.restoreMoment(Moment(capturedAt: when, dayNumber: day, city: store.city(forDay: day),
+        store.restoreMoment(Moment(capturedAt: when, dayNumber: day, city: store.cityStamp(forDay: day),
                                    note: note, latitude: 16.4637, longitude: 107.5909))
     }
 
@@ -310,7 +310,7 @@ enum DebugScreen {
             let when = Calendar.trip.date(byAdding: .hour, value: (day - 1) * 24 + 15 + index,
                                           to: store.start) ?? store.now
             let photo = PhotoStore.shared.save(seedPhotograph(day: day + 7 * (index + 1), side: 1_200))
-            store.restoreMoment(Moment(capturedAt: when, dayNumber: day, city: store.city(forDay: day),
+            store.restoreMoment(Moment(capturedAt: when, dayNumber: day, city: store.cityStamp(forDay: day),
                                        note: note, hasPhoto: photo != nil, photoID: photo))
         }
     }
@@ -472,7 +472,7 @@ enum DebugScreen {
                 note = String(repeating: "Somebody wrote a great deal more than one line tonight, which is allowed now. ", count: 4)
             }
             store.save(entry: JournalEntry(dayNumber: day, date: store.date(forDay: day),
-                                           city: store.city(forDay: day),
+                                           city: store.cityStamp(forDay: day),
                                            line: line, tags: tags,
                                            hasPhoto: photoID != nil, photoID: photoID,
                                            author: store.role, extraPhotoIDs: extras, note: note))
@@ -509,7 +509,7 @@ enum DebugScreen {
         for (day, line, note) in pages where day <= store.dayNumber {
             let existing = store.myEntries.first { $0.dayNumber == day }
             store.save(entry: JournalEntry(dayNumber: day, date: store.date(forDay: day),
-                                           city: store.city(forDay: day), line: line, tags: ["food"],
+                                           city: store.cityStamp(forDay: day), line: line, tags: ["food"],
                                            hasPhoto: existing?.photoID != nil, photoID: existing?.photoID,
                                            author: store.role, note: note))
         }

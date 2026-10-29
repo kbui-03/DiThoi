@@ -12,12 +12,26 @@ struct RootView: View {
     /// acted on also *drops* it when it can't — left in the inbox, a tap made
     /// during onboarding would pop the composer the moment onboarding ended.
     @ObservedObject private var quickActions = QuickActionInbox.shared
-    @State private var markingMoment = false
+    /// A quick action this phone can act on, handed to the tabs to present.
+    @State private var outside: QuickAction?
 
     var body: some View {
         Group {
             #if DEBUG
-            if DebugScreen.requested == "markmoment" {
+            if DebugScreen.requested == "tonightlink" {
+                // The widget's link, end to end, without a widget: the URL
+                // goes through the same `onOpenURL` a tap on the Home Screen
+                // does, so the parsing is on the route too.
+                openTrip
+                    .onAppear {
+                        DebugScreen.applyDay(to: store)
+                        DebugScreen.seedTripIfAsked(into: store)
+                        store.hasOpened = true
+                        if let action = QuickAction(url: QuickAction.tonightURL) {
+                            QuickActionInbox.shared.pending = action
+                        }
+                    }
+            } else if DebugScreen.requested == "markmoment" {
                 // The intent's own route, end to end, without Siri: a finished
                 // onboarding and a request waiting in the inbox, read by the
                 // same `readQuickAction()` a real launch goes through.
@@ -46,6 +60,12 @@ struct RootView: View {
         .task { readInvitation() }
         .onReceive(quickActions.$pending) { _ in readQuickAction() }
         .task { readQuickAction() }
+        // The widget's tap. Into the same inbox as Siri's, so a cold launch
+        // and a warm one are read by the same code.
+        .onOpenURL { url in
+            guard let action = QuickAction(url: url) else { return }
+            quickActions.pending = action
+        }
         .sheet(item: $store.pendingInvitation) { invitation in
             JoinTripView(invitation: invitation)
                 .environmentObject(store)
@@ -70,7 +90,15 @@ struct RootView: View {
         switch action {
         case .markMoment:
             guard store.hasOpened, !store.isObserver, store.isLive else { return }
-            markingMoment = true
+            outside = .markMoment
+        case .writeTonight:
+            // A widget entry can be tapped on a phone with no tonight to
+            // write: before departure, after the trip, with pages switched
+            // off. Then the tap has done its job by opening the app.
+            guard store.hasOpened, !store.isObserver, store.isLive,
+                  store.phase == .during, store.features.nightlyPage,
+                  store.canWritePage(forDay: store.dayNumber) else { return }
+            outside = .writeTonight
         }
     }
 
@@ -95,11 +123,7 @@ struct RootView: View {
             // On the tabs rather than on the root, which already presents the
             // invitation: one sheet modifier per view is the arrangement that
             // is certain to present.
-            MainTabs()
-                .sheet(isPresented: $markingMoment) {
-                    MomentComposerView()
-                        .environmentObject(store)
-                }
+            MainTabs(outside: $outside)
         }
     }
 }
@@ -115,6 +139,15 @@ enum Tab: String, CaseIterable, Identifiable {
 struct MainTabs: View {
     @EnvironmentObject private var store: TripStore
     var initialTab: Tab = .today
+    /// Siri's moment or the widget's page, already vetted by `RootView`. One
+    /// `sheet(item:)` for both: two sheet modifiers on one view is the
+    /// arrangement where the later one silently never presents.
+    @Binding var outside: QuickAction?
+
+    init(initialTab: Tab = .today, outside: Binding<QuickAction?> = .constant(nil)) {
+        self.initialTab = initialTab
+        _outside = outside
+    }
     @State private var selection: Tab = .today
     @State private var showingSeparated = false
     @State private var showingEnding = false
@@ -165,13 +198,27 @@ struct MainTabs: View {
         .fullScreenCover(isPresented: $showingEnding) {
             TripEndingView()
         }
+        .sheet(item: $outside) { action in
+            switch action {
+            case .markMoment: MomentComposerView().environmentObject(store)
+            case .writeTonight: TonightEntryView().environmentObject(store)
+            }
+        }
+        // Tonight's page opens over the Book tab, so closing it lands where
+        // the page now is.
+        .onChange(of: outside) { showBookIfWriting() }
         .onAppear {
             selection = tabs.contains(initialTab) ? initialTab : (tabs.first ?? .today)
+            showBookIfWriting()
             if store.isSeparated { showingSeparated = true }
             // I7 · day 61. Shown once, and only because the trip actually got
             // there — never as a preview of an ending that hasn't happened.
             if store.isFinalDay { showingEnding = true }
         }
+    }
+
+    private func showBookIfWriting() {
+        if outside == .writeTonight, tabs.contains(.book) { selection = .book }
     }
 }
 
