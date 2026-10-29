@@ -2115,7 +2115,7 @@ There is no simulator in CI and no XCTest target. Verification is two things:
 ### 6.1 `./Tools/run-checks.sh`
 
 Compiles everything in `DiThoi/Model/` and `Shared/` plus `Tools/VerifyTrip.swift`
-for **macOS** and runs 1,702 assertions — no simulator; the compile takes a
+for **macOS** and runs 1,727 assertions — no simulator; the compile takes a
 few minutes, the run a few seconds. It
 covers trip shape, rate conversion and round-tripping, budget derivation, the
 date-shift invariants, itinerary reflow after all four edit operations, the
@@ -2167,7 +2167,7 @@ To reach a screen without walking a flow (`#if DEBUG`, out of Release):
 xcrun simctl launch <device> com.lovedones.dithoi -resetTrip -screen money
 ```
 
-82 routes. `trip` is Papers' Trip screen. `meetingpointpinned` and
+83 routes. `trip` is Papers' Trip screen. `meetingpointpinned` and
 `separatedpinned` seed a meeting point pinned at Wat Phra Singh's north gate;
 set the simulator south-west of it (`simctl location <dev> set 18.7840,98.9770`)
 and Separated reads "north-east of you". `separated` with `-seedItinerary` and
@@ -2243,8 +2243,10 @@ else makes a stamp and every map so far had drawn moments over no trail. **They 
 `-seedItinerary`** — a child's `onAppear` fires first, so seeding there filed
 every moment on a blank trip's day 1 whatever the flags said.
 
-`markmoment` is the only route not in `DebugScreenHost`: it goes through
-`RootView` so the quick action's real path is the one photographed.
+`markmoment` and `tonightlink` are the only routes not in `DebugScreenHost`:
+they go through `RootView` so the quick action's real path is the one
+photographed. `tonightlink` parses `QuickAction.tonightURL` on the way in, as a
+tap on the widget does.
 Verified absent from Release: the Release build succeeds and `strings` on the
 binary finds no trace of the flag.
 
@@ -2553,6 +2555,28 @@ saved page, not at launch.
 **`save(entry:)` replaces on `(dayNumber, author)`.** Re-opening last night's page
 must not append a second one, or a page edited twice prints twice. Swapping the
 photo deletes the file it replaced.
+
+**And it refuses a night that hasn't begun (`canWritePage(forDay:)`).**
+`dayNumber` pins every day before departure to 1, which is right for a screen
+and wrong for a record: the Book tab said "One day in" nine days early, offered
+day 1 as tonight, and saved it under the first night. Before departure the tab
+now draws "No pages yet" and `bookNotYetLine`, with no rows; the guard is the
+store's, so the widget's link can't get round it either.
+
+**A page is stamped with `cityStamp(forDay:)`, never `city(forDay:)`.** The
+journal's half of the `countryNow` leak (§3.4): `city(forDay:)` answers the
+em-dash label on a trip with nowhere in it, four places wrote it onto a
+`JournalEntry`, and the book printed "Day 3 · 4 Aug · —". **Readers go through
+`city(of:)`**, which is `country(of:)`'s rule: a stamped city wins and is never
+re-resolved; empty, or the legacy em-dash, is resolved against the itinerary as
+it stands, and `nil` drops the clause. `suggestedTags` compares resolved cities
+on both sides. The shelf's "a year ago today" reads snapshots with no store and
+still just drops the em-dash.
+
+**The backfill offer promises nothing about photographs.** It said they were
+"still on the phone, sorted by hour". The app's Photos access is add-only
+(`PhotoLibrary`), so it can neither sort nor see them; the copy is now "Leave it
+if you like — the book closes the gap."
 
 ### 8.2 The book (`Model/Book.swift`, `Features/Book/`)
 
@@ -3495,6 +3519,17 @@ rest of the trip.
 two likeliest failures are invisible to the compiler: the Lock Screen renders
 *vibrant*, flattening a green rule and a grey one into one bar, and the mark can
 vanish at an accessibility size.
+
+**A tap opens tonight's page, through a link that carries nothing.**
+`WidgetSnapshot.tapURL` is `dithoi://tonight` while the trip is on and not
+closed, and `nil` otherwise, so before departure and after the trip a tap just
+opens the app. The scheme is in the physical `DiThoi-Info.plist`; without it
+`widgetURL` does nothing. `RootView.onOpenURL` posts `QuickAction.writeTonight`
+into the same inbox as Siri's moment, and `readQuickAction()` drops it unless
+this is a traveller on a live trip, under way, with pages on and tonight
+writable. Any app can open a URL scheme, which is a second reason the link
+names no night and no place. `MainTabs` presents both quick actions from one
+`sheet(item:)` and switches to the Book tab under the page.
 
 **The design's widget says "11 days until Seoul" on day 38; the answer is 9.** Same
 class as the "61 days" the prototype printed across a 72-day range: compute it.

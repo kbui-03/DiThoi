@@ -674,7 +674,31 @@ final class TripStore: ObservableObject {
 
     /// `countryNow`'s twin for a city: what to stamp on a moment, never the
     /// em-dash `currentCity` draws on a trip with nowhere in it.
-    var cityNow: String { lastKnownSegment(forDay: dayNumber)?.primaryPlace ?? "" }
+    var cityNow: String { cityStamp(forDay: dayNumber) }
+
+    /// What to *stamp* on a page about a day — the empty string when no stop
+    /// covers it, never the em-dash `city(forDay:)` draws.
+    ///
+    /// The journal's half of the leak `countryNow` closed for expenses. Every
+    /// page written on a trip with nowhere in it was filed under "—", and the
+    /// book printed "Day 3 · 4 Aug · —" over it.
+    func cityStamp(forDay day: Int) -> String {
+        lastKnownSegment(forDay: day)?.primaryPlace ?? ""
+    }
+
+    /// Where a page was written, which is not always what it was stamped with.
+    ///
+    /// `country(of:)`'s rule, for the same reason: the stamp wins whenever
+    /// there is one, and empty — or the em-dash an older build stamped — means
+    /// nobody had said yet, so it is resolved against the itinerary as it
+    /// stands. `nil` when there is still no stop covering that day, and the
+    /// reader drops the clause.
+    func city(of entry: JournalEntry) -> String? {
+        let stamped = entry.city.trimmingCharacters(in: .whitespaces)
+        if !stamped.isEmpty, stamped != TripStore.unknownPlace { return stamped }
+        let place = cityStamp(forDay: entry.dayNumber)
+        return place.isEmpty ? nil : place
+    }
 
     /// The unclamped day. `dayNumber` pins everything before departure to 1,
     /// which is right for a screen and wrong for a record: a moment kept at
@@ -2833,7 +2857,27 @@ final class TripStore: ObservableObject {
         rescheduleRitual()
     }
 
+    /// Whether a night can have a page yet: only one that has begun.
+    ///
+    /// `dayNumber` pins everything before departure to day 1, so the Book tab
+    /// used to offer day 1 nine days early and save it under the first night.
+    /// The tab draws no rows before departure now; this is the guarantee, and
+    /// it covers the widget's link into tonight's page as well.
+    func canWritePage(forDay day: Int) -> Bool {
+        day >= 1 && day <= trueDayNumber
+    }
+
+    /// The line under "No pages yet" on the Book tab before departure. Asked of
+    /// the store so the clause about the first stop can be checked: on a trip
+    /// with nowhere in it, it would otherwise promise a page "in —".
+    var bookNotYetLine: String {
+        let first = cityStamp(forDay: 1)
+        let night = first.isEmpty ? "your first night" : "your first night, in \(first)"
+        return "The first one is written on \(night). Nothing to fill in before then."
+    }
+
     func save(entry incoming: JournalEntry) {
+        guard canWritePage(forDay: incoming.dayNumber) else { return }
         // The page's limits are held here, not in the composer: a guarantee
         // that lives in a view isn't one, and the book lays a page out on the
         // assumption that its note fits and it has at most three photographs.
@@ -3032,9 +3076,12 @@ final class TripStore: ObservableObject {
     /// suggestion is evidence rather than a guess. With no history the composer
     /// opens with nothing lit.
     func suggestedTags(forDay day: Int, limit: Int = 3) -> [String] {
-        let place = city(forDay: day)
+        // Resolved on both sides, so a page stamped before the stop was typed
+        // in counts as that city's; nowhere has no history to draw on.
+        let place = cityStamp(forDay: day)
+        guard !place.isEmpty else { return [] }
         let history = journal
-            .filter { $0.author == role && $0.city == place && $0.dayNumber != day }
+            .filter { $0.author == role && city(of: $0) == place && $0.dayNumber != day }
             .sorted { $0.dayNumber > $1.dayNumber }
         var counts: [String: Int] = [:]
         for entry in history { for tag in entry.tags { counts[tag, default: 0] += 1 } }
@@ -3186,7 +3233,7 @@ final class TripStore: ObservableObject {
         }
         // A night without one yet: where it *would* land, so the composer can
         // say "page 27" before anything is saved. Built once per day and kept.
-        let entry = JournalEntry(dayNumber: day, date: date(forDay: day), city: city(forDay: day),
+        let entry = JournalEntry(dayNumber: day, date: date(forDay: day), city: cityStamp(forDay: day),
                                  line: "", tags: [], hasPhoto: false, author: role)
         let plan = BookPlan.build(entries: myEntries + [entry], legs: legs, stamps: stamps.live,
                                   moments: printedMoments,

@@ -649,7 +649,7 @@ struct BookSpreadView: View {
 
     private func dayHeading(_ entry: JournalEntry?) -> String {
         guard let entry else { return "" }
-        let place = entry.city.isEmpty ? "" : " · \(entry.city)"
+        let place = store.city(of: entry).map { " · \($0)" } ?? ""
         return "Day \(entry.dayNumber) · \(entry.date.dayMonth)\(place)"
     }
 
