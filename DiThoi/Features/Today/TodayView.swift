@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreLocation
 
 /// B1 · Today, and G1 · the other traveller's today — the same screen, with the
 /// letters absent and the ledger read from the other side.
@@ -747,18 +748,49 @@ struct MeetingPointPicker: View {
     /// is whatever this trip knows about *that* place, or nothing.
     @State private var scriptPlace = ""
     @State private var askingToDiscard = false
+    /// Where the place is, if somebody stood there and pinned it.
+    ///
+    /// It follows the place exactly as the script does: a pin is one gate's
+    /// position, and leaving Wat Phra Singh's under "Tha Phae Gate" would have
+    /// Separated measure to the wrong side of the city. Nothing set a meeting
+    /// point's position before this, so Separated's distance never appeared.
+    @State private var pin: Pin?
+    /// How close the fix behind a pin taken on this screen was. `nil` for a
+    /// pin that was already saved, which this screen didn't measure.
+    @State private var pinAccuracy: Double?
+    /// When "pin" was tapped and no fix had come back yet.
+    @State private var pinningSince: Date?
+
+    private struct Pin: Equatable {
+        var latitude: Double
+        var longitude: Double
+
+        init?(_ point: MeetingPoint) {
+            guard point.hasLocation else { return nil }
+            latitude = point.latitude
+            longitude = point.longitude
+        }
+
+        init(_ fix: CLLocation) {
+            latitude = fix.coordinate.latitude
+            longitude = fix.coordinate.longitude
+        }
+    }
 
     private var isDirty: Bool {
         typed != store.meeting.place
             || detail.trimmingCharacters(in: .whitespaces) != store.meeting.detail
             || script.trimmingCharacters(in: .whitespacesAndNewlines) != store.meeting.localScript
+            || pin != Pin(store.meeting)
     }
 
     private var typedPoint: MeetingPoint {
         MeetingPoint(place: typed,
                      detail: detail.trimmingCharacters(in: .whitespaces),
                      localScript: script.trimmingCharacters(in: .whitespacesAndNewlines),
-                     setAt: store.now)
+                     setAt: store.now,
+                     latitude: pin?.latitude ?? 0,
+                     longitude: pin?.longitude ?? 0)
     }
 
     /// "Done" used to be a bare `dismiss()`, so typing a place and tapping
@@ -810,7 +842,91 @@ struct MeetingPointPicker: View {
         let key = typed.lowercased()
         guard key != scriptPlace else { return }
         scriptPlace = key
-        script = suggestions.first { $0.placeKey == key }?.localScript ?? ""
+        let known = suggestions.first { $0.placeKey == key }
+        script = known?.localScript ?? ""
+        pin = known.flatMap(Pin.init)
+        pinAccuracy = nil
+        pinningSince = nil
+    }
+
+    /// A fix from the last minute is where they are standing now.
+    private static func isFresh(_ fix: CLLocation) -> Bool {
+        -fix.timestamp.timeIntervalSinceNow < 60
+    }
+
+    private func pinHere() {
+        if let fix = store.location.current, Self.isFresh(fix) {
+            take(fix)
+            return
+        }
+        // Asks for permission here and only here: the tap is the act that
+        // needs a position, the same rule as keeping a moment.
+        pinningSince = Date()
+        store.location.requestOnce()
+    }
+
+    private func take(_ fix: CLLocation) {
+        pin = Pin(fix)
+        pinAccuracy = fix.horizontalAccuracy >= 0 ? fix.horizontalAccuracy : nil
+        pinningSince = nil
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    /// One row, four states, and each one's whole panel is the button for the
+    /// word on its right.
+    @ViewBuilder
+    private var pinRow: some View {
+        if pin != nil {
+            pinPanel(title: "Pinned where you stood",
+                     note: pinAccuracy.map {
+                         "Within \(Measurement(value: max($0, 10), unit: UnitLength.meters).walkingText) · both phones get the spot"
+                     } ?? "Both phones get the spot",
+                     action: "unpin", isOn: true) {
+                pin = nil
+                pinAccuracy = nil
+            }
+        } else if store.location.isDenied {
+            pinPanel(title: "Location is off",
+                     note: "A pin needs it. The place saves without one.",
+                     action: "settings") {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            }
+        } else if pinningSince != nil {
+            pinPanel(title: "Finding where you are…",
+                     note: "Stay where the gate is for a moment",
+                     action: "cancel") {
+                pinningSince = nil
+            }
+        } else {
+            pinPanel(title: "Pin where I'm standing",
+                     note: "So Separated can say how far, and which way",
+                     action: "pin") {
+                pinHere()
+            }
+        }
+    }
+
+    private func pinPanel(title: String, note: String, action: String, isOn: Bool = false,
+                          perform: @escaping () -> Void) -> some View {
+        Button(action: perform) {
+            Panel(border: isOn ? Palette.accent : Palette.divider,
+                  fill: isOn ? Palette.a100 : .clear) {
+                HStack(alignment: .center, spacing: Space.s2) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(title)
+                            .font(Typeface.heading(16, .semibold))
+                            .foregroundStyle(Palette.text)
+                        Aside(text: note, size: 11.5, color: Palette.n600)
+                    }
+                    Spacer(minLength: Space.s2)
+                    Mono(action, size: 10, trackingRatio: 0.08, color: Palette.a700)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     var body: some View {
@@ -844,6 +960,9 @@ struct MeetingPointPicker: View {
                                  capitalisation: .never)
                         .padding(.top, Space.s4)
 
+                    pinRow
+                        .padding(.top, Space.s4)
+
                     if !suggestions.isEmpty {
                         Mono("Or somewhere you've used", size: 10)
                             .padding(.top, Space.s6)
@@ -863,6 +982,10 @@ struct MeetingPointPicker: View {
                                         Text(option.localScript)
                                             .font(Typeface.heading(15, .semibold))
                                             .foregroundStyle(Palette.a700)
+                                            .padding(.top, 6)
+                                    }
+                                    if option.hasLocation {
+                                        Mono("pinned", size: 9.5, trackingRatio: 0.1, color: Palette.a700)
                                             .padding(.top, 6)
                                     }
                                 }
@@ -899,8 +1022,15 @@ struct MeetingPointPicker: View {
             detail = store.meeting.detail
             script = store.meeting.localScript
             scriptPlace = store.meeting.placeKey
+            pin = Pin(store.meeting)
         }
         .onChange(of: place) { placeChanged() }
+        // The fix comes back on its own time, after the permission prompt if
+        // there was one.
+        .onChange(of: store.location.current) { _, fix in
+            guard pinningSince != nil, let fix, Self.isFresh(fix) else { return }
+            take(fix)
+        }
     }
 
     private func save(_ point: MeetingPoint) {

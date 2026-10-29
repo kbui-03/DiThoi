@@ -8,6 +8,9 @@ struct ShowThisView: View {
 
     @State private var index = 0
     @State private var previousBrightness: CGFloat = UIScreen.main.brightness
+    /// Put back on the way out, rather than switched on: whatever else wanted
+    /// the screen awake still does.
+    @State private var previousIdleTimer = false
 
     /// Ordered and tombstone-free. The raw array comes back from a merge in
     /// whatever order a dictionary chose, and these are read by a stranger
@@ -47,11 +50,18 @@ struct ShowThisView: View {
             .padding(.bottom, Space.gutter)
         }
         .background(Palette.n100.ignoresSafeArea())
+        // Held out to a stranger, the phone dimmed and then locked mid-read,
+        // and a locked phone in somebody else's hand is a phone to hand back.
         .onAppear {
             previousBrightness = UIScreen.main.brightness
             UIScreen.main.brightness = 1.0
+            previousIdleTimer = UIApplication.shared.isIdleTimerDisabled
+            UIApplication.shared.isIdleTimerDisabled = true
         }
-        .onDisappear { UIScreen.main.brightness = previousBrightness }
+        .onDisappear {
+            UIScreen.main.brightness = previousBrightness
+            UIApplication.shared.isIdleTimerDisabled = previousIdleTimer
+        }
         // The cards can be deleted now, including by the other phone mid-sync.
         // Both swipe hints index this array directly.
         .onChange(of: cards.count) { _, count in

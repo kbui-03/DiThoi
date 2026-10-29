@@ -72,29 +72,36 @@ struct SeparatedView: View {
                         }
                     }
 
-                    Panel(border: Palette.darkDivider) {
-                        Mono(whereabouts.label, size: 9.5, color: Palette.n400)
-                        Text(whereabouts.value)
-                            .font(Typeface.heading(19, .semibold))
-                            .foregroundStyle(Palette.n100)
-                            .padding(.top, 5)
-                        Aside(text: whereabouts.note, size: 12, color: Palette.n300)
-                            .padding(.top, 2)
+                    // Only about a meeting point. With none agreed there is
+                    // nothing to be far from, and the card above already says
+                    // so; a second panel saying "only you know" was the same
+                    // sentence again over a screen that now also opens for the
+                    // emergency numbers alone.
+                    if let whereabouts {
+                        Panel(border: Palette.darkDivider) {
+                            Mono(whereabouts.label, size: 9.5, color: Palette.n400)
+                            Text(whereabouts.value)
+                                .font(Typeface.heading(19, .semibold))
+                                .foregroundStyle(Palette.n100)
+                                .padding(.top, 5)
+                            Aside(text: whereabouts.note, size: 12, color: Palette.n300)
+                                .padding(.top, 2)
 
-                        if store.location.isDenied {
-                            Button {
-                                if let url = URL(string: UIApplication.openSettingsURLString) {
-                                    UIApplication.shared.open(url)
+                            if store.location.isDenied, store.meeting.hasLocation {
+                                Button {
+                                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                                        UIApplication.shared.open(url)
+                                    }
+                                } label: {
+                                    Mono("turn location on", size: 9.5, trackingRatio: 0.1, color: Palette.a300)
+                                        .frame(minHeight: 40)
+                                        .contentShape(Rectangle())
                                 }
-                            } label: {
-                                Mono("turn location on", size: 9.5, trackingRatio: 0.1, color: Palette.a300)
-                                    .frame(minHeight: 40)
-                                    .contentShape(Rectangle())
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
                         }
+                        .padding(.top, Space.s3)
                     }
-                    .padding(.top, Space.s3)
 
                     // Only for a country `CountryFacts` knows. Nothing at all
                     // is the right output for somewhere unknown: a missing
@@ -135,9 +142,12 @@ struct SeparatedView: View {
                     // far *this* phone is from the meeting point and tells
                     // nobody. Making it mutual is a real feature and a real
                     // channel; claiming it was neither.
-                    Aside(text: "Followed only while this screen is open.",
-                          size: 12, color: Palette.n400)
-                        .padding(.top, Space.s3)
+                    // Only while it is true: without a pin nothing is followed.
+                    if store.location.isTracking {
+                        Aside(text: "Followed only while this screen is open.",
+                              size: 12, color: Palette.n400)
+                            .padding(.top, Space.s3)
+                    }
                 }
                 .padding(.horizontal, Space.gutter)
                 .padding(.bottom, Space.s4)
@@ -162,8 +172,13 @@ struct SeparatedView: View {
         .background(Palette.n900.ignoresSafeArea())
         .preferredColorScheme(.dark)
         .onAppear {
-            if !store.isSeparated { store.startSeparated() }
+            // On a relaunch into this screen it is already on, and tracking has
+            // to be picked up again: `separatedSince` is saved, the location
+            // manager isn't.
+            if store.isSeparated { store.followMeetingPointIfPinned() } else { store.startSeparated() }
         }
+        // The other phone can pin the point, or move it, mid-separation.
+        .onChange(of: store.meeting) { store.followMeetingPointIfPinned() }
     }
 
     /// "Go to the / gate by the bridge", or something true when there is no
@@ -205,34 +220,29 @@ struct SeparatedView: View {
         return " · \(distance.walkingText) away"
     }
 
-    /// What this phone can honestly say about where they are.
-    private var whereabouts: (label: String, value: String, note: String) {
+    /// What this phone can honestly say about the meeting point, or `nil`
+    /// when there isn't one.
+    private var whereabouts: (label: String, value: String, note: String)? {
+        guard store.meeting.isSet else { return nil }
+        // Nothing set a meeting point's position until the picker could pin
+        // one, so this used to say "Finding you…" for ever: a search with
+        // nothing to measure to, however well the phone knew where it was.
+        guard store.meeting.hasLocation else {
+            return ("No pin on the map",
+                    "Use the written directions",
+                    "Nobody pinned this spot, so the phone can't say how far.")
+        }
         if store.location.isDenied {
-            // "Use the written directions" is only advice if there are any.
-            // With no meeting point agreed there is nothing written down, and
-            // the line sat directly under a card saying exactly that.
-            return store.meeting.isSet
-                ? ("Location is off",
-                   "Use the written directions",
-                   "Without location this screen still works — it just can't tell you how far.")
-                : ("Location is off",
-                   "Nothing to point you at",
-                   "There's no meeting point written down, and no position to measure from.")
+            return ("Location is off",
+                    "Use the written directions",
+                    "Without location this screen still works — it just can't tell you how far.")
         }
         guard let distance = store.distanceToMeetingPoint else {
-            // Two different silences. Without a point there is nothing to be
-            // far from, however well the phone knows where it is — so "Finding
-            // you" would be a search that could never end.
-            guard store.meeting.isSet else {
-                return ("Where you are", "Only you know",
-                        "Nothing to measure to until somebody agrees a meeting point.")
-            }
             return ("Finding you", "…",
                     "Only while this screen is open.")
         }
-        let direction = store.bearingToMeetingPoint.map { " \($0)" } ?? ""
-        return ("You, right now",
-                "\(distance.walkingText)\(direction) of the meeting point",
+        return ("The meeting point",
+                MeetingPoint.fromHere(distance, compass: store.bearingToMeetingPoint),
                 "Worked out on this phone. Nothing leaves it.")
     }
 

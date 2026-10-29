@@ -151,7 +151,7 @@ with an **adjust** row instead of a form. Which of the two it is comes from
 `SampleTrip.swift`, the prototype's packed trip, is kept but commented out.
 
 The three answers below drive everything else, and are editable forever after
-from Papers → The trip:
+from Papers → Trip → Setup:
 
 - **Leaving** and **home again**. The length is computed from them and shown
   back, never typed. Moving the departure date shifts everything already
@@ -218,7 +218,7 @@ built app rather than the setting:
 
 What is built, what has never run and what is known to be wrong are in
 [CHANGELOG.md](CHANGELOG.md). From the repository root, the model checks run
-without a simulator — 1,685 assertions over the trip maths, the date shifting,
+without a simulator — 1,702 assertions over the trip maths, the date shifting,
 rates, settlement, letter gating and sealing, the book's arithmetic and type
 fitting, the shelf, the vault's key handling, and two stores converging through
 one loopback box:

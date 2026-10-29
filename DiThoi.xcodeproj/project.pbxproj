@@ -347,7 +347,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Đi Thôi";
 				INFOPLIST_KEY_NSCameraUsageDescription = "To take a photo for a moment or a page, and to photograph your passport and visas. Scans are encrypted on this phone and never leave it.";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "To open your passport and visa scans, so handing the phone over doesn't hand those over too.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "To place a moment or a stamp where you're standing, to notice when you've reached the next stop, and in Separated to say how far you are from the meeting point. Only while the app is open, never in the background.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "To place a moment, a stamp or tonight's meeting point where you're standing, to notice when you've reached the next stop, and in Separated to say how far you are from the meeting point. Only while the app is open, never in the background.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "To save photos you take in the app to your library as well.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -382,7 +382,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Đi Thôi";
 				INFOPLIST_KEY_NSCameraUsageDescription = "To take a photo for a moment or a page, and to photograph your passport and visas. Scans are encrypted on this phone and never leave it.";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "To open your passport and visa scans, so handing the phone over doesn't hand those over too.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "To place a moment or a stamp where you're standing, to notice when you've reached the next stop, and in Separated to say how far you are from the meeting point. Only while the app is open, never in the background.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "To place a moment, a stamp or tonight's meeting point where you're standing, to notice when you've reached the next stop, and in Separated to say how far you are from the meeting point. Only while the app is open, never in the background.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "To save photos you take in the app to your library as well.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

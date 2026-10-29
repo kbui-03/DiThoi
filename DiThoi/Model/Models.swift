@@ -1221,6 +1221,28 @@ enum Geo {
             + cos(φ1) * cos(φ2) * sin(Δλ / 2) * sin(Δλ / 2)
         return earthRadius * 2 * atan2(sqrt(a), sqrt(1 - a))
     }
+
+    /// "north-east": which way to walk from the first point to reach the
+    /// second, the way you'd say it to someone rather than a bearing in degrees.
+    ///
+    /// Here rather than inside `LocationService`, so a check can ask it without
+    /// a fix. Separated read this answer backwards for its whole life — "700 m
+    /// north-east *of* the meeting point" over a bearing *to* the meeting point
+    /// — and nothing could notice, because the formula only ran with a GPS.
+    static func compassPoint(_ fromLatitude: Double, _ fromLongitude: Double,
+                             _ toLatitude: Double, _ toLongitude: Double) -> String {
+        let φ1 = fromLatitude * .pi / 180, φ2 = toLatitude * .pi / 180
+        let Δλ = (toLongitude - fromLongitude) * .pi / 180
+
+        let y = sin(Δλ) * cos(φ2)
+        let x = cos(φ1) * sin(φ2) - sin(φ1) * cos(φ2) * cos(Δλ)
+        var degrees = atan2(y, x) * 180 / .pi
+        if degrees < 0 { degrees += 360 }
+
+        let points = ["north", "north-east", "east", "south-east",
+                      "south", "south-west", "west", "north-west"]
+        return points[Int((degrees + 22.5) / 45) % 8]
+    }
 }
 
 /// A run of moments kept in one place, for the full list.

@@ -46,7 +46,7 @@ DiThoiWidget/      WidgetBundle, DayWidget (timeline), MarkMomentControl (iOS 18
 docs/              README, architecture, expansion, CHANGELOG; archive/
 Tools/             run-checks.sh, CheckTrip.swift, VerifyTrip.swift,
                    render-icons.sh, RenderIcons, build-cities.sh
-Screenshots/       128 files: every screen, most at 3 text sizes
+Screenshots/       136 files: every screen, most at 3 text sizes
 ```
 
 About 33k lines of Swift, no third-party dependencies. Not every model rule is in a
@@ -55,14 +55,14 @@ check: `Features/` and `Root/` aren't compiled by the checks.
 ## Before you change anything
 
 ```bash
-./Tools/run-checks.sh          # 1,685 model assertions, macOS, no simulator
+./Tools/run-checks.sh          # 1,702 model assertions, macOS, no simulator
 ./Tools/render-icons.sh        # regenerates the icon set and re-tests actool
 ```
 
 - Run the checks after touching `Model/` or `Shared/`. They also run two stores
   against one loopback box, which is how sync is verified with no account. (§6.1)
 - Reach any screen with `xcrun simctl launch <device> com.lovedones.dithoi
-  -resetTrip -screen <route>`. There are 79 routes, plus `-day N` (zero or
+  -resetTrip -screen <route>`. There are 82 routes, plus `-day N` (zero or
   negative allowed), `-seedItinerary`, `-seedJournal`, `-seedSpending`,
   `-seedLetters` (with `-openLetter`), `-noBudget` and `-planned`. The empty states are half of what there is to look at, which is
   why seeding is a flag, not a route. (§6.2)
@@ -239,8 +239,13 @@ The general lessons behind them are §11; the debt kept on purpose is §7.
   work. `MomentUndo` withdraws on background. (§3.10)
 - The inline map is a door (`allowsHitTesting(false)`); `TrailMapView` is the
   map. Its cards never mention letters. (§3.10)
-- Location copy names every reader: moments, pins, the trail, Separated. A
-  pin's spot is the one position that leaves the phone. (§3.7)
+- Location copy names every reader: moments, pins, the trail, the meeting
+  point, Separated. A pin's spot and a pinned meeting point are the positions
+  that leave the phone. (§3.7)
+- The compass point is `Geo.compassPoint`, the way *to* the target. Separated's
+  sentence is `MeetingPoint.fromHere`: "north-east of you". (§3.7)
+- Separated tracks only while the meeting point is pinned:
+  `followMeetingPointIfPinned()`, on start, on change and on relaunch. (§3.7)
 - "You are here" never asks for permission: `requestOnceIfAllowed`, a fix under
   15 minutes old, live traveller trips only. (§3.7)
 - Arrival is suggested, never awarded. The nudge goes to Trail's own
@@ -289,7 +294,8 @@ The general lessons behind them are §11; the debt kept on purpose is §7.
   merge unions the history and LWWs the point. (§3.11)
 - `MeetingPoint` has no id; `placeKey` is the identity. (§3.11)
 - The local script belongs to the place, not to the screen. (§3.11)
-- Known issue: nothing sets a meeting point's position. (§3.7)
+- A pin belongs to the place, like the script: change "Where" and the pin is
+  that place's or none. A pin is optional. (§3.11)
 
 ### Day plans and show-this cards
 - Both are editable and therefore on `SyncPayload`. (§3.12)
@@ -304,6 +310,11 @@ The general lessons behind them are §11; the debt kept on purpose is §7.
 - Editors keyed on a value load with `.task(id:)`. Placeholders are never real
   content. (§3.12)
 - The Papers row shows the cards; `edit` manages them. (§3.12)
+- Papers carries no settings: setup, sharing and the shelf are behind one
+  "Trip" row (`TripHubView`). (§8.6)
+- "We got separated" asks `canStartSeparated`: a meeting point or a known
+  country. (§8.6)
+- Show-this turns the idle timer off and restores what it found. (§8.6)
 - Hold to edit or delete. Cards delete with undo; documents delete behind a
   confirmation. (§3.12)
 - A `Section` footer draws a white band. Use a row with
@@ -320,6 +331,8 @@ The general lessons behind them are §11; the debt kept on purpose is §7.
   `language` is a label, not a translation. (§8.5)
 - Call tiles go through `CallTileRow`, which stacks at accessibility sizes.
   (§8.5)
+- A tile dials `CountryFacts.dialURL` or nothing, and prints the number either
+  way. Never a fallback number. (§8.5)
 
 ### Money
 - "Spent today" counts every expense in local money. It puts "≈" in front only

@@ -121,6 +121,21 @@ struct CountryFacts: Equatable {
         power != nil || phrases != nil
     }
 
+    /// The `tel:` link for a number, or `nil` if it isn't one.
+    ///
+    /// `nil` means the tile prints the number and dials nothing. The tile used
+    /// to fall back to `tel://112` — a tap on a number that failed to parse
+    /// rang an emergency line nobody chose, in a country that may not answer
+    /// it. Spaces and dashes are how numbers are written; anything else is not
+    /// a number.
+    static func dialURL(_ number: String) -> URL? {
+        let digits = number.filter { $0 != " " && $0 != "-" }
+        guard !digits.isEmpty,
+              digits.allSatisfy({ $0.isASCII && ($0.isNumber || "+*#".contains($0)) })
+        else { return nil }
+        return URL(string: "tel://\(digits)")
+    }
+
     // MARK: - Lookup
 
     /// The facts for a country name, or `nil` if this app has never heard of it.

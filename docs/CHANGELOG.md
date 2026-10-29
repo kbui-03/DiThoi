@@ -35,11 +35,21 @@ change gets its own line under **Unreleased**.
   searched only inside the stop's own country. The arrival nudge, the distance
   to the next stop and the map ahead now work on a trip nobody packed. The
   stop sheets say whether a stop is on the map.
+- "Pin where I'm standing" in the meeting point picker. The pin goes with the
+  place to both phones, and Separated measures to it: "700 m north-east of
+  you". A remembered place keeps its own pin.
+- "We got separated" on Papers with no meeting point, wherever the app knows
+  the country's emergency numbers. Separated then shows those numbers and the
+  two phrases.
 - The day screen links to that night's page and that day's moments.
 - "Stamps with no stop" at the top of the plan editor, for a stamp whose stop
   was removed on the other phone. Each one can be put on a stop or let go.
 
 ### Changed
+- Papers has one "Trip" row where setup, sharing and the shelf were three. It
+  opens a Trip screen holding the three.
+- Separated only follows the phone while the meeting point is pinned. An
+  unpinned point says to use the written directions.
 - Tapping a ledger line opens it to edit, with "Counts as" chips for its
   category; holding it deletes. Tapping used to cycle the category in place.
   New expenses show the chips too, with the guess from the note selected.
@@ -57,6 +67,14 @@ change gets its own line under **Unreleased**.
   the rest in plan order.
 
 ### Fixed
+- Separated's direction read backwards: "north-east of the meeting point"
+  when the meeting point was north-east of you.
+- Separated said "Finding you…" for ever, because no meeting point had a
+  position to measure to.
+- Show-this cards keep the screen awake while they're held out.
+- An emergency number that doesn't parse is printed and dials nothing. It
+  used to dial 112.
+- The sharing screen's headline said "Invite" when the build can't invite.
 - A trip with no budget reads "€810 spent" and "€67 a day so far" instead of
   "€810 of €0" and "exactly on the burn". The bar, the forecast and the empty
   "Is this cheap?" panel are gone, and Money offers to set a budget for the
@@ -287,14 +305,8 @@ is lost.
   doesn't do.
 
 ### Papers and Separated
-- **Must:** nothing gives a meeting point a position, so Separated's distance
-  never appears.
-- **Must:** once the distance does appear, its direction is reversed. It says
-  "north-east *of* the meeting point" when the meeting point is north-east of
-  you.
-- **Should:** the screen can sleep while a show-this card is held out.
-- **Should:** an emergency number that fails to parse falls back to dialling
-  112.
+- **Should:** a meeting point whose "Which bit of it" starts with a capital
+  reads "Go to the Second floor" on Separated.
 
 ### Home mode
 - **Should:** the home screen reads "They're in —" on a blank trip, and shows a

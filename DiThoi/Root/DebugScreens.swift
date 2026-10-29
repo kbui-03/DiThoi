@@ -335,6 +335,17 @@ enum DebugScreen {
         for place in places { store.setMeetingPoint(place) }
     }
 
+    /// Tonight's point, pinned at Wat Phra Singh's north gate.
+    ///
+    /// Idempotent: a point that already has a position is left alone.
+    @MainActor
+    static func seedPinnedMeetingPoint(into store: TripStore) {
+        guard !store.meeting.hasLocation else { return }
+        store.setMeetingPoint(MeetingPoint(place: "Wat Phra Singh", detail: "north gate, by the ticket booth",
+                                           localScript: "วัดพระสิงห์ ประตูทางเหนือ", setAt: store.now,
+                                           latitude: 18.7887, longitude: 98.9817))
+    }
+
     /// Papers for the document routes.
     ///
     /// Fixed ids, so the scans added to one on this launch are still its scans
@@ -1010,6 +1021,15 @@ struct DebugScreenHost: View {
             }
         case "meetingpoint":
             MeetingPointPicker()
+        case "meetingpointpinned":
+            // The pin's "pinned" state and the history's "pinned" mark, which
+            // nothing in a fresh trip can reach without standing somewhere.
+            // Drawn once the seed has landed: the picker loads its fields on
+            // appear, and would otherwise open on the blank point.
+            Group {
+                if store.meeting.hasLocation { MeetingPointPicker() } else { Color.clear }
+            }
+            .onAppear { DebugScreen.seedPinnedMeetingPoint(into: store) }
         case "document":
             // Seeded into the store rather than handed to the view.
             //
@@ -1071,6 +1091,12 @@ struct DebugScreenHost: View {
             NavigationStack { PapersView(showingSeparated: .constant(false)) }
         case "separated":
             SeparatedView()
+        case "separatedpinned":
+            // The distance and its direction. Set the simulator's location
+            // south-west of the gate (`simctl location <dev> set 18.7840,98.9770`)
+            // and it reads "north-east of you".
+            SeparatedView()
+                .onAppear { DebugScreen.seedPinnedMeetingPoint(into: store) }
         case "country":
             // Straight to the card, because reaching it otherwise is Papers,
             // a scroll and a tap — and it is the one new screen whose risk is
@@ -1084,6 +1110,8 @@ struct DebugScreenHost: View {
             }
         case "sharing":
             NavigationStack { SharingSettingsView() }
+        case "trip":
+            NavigationStack { TripHubView() }
         case "invite":
             // Onboarding's last step, which is otherwise reachable only by
             // walking the whole flow on a build with CloudKit on — and it is

@@ -102,13 +102,21 @@ struct PapersView: View {
                             .font(Typeface.heading(20, .semibold))
                             .foregroundStyle(Palette.text)
                             .padding(.top, 5)
-                        // No "We got separated" button. It would start the 2am
-                        // screen pointing at nowhere — a control that works and
-                        // arrives somewhere blank, which is worse than one that
-                        // isn't offered.
                         Aside(text: "Pick somewhere you can both walk to on Today, and it shows up here for whoever is holding the phone.",
                               size: 12)
                             .padding(.top, 5)
+                        // Offered for the emergency numbers and the two
+                        // phrases, which are no less use on a night nobody
+                        // agreed anywhere. Where the app knows neither a place
+                        // nor the country, the screen would be a headline over
+                        // nothing, so it isn't offered.
+                        if store.canStartSeparated {
+                            OutlineButton(title: "We got separated", minHeight: 46, size: 15) {
+                                store.startSeparated()
+                                showingSeparated = true
+                            }
+                            .padding(.top, Space.s3)
+                        }
                     }
                 }
 
@@ -289,74 +297,23 @@ struct PapersView: View {
 
                 Rule()
 
-                // The row has to name the invitation, because the screen behind
-                // it now leads with one — and because this is the only way in.
-                // "What they can see / set on day one and never asked about
-                // again" describes a privacy statement somebody reads once,
-                // which is exactly what a person looking for "how do I get them
-                // on this trip" would scroll straight past. The screen having
-                // the control is no good if the door doesn't say so.
-                //
-                // Still gated: on a build that can't invite, the row goes back
-                // to describing what it can actually do rather than promising a
-                // button that isn't there.
+                // One door for everything that is about the trip rather than
+                // carried for it. Papers is the tab handed to a stranger and
+                // reached for in a hurry; setup, sharing and the shelf were
+                // three rows of settings between the cards and the footer.
                 NavigationLink {
-                    SharingSettingsView()
+                    TripHubView()
                 } label: {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(store.sync.canInvite ? "Invite \(store.otherName)"
-                                                      : "What \(store.otherName) can see")
+                            Text("Trip")
                                 .font(Typeface.heading(17, .semibold))
                                 .foregroundStyle(Palette.text)
-                            Aside(text: store.sync.canInvite
-                                      ? "One trip on two phones, and what they can see of it"
-                                      : "Set on day one and never asked about again",
+                            Aside(text: "Setup, sharing with \(store.otherName), the shelf",
                                   size: 11.5, color: Palette.n600)
                         }
                         Spacer()
-                        Mono(store.sync.canInvite ? "invite" : "sharing",
-                             size: 10, trackingRatio: 0.08, color: Palette.a700)
-                    }
-                    .frame(minHeight: 44)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-
-                Rule()
-
-                NavigationLink {
-                    TripSetupView()
-                } label: {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("The trip")
-                                .font(Typeface.heading(17, .semibold))
-                                .foregroundStyle(Palette.text)
-                            Aside(text: "Travellers, currency, what prints at the end", size: 11.5, color: Palette.n600)
-                        }
-                        Spacer()
-                        Mono("setup", size: 10, trackingRatio: 0.08, color: Palette.a700)
-                    }
-                    .frame(minHeight: 44)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-
-                Rule()
-
-                NavigationLink {
-                    ShelfView()
-                } label: {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("The shelf")
-                                .font(Typeface.heading(17, .semibold))
-                                .foregroundStyle(Palette.text)
-                            Aside(text: shelfSubtitle, size: 11.5, color: Palette.n600)
-                        }
-                        Spacer()
-                        Mono("trips", size: 10, trackingRatio: 0.08, color: Palette.a700)
+                        Mono("trip", size: 10, trackingRatio: 0.08, color: Palette.a700)
                     }
                     .frame(minHeight: 44)
                     .contentShape(Rectangle())
@@ -431,12 +388,6 @@ struct PapersView: View {
         return parts.joined(separator: " · ")
     }
 
-    private var shelfSubtitle: String {
-        let past = store.library.shelf.count
-        guard past > 0 else { return "This one is the only one so far" }
-        return "\(past) closed · this one still open"
-    }
-
     /// The badge counts the scans this phone actually holds, and falls back to
     /// whatever the document was labelled.
     ///
@@ -449,6 +400,79 @@ struct PapersView: View {
         return Mono(pages > 0 ? "\(Formatting.spelledCount(pages, "scan", spellingUpTo: 0))" : document.badge,
                     size: 10, trackingRatio: 0.08,
                     color: pages > 0 ? Palette.a700 : Palette.n600)
+    }
+}
+
+/// The trip's settings, behind Papers' one "Trip" row.
+///
+/// The three rows Papers used to carry, moved as they were. Nothing here is
+/// needed in a hurry, which is why it is a tap further in.
+struct TripHubView: View {
+    @EnvironmentObject private var store: TripStore
+
+    var body: some View {
+        Screen(context: .syncState) {
+            Mono("\(store.displayName) · \(store.start.shortDayMonth) – \(store.end.shortDate)", size: 10.5)
+
+            Display(text: "Trip", size: 38)
+                .padding(.top, 8)
+                .padding(.bottom, Space.s3)
+
+            row(title: "Setup",
+                subtitle: "Travellers, dates, currency, what prints at the end",
+                action: "setup") { TripSetupView() }
+
+            Rule()
+
+            // The row has to name the invitation, because the screen behind
+            // it leads with one. "What they can see / set on day one and never
+            // asked about again" describes a privacy statement somebody reads
+            // once, which is exactly what a person looking for "how do I get
+            // them on this trip" would scroll straight past.
+            //
+            // Still gated: on a build that can't invite, the row describes what
+            // the screen can actually do rather than promising a button that
+            // isn't there.
+            row(title: store.sync.canInvite ? "Invite \(store.otherName)"
+                                            : "What \(store.otherName) can see",
+                subtitle: store.sync.canInvite
+                    ? "One trip on two phones, and what they can see of it"
+                    : "Set on day one and never asked about again",
+                action: store.sync.canInvite ? "invite" : "sharing") { SharingSettingsView() }
+
+            Rule()
+
+            row(title: "The shelf", subtitle: shelfSubtitle, action: "trips") { ShelfView() }
+        }
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var shelfSubtitle: String {
+        let past = store.library.shelf.count
+        guard past > 0 else { return "This one is the only one so far" }
+        return "\(past) closed · this one still open"
+    }
+
+    private func row<Destination: View>(title: String, subtitle: String, action: String,
+                                        @ViewBuilder destination: @escaping () -> Destination) -> some View {
+        NavigationLink {
+            destination()
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(Typeface.heading(17, .semibold))
+                        .foregroundStyle(Palette.text)
+                    Aside(text: subtitle, size: 11.5, color: Palette.n600)
+                }
+                Spacer()
+                Mono(action, size: 10, trackingRatio: 0.08, color: Palette.a700)
+            }
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -467,13 +491,20 @@ struct SharingSettingsView: View {
         Screen(context: .syncState) {
             Mono("One trip, two phones", size: 10.5)
 
-            Display(text: "Invite\n\(store.otherName)", size: 36)
+            // The headline is the body's. It said "Invite" on a build whose
+            // first sentence is that nobody can be invited.
+            Display(text: store.sync.canInvite ? "Invite\n\(store.otherName)"
+                                               : "What \(store.otherName)\ncan see",
+                    size: 36)
                 .padding(.top, 8)
                 .padding(.bottom, 4)
 
-            Aside(text: "A link to this trip. Send it however you like — following it puts the trip on their phone, and the two keep each other up to date from then on.",
-                  size: 12.5)
-                .padding(.bottom, Space.s3)
+            // About the link, so only where there is one.
+            if store.sync.canInvite {
+                Aside(text: "A link to this trip. Send it however you like — following it puts the trip on their phone, and the two keep each other up to date from then on.",
+                      size: 12.5)
+                    .padding(.bottom, Space.s3)
+            }
 
             invite
 

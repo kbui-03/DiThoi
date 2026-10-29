@@ -105,7 +105,7 @@ final class TripStore: ObservableObject {
     @Published private(set) var countriesMarkedDone: Set<UUID> { didSet { save() } }
     /// How many times Money has offered to set a budget on a trip without one.
     /// Three and it stops: a line that asks on every visit is a line people
-    /// learn not to read, and the budget is still in Papers → The trip. This
+    /// learn not to read, and the budget is still in Papers → Trip → Setup. This
     /// phone's habit, not a fact about the trip, so it never syncs.
     @Published private(set) var budgetNudgeShows: Int { didSet { save() } }
 
@@ -1921,7 +1921,7 @@ final class TripStore: ObservableObject {
             title: "Passports and scans", detail: "Encrypted here, and they do not leave.",
             state: "never", isShared: false, fields: []))
         lines.append(SharingLine(
-            title: "Where you are", detail: "For moments, pins, the trail and Separated. Never in the background. Only a pin's spot leaves this phone.",
+            title: "Where you are", detail: "For moments, pins, the trail, the meeting point and Separated. Never in the background. Only a pin's spot and a pinned meeting point leave this phone.",
             state: "on demand", isShared: false, fields: []))
         return lines
     }
@@ -3080,10 +3080,34 @@ final class TripStore: ObservableObject {
 
     var isSeparated: Bool { separatedSince != nil }
 
+    /// Whether Separated has anything to show: somewhere to go, or the
+    /// numbers to call where they are.
+    ///
+    /// It used to need a meeting point, which hid the emergency numbers and
+    /// the two phrases from the night nobody had agreed one. With neither, the
+    /// screen would be a headline over nothing, so it isn't offered.
+    var canStartSeparated: Bool {
+        meeting.isSet || CountryFacts.lookup(currentCountry) != nil
+    }
+
     func startSeparated() {
         separatedSince = now
-        // The one place the app asks where they are, and only while it's on.
-        location.start()
+        followMeetingPointIfPinned()
+    }
+
+    /// Tracks only while there is a pinned point to measure to.
+    ///
+    /// Without a position on the meeting point the distance can't be worked
+    /// out however well the phone knows where it is, so tracking just asked
+    /// for location and said "Finding you…" for ever. Called again when the
+    /// point changes, because the other phone can pin it mid-separation, and
+    /// on the way back into the screen after a relaunch.
+    func followMeetingPointIfPinned() {
+        guard isSeparated, meeting.hasLocation else {
+            if location.isTracking { location.stop() }
+            return
+        }
+        if !location.isTracking { location.start() }
     }
 
     func endSeparated() {

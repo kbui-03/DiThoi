@@ -889,6 +889,19 @@ struct Verify {
                   CountryFacts.lookup("Thailand")?.emergency.allSatisfy {
                       $0.number.allSatisfy(\.isNumber) && !$0.number.isEmpty
                   } == true)
+            // The tile dials what it prints or nothing. It used to fall back
+            // to 112 for a number that didn't parse.
+            let unparsed = CountryFacts.everyCountry.flatMap { facts in
+                facts.emergency.filter { CountryFacts.dialURL($0.number) == nil }
+                    .map { "\(facts.country) \($0.number)" }
+            }
+            check("every emergency number in the table makes a phone link",
+                  unparsed.isEmpty, unparsed.joined(separator: ", "))
+            check("and the link is the number, spaces gone",
+                  CountryFacts.dialURL("053 243 677")?.absoluteString == "tel://053243677")
+            check("something that isn't a number dials nothing",
+                  CountryFacts.dialURL("ask at the desk") == nil && CountryFacts.dialURL("") == nil
+                      && CountryFacts.dialURL("  ") == nil)
 
             // The card's other two columns. Both are optional per country, and
             // both are governed by the same rule the numbers are: say nothing
@@ -4339,6 +4352,58 @@ struct Verify {
                   meeting.meetingLine)
         }
 
+        print("— the meeting point, from where you're standing —")
+        do {
+            // Separated said "700 m north-east of the meeting point" over a
+            // bearing *to* the meeting point: the opposite way, at 2am.
+            let you = (18.7900, 98.9800)
+            let gate = (18.7950, 98.9850)  // north-east of you
+            check("the compass point is the way to walk",
+                  Geo.compassPoint(you.0, you.1, gate.0, gate.1) == "north-east",
+                  Geo.compassPoint(you.0, you.1, gate.0, gate.1))
+            check("and from the gate, back the other way",
+                  Geo.compassPoint(gate.0, gate.1, you.0, you.1) == "south-west")
+            check("a point due north is north",
+                  Geo.compassPoint(0, 0, 1, 0) == "north" && Geo.compassPoint(0, 0, 0, 1) == "east")
+            let seven = Measurement(value: 700, unit: UnitLength.meters)
+            check("the sentence is about the meeting point, from you",
+                  MeetingPoint.fromHere(seven, compass: "north-east") == "700 m north-east of you",
+                  MeetingPoint.fromHere(seven, compass: "north-east"))
+            check("and with no compass point it is only a distance",
+                  MeetingPoint.fromHere(seven, compass: nil) == "700 m away")
+
+            // A pin is a position, and the point carries it to the other phone.
+            let pinned = TripStore(storeKey: nil, ritual: SilentRitualScheduler())
+            pinned.setMeetingPoint(MeetingPoint(place: "Wat Phra Singh", detail: "north gate",
+                                                localScript: "", setAt: pinned.now,
+                                                latitude: gate.0, longitude: gate.1))
+            check("setting a pinned point keeps the pin",
+                  pinned.meeting.hasLocation && pinned.meeting.latitude == gate.0)
+            check("and the history remembers it with the place",
+                  pinned.meetingPlaces.first?.hasLocation == true)
+            check("and the payload carries it",
+                  pinned.payload.meetingPoint.value.latitude == gate.0)
+
+            // Separated is offered for somewhere to go, or for numbers to call.
+            let blank = TripStore(storeKey: nil, ritual: SilentRitualScheduler())
+            check("a blank trip with nowhere known offers no Separated",
+                  !blank.canStartSeparated)
+            blank.setMeetingPoint(MeetingPoint(place: "The bridge", detail: "", localScript: "",
+                                               setAt: blank.now))
+            check("a meeting point is enough to offer it", blank.canStartSeparated)
+
+            // Tracking follows the pin: without one, there is nothing to
+            // measure to and "Finding you…" never ends.
+            blank.startSeparated()
+            check("an unpinned point doesn't track", !blank.location.isTracking)
+            blank.setMeetingPoint(MeetingPoint(place: "The bridge", detail: "", localScript: "",
+                                               setAt: blank.now, latitude: gate.0, longitude: gate.1))
+            blank.followMeetingPointIfPinned()
+            check("a pin arriving mid-separation starts it", blank.location.isTracking)
+            blank.endSeparated()
+            check("and finding each other stops it", !blank.location.isTracking)
+        }
+
         print("— letters on Today, before any has opened —")
         do {
             // A phone holding sealed letters and none opened drew no letter
@@ -5866,6 +5931,10 @@ struct Verify {
                   !travels.contains { $0.detail.contains("Separated is on") })
             check("and it admits a pin's spot leaves the phone",
                   travels.contains { $0.title == "Where you are" && $0.detail.contains("pin") })
+            // A pinned meeting point is a position on the payload: the
+            // `MeetingPoint` carries it, and the point is shared.
+            check("and that a pinned meeting point does too",
+                  travels.contains { $0.title == "Where you are" && $0.detail.contains("pinned meeting point") })
         }
 
         print("— the book's map and its moments —")
