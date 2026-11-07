@@ -56,7 +56,7 @@ struct TripEndingView: View {
 
                     Panel {
                         Mono("This app is finished", size: 9.5)
-                        Text("It stops asking for a page today. Everything stays on the phone to read whenever, and it'll be here if either of you ever leaves for two months again.")
+                        Text("It stops asking for a page today. Everything stays on the phone to read whenever, and it'll be here if either of you ever leaves for \(Formatting.tripLength(days: store.dayCount)) again.")
                             .font(Typeface.body(12.5))
                             .foregroundStyle(Palette.n700)
                             .lineSpacing(4)
@@ -89,8 +89,10 @@ struct TripEndingView: View {
         .onChange(of: store.isLive) { _, live in if !live { dismiss() } }
         .onChange(of: store.hasOpened) { _, opened in if !opened { dismiss() } }
         .onAppear {
-            // The one promise on this screen the app can keep by itself.
-            store.ritual.cancelAll()
+            // The one promise on this screen the app can keep by itself. The
+            // store keeps it: cancelling here alone was undone the moment the
+            // app went quiet and re-armed tonight's prompt.
+            store.noteEndingShown()
         }
     }
 

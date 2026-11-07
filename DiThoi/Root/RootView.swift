@@ -213,7 +213,9 @@ struct MainTabs: View {
             if store.isSeparated { showingSeparated = true }
             // I7 · day 61. Shown once, and only because the trip actually got
             // there — never as a preview of an ending that hasn't happened.
-            if store.isFinalDay { showingEnding = true }
+            // `endingDue`, not `isFinalDay`: that one stays true from the last
+            // day on, and the ending came back on every launch.
+            if store.endingDue { showingEnding = true }
         }
     }
 

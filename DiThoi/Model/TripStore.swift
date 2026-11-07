@@ -108,6 +108,13 @@ final class TripStore: ObservableObject {
     /// learn not to read, and the budget is still in Papers → Trip → Setup. This
     /// phone's habit, not a fact about the trip, so it never syncs.
     @Published private(set) var budgetNudgeShows: Int { didSet { save() } }
+    /// The length of trip, in days, the ending screen was last shown for. Nil
+    /// until it has been. `isFinalDay` stays true from the last day on, because
+    /// `dayNumber` clamps, so without this the ending came up on every launch
+    /// until the trip was closed. A length rather than a flag: move the dates
+    /// and the trip has a new last day, which gets the ending once more. This
+    /// phone's, like the nudge above, so it never syncs.
+    @Published private(set) var endingShownForDays: Int? { didSet { save() } }
 
     /// What happened the last time this phone tried to post its sealed letters,
     /// and when it last succeeded.
@@ -261,6 +268,7 @@ final class TripStore: ObservableObject {
             customTags = snapshot.customTags
             countriesMarkedDone = snapshot.countriesMarkedDone
             budgetNudgeShows = snapshot.budgetNudgeShows
+            endingShownForDays = snapshot.endingShownForDays
             dayPlans = snapshot.dayPlans
             documents = snapshot.documents
             showCards = snapshot.showCards
@@ -307,6 +315,7 @@ final class TripStore: ObservableObject {
             customTags = []
             countriesMarkedDone = []
             budgetNudgeShows = 0
+            endingShownForDays = nil
             dayPlans = []
             documents = []
             showCards = []
@@ -2084,9 +2093,28 @@ final class TripStore: ObservableObject {
     func startLetter(title: String, condition: LetterCondition) -> Letter {
         let letter = Letter(number: nextLetterNumber, title: title, writtenOn: now,
                             condition: condition, hint: condition.summary.lowercased(),
-                            paragraphs: [], signature: "— me, obviously", sealedAt: nil)
+                            paragraphs: [], signature: defaultSignature, sealedAt: nil)
         letters.append(letter)
         return letter
+    }
+
+    /// What a new letter is signed with: the name the observer gave, or
+    /// nothing. "— me, obviously" was the design's own sign-off, and it
+    /// printed under every letter anybody wrote. Never `observerName`, whose
+    /// fallback would sign a letter "— Home".
+    var defaultSignature: String {
+        names.observer.isEmpty ? "" : "— \(names.observer)"
+    }
+
+    /// The design's sign-off, which every draft used to start with.
+    static let legacySignature = "— me, obviously"
+
+    /// What the composer shows in a draft's "Signed" line. A draft still
+    /// holding the old default was never signed by anybody, so it takes this
+    /// trip's; anything else is what they wrote. Sealed letters never come
+    /// through here.
+    func signature(forDraft letter: Letter) -> String {
+        letter.signature == Self.legacySignature ? defaultSignature : letter.signature
     }
 
     func updateDraft(_ id: UUID, title: String? = nil, paragraphs: [String]? = nil,
@@ -3039,7 +3067,9 @@ final class TripStore: ObservableObject {
     /// hour it uses is always the freshest habit rather than the one it had at
     /// launch.
     func rescheduleRitual() {
-        guard participant.traveller != nil, features.nightlyPage, isLive else {
+        // The ending said "it stops asking for a page today". Going quiet ran
+        // this again and put tonight's prompt back.
+        guard participant.traveller != nil, features.nightlyPage, isLive, !endingShown else {
             ritual.cancelAll()
             return
         }
@@ -3359,6 +3389,23 @@ final class TripStore: ObservableObject {
     /// trip has actually reached it.
     var isFinalDay: Bool { isLive && dayNumber >= dayCount }
 
+    /// Whether the ending has come up on this phone for the trip as it now
+    /// stands. From then on nothing asks for a page: that is the promise the
+    /// screen makes, and `rescheduleRitual()` keeps it.
+    var endingShown: Bool { isFinalDay && endingShownForDays == dayCount }
+
+    /// Whether to put the ending up now: the last day reached, and not yet
+    /// shown for this length of trip. Once, not on every launch.
+    var endingDue: Bool { isFinalDay && !endingShown }
+
+    /// The ending came up. Records it, and stops the evening prompt at once —
+    /// the app going quiet re-arms the ritual, and it now finds nothing to arm.
+    func noteEndingShown() {
+        guard isFinalDay else { return }
+        if endingShownForDays != dayCount { endingShownForDays = dayCount }
+        ritual.cancelAll()
+    }
+
     /// Home, and the trip is still open. The nudge on Today reads this, and so
     /// does anything else that offers to finish the trip, so they agree on
     /// when that starts. It starts the day *after* the last one: on the last
@@ -3611,6 +3658,7 @@ final class TripStore: ObservableObject {
         ritualClock = RitualClock()
         backfill = BackfillOffers()
         budgetNudgeShows = 0
+        endingShownForDays = nil
         meetingPoint = StampedMeetingPoint(
             value: MeetingPoint(place: "", detail: "", localScript: "", setAt: .distantPast),
             updatedAt: .distantPast, setBy: role)
@@ -4046,6 +4094,7 @@ final class TripStore: ObservableObject {
             ritualClock: ritualClock, backfill: backfill,
             customTags: customTags, countriesMarkedDone: countriesMarkedDone,
             budgetNudgeShows: budgetNudgeShows,
+            endingShownForDays: endingShownForDays,
             dayPlans: dayPlans, documents: documents,
             showCards: showCards, sharingRules: sharingRules
         )
@@ -4109,6 +4158,7 @@ final class TripStore: ObservableObject {
         ritualClock = RitualClock()
         backfill = BackfillOffers()
         budgetNudgeShows = 0
+        endingShownForDays = nil
         customTags = []
         countriesMarkedDone = []
         closedOn = nil
@@ -4209,6 +4259,8 @@ struct TripSnapshot: Codable {
     var countriesMarkedDone: Set<UUID> = []
     /// See `TripStore.budgetNudgeShows`. This phone's, never on the payload.
     var budgetNudgeShows: Int = 0
+    /// See `TripStore.endingShownForDays`. This phone's, never on the payload.
+    var endingShownForDays: Int? = nil
 
     // Content that belongs to *this* trip, and travels with it, so a trip made
     // from scratch opens with its own papers rather than another trip's.
@@ -4351,6 +4403,7 @@ extension TripSnapshot {
         customTags = try c.decodeIfPresent([String].self, forKey: .customTags) ?? []
         countriesMarkedDone = try c.decodeIfPresent(Set<UUID>.self, forKey: .countriesMarkedDone) ?? []
         budgetNudgeShows = try c.decodeIfPresent(Int.self, forKey: .budgetNudgeShows) ?? 0
+        endingShownForDays = try c.decodeIfPresent(Int.self, forKey: .endingShownForDays)
         // `bookOrder` was here: an order that set a flag on this phone and
         // reached no printer. A file saved with one still carries the key, and
         // the keyed decoder passes over it.

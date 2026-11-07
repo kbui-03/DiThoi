@@ -32,8 +32,16 @@ struct HomeView: View {
 
                     // Pins, not a position: which cities the phone
                     // agreed they stood in, at the moment it agreed — never
-                    // where they are now.
-                    HatchPanel(height: 172, caption: "their trail\n·\npins only, no live position")
+                    // where they are now. The trail as the book and the shelf
+                    // draw it; this was a hatched placeholder saying so. Under
+                    // two pins there is nothing to draw between, and the line
+                    // alone says what the picture will be.
+                    if let map = store.bookMap() {
+                        TrailPicture(map: map, height: 172, labelsAll: true)
+                            .accessibilityLabel("Their trail")
+                    }
+                    Mono("Pins only · never a live position", size: 9.5)
+                        .padding(.top, Space.s2)
 
                     SectionRule(top: Space.s4)
 
@@ -170,6 +178,9 @@ struct HomeView: View {
             return store.phase.isBefore ? "Not gone\nyet" : "They're\nhome"
         }
         let city = store.earnedStamps.last?.city ?? store.currentCity
+        // A blank trip has no pin and no stop to name, and `currentCity` is
+        // the em-dash: "They're in —". Away is true without knowing where.
+        guard city != TripStore.unknownPlace, !city.isEmpty else { return "They're\naway" }
         return "They're in\n\(city)"
     }
 

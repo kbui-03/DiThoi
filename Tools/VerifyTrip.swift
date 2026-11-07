@@ -2074,8 +2074,13 @@ struct Verify {
         do {
             check("a guesthouse is a stay",
                   SpendCategory.inferred(from: "Guesthouse, Bangkok") == .stay)
-            check("khao soi is food",
-                  SpendCategory.inferred(from: "Khao soi at Khun Yai") == .food)
+            check("noodles are food",
+                  SpendCategory.inferred(from: "Noodles at the market") == .food)
+            // "orapin", "khao" and "soi" were the sample trip's guesthouse and
+            // dinner, and filed anybody's spending by them.
+            check("and the sample trip's words are gone",
+                  SpendCategory.allCases.allSatisfy { category in
+                      ["orapin", "khao", "soi"].allSatisfy { !category.keywords.contains($0) } })
             check("a bus is transport",
                   SpendCategory.inferred(from: "Bus to Pai") == .transport)
             check("temples are tickets",
@@ -3550,6 +3555,94 @@ struct Verify {
             check("only then does a letter count as never delivered",
                   midTrip.undeliveredLetters.isEmpty && !afterwards.undeliveredLetters.isEmpty,
                   "\(midTrip.undeliveredLetters.count) mid-trip, \(afterwards.undeliveredLetters.count) after")
+        }
+
+        print("— the ending comes up once, and keeps its promise —")
+        do {
+            // `isFinalDay` stays true from the last day on, because `dayNumber`
+            // clamps, and nothing recorded that the ending had been shown: it
+            // came up on every launch until the trip was closed. And its "it
+            // stops asking for a page today" was undone the moment the app went
+            // quiet, because `rescheduleRitual()` armed tonight's prompt again.
+            let fixture = CheckTrip.snapshot()
+            func phone(_ snapshot: TripSnapshot, onDay n: Int,
+                       ritual: SilentRitualScheduler? = nil) -> TripStore {
+                let moment = Calendar.trip.date(byAdding: DateComponents(day: n - 1, hour: 12),
+                                                to: snapshot.start) ?? snapshot.start
+                return TripStore(storeKey: nil, snapshot: snapshot, clock: { moment },
+                                 ritual: ritual ?? SilentRitualScheduler())
+            }
+
+            let ritual = SilentRitualScheduler()
+            let last = phone(fixture, onDay: fixture.dayCount, ritual: ritual)
+            check("the last day puts the ending up", last.endingDue)
+            last.rescheduleRitual()
+            let promptedBefore = !ritual.scheduled.isEmpty
+            last.noteEndingShown()
+            check("showing it records it", !last.endingDue && last.endingShown)
+            check("and cancels the prompt", ritual.scheduled.isEmpty)
+            last.rescheduleRitual()
+            check("which going quiet no longer re-arms",
+                  ritual.scheduled.isEmpty, "was prompted before: \(promptedBefore)")
+
+            let relaunched = phone(last.snapshot, onDay: fixture.dayCount)
+            check("a relaunch on the last day doesn't show it again", !relaunched.endingDue)
+            let dayAfter = phone(last.snapshot, onDay: fixture.dayCount + 3)
+            check("nor does any day after it", dayAfter.isFinalDay && !dayAfter.endingDue)
+
+            let midTrip = phone(fixture, onDay: 12)
+            midTrip.noteEndingShown()
+            check("it can't be marked shown before the trip gets there",
+                  midTrip.endingShownForDays == nil && !midTrip.endingDue)
+
+            let longer = phone(last.snapshot, onDay: fixture.dayCount)
+            longer.setDayCount(fixture.dayCount + 7)
+            check("a longer trip isn't over on the old last day", !longer.endingDue && !longer.endingShown)
+            let newLast = phone(longer.snapshot, onDay: fixture.dayCount + 7)
+            check("and gets the ending once more on its new one", newLast.endingDue)
+
+            var withRecord = last.snapshot
+            withRecord.endingShownForDays = fixture.dayCount
+            if let data = try? JSONEncoder().encode(withRecord),
+               var json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                check("the record is on the snapshot", json["endingShownForDays"] as? Int == fixture.dayCount)
+                json.removeValue(forKey: "endingShownForDays")
+                let stripped = (try? JSONSerialization.data(withJSONObject: json)).flatMap(TripSnapshot.decode)
+                check("and a file from before it opens without it",
+                      stripped != nil && stripped?.endingShownForDays == nil)
+            } else {
+                check("the snapshot encodes", false)
+            }
+
+            check("the ending says how long the trip was",
+                  Formatting.tripLength(days: 61) == "two months", Formatting.tripLength(days: 61))
+            let lengths = [1: "a day", 10: "ten days", 13: "thirteen days", 14: "two weeks",
+                           21: "three weeks", 55: "eight weeks", 56: "two months", 30: "four weeks",
+                           365: "twelve months", 548: "eighteen months", 730: "two years", 0: "a day"]
+            let wrong = lengths.filter { Formatting.tripLength(days: $0.key) != $0.value }
+                .map { "\($0.key): \(Formatting.tripLength(days: $0.key))" }
+            check("in days, weeks, months or years", wrong.isEmpty, wrong.joined(separator: ", "))
+        }
+
+        print("— a letter is signed by whoever wrote it —")
+        do {
+            let home = TripStore(storeKey: nil, ritual: SilentRitualScheduler())
+            home.participant = .writer
+            home.writeTo(.one)
+            let unnamed = home.startLetter(title: "", condition: .nextOnline)
+            // Not "— Home", which is what `observerName` falls back to.
+            check("with no name given, a letter starts unsigned", unnamed.signature.isEmpty,
+                  unnamed.signature)
+            home.renameObserver(to: "  Linh ")
+            let named = home.startLetter(title: "", condition: .nextOnline)
+            check("with one, it's signed with it", named.signature == "— Linh", named.signature)
+            var old = named
+            old.signature = TripStore.legacySignature
+            check("a draft holding the design's sign-off takes the observer's",
+                  home.signature(forDraft: old) == "— Linh")
+            old.signature = "— your mother"
+            check("one they signed keeps what they wrote",
+                  home.signature(forDraft: old) == "— your mother")
         }
 
         print("— a drop is sealed to the phone it is addressed to —")

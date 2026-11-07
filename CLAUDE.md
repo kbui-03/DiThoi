@@ -55,7 +55,7 @@ check: `Features/` and `Root/` aren't compiled by the checks.
 ## Before you change anything
 
 ```bash
-./Tools/run-checks.sh          # 1,727 model assertions, macOS, no simulator
+./Tools/run-checks.sh          # 1,745 model assertions, macOS, no simulator
 ./Tools/render-icons.sh        # regenerates the icon set and re-tests actool
 ```
 
@@ -458,6 +458,14 @@ The general lessons behind them are §11; the debt kept on purpose is §7.
   em-dash, and read through `city(of:)`: a stamp wins, empty resolves against
   the itinerary. (§8.1)
 - `nextLetterLine` never names a `secretCondition` letter. (§8.3)
+- The ending comes up on `endingDue`, never `isFinalDay`, which stays true
+  from the last day on. Once it is shown, `rescheduleRitual()` arms nothing;
+  `endingShownForDays` is this phone's and never syncs. (§8.1)
+- A new letter is signed `defaultSignature`: the observer's typed name or
+  nothing, never `observerName`'s "Home". Sealed letters are never re-signed.
+  (§8.3)
+- The observer's home draws `TrailPicture` over `bookMap()`, nothing under two
+  pins, and "They're away" when there is no city to name. (§8.3)
 - Dashed hairlines are a stroked `DashedLine`, never a bordered 1pt box.
   (§3.10)
 - `sealedAt == nil` means draft, and only the decoder defaults it.

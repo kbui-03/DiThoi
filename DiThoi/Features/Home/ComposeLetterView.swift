@@ -16,7 +16,7 @@ struct ComposeLetterView: View {
 
     @State private var title = ""
     @State private var body_ = ""
-    @State private var signature = "— me, obviously"
+    @State private var signature = ""
     @State private var condition: LetterCondition = .nextOnline
     @State private var pickingCondition = false
     @State private var confirmingSeal = false
@@ -259,7 +259,7 @@ struct ComposeLetterView: View {
         guard let letter else { return }
         title = letter.title
         body_ = letter.paragraphs.joined(separator: "\n\n")
-        signature = letter.signature
+        signature = store.signature(forDraft: letter)
         condition = letter.condition
     }
 

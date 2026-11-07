@@ -820,9 +820,13 @@ struct DebugScreenHost: View {
 
     /// A draft to photograph the composer with. Reuses one if it's already
     /// there, so relaunching doesn't leave a pile of empty letters behind.
+    ///
+    /// The observer is named first, so the "Signed" line shows what a new
+    /// letter is signed with rather than the empty one a nameless phone gets.
     private var composeDraft: Letter {
-        store.writerDrafts.first
-            ?? store.startLetter(title: "On being tired of each other", condition: .day(44))
+        if let draft = store.writerDrafts.first { return draft }
+        if store.typedName(of: .writer).isEmpty { store.renameObserver(to: "Mai") }
+        return store.startLetter(title: "On being tired of each other", condition: .day(44))
     }
 
     var body: some View {
@@ -834,6 +838,9 @@ struct DebugScreenHost: View {
                 if DebugScreen.wantsItinerary { DebugScreen.seedWaypoints(into: store) }
                 DebugScreen.seedMoments(into: store)
             }
+            // The observer's trail picture needs two located pins, and nothing
+            // else earns one. No moments: they never reach the observer's phone.
+            if id == "home", DebugScreen.wantsItinerary { DebugScreen.seedWaypoints(into: store) }
             // A stamp whose stop went in a merge: the stop is taken out of the
             // document directly, the way a merged itinerary would arrive,
             // rather than through `removeSegment`, which takes its stamps.

@@ -52,11 +52,15 @@ struct LetterReaderView: View {
                             .padding(.bottom, Space.s3)
                     }
 
-                    Text(letter.signature)
-                        .font(Typeface.heading(19).italic())
-                        .foregroundStyle(Palette.n800)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                        .padding(.top, Space.s1)
+                    // Unsigned is allowed: an observer with no name starts
+                    // with an empty line rather than somebody else's sign-off.
+                    if !letter.signature.isEmpty {
+                        Text(letter.signature)
+                            .font(Typeface.heading(19).italic())
+                            .foregroundStyle(Palette.n800)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                            .padding(.top, Space.s1)
+                    }
                 }
                 .padding(.horizontal, 30)
                 .padding(.bottom, Space.s6)

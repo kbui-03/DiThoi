@@ -334,6 +334,27 @@ enum Formatting {
         else { return "\(value) \(noun)" }
         return words.prefix(1).uppercased() + words.dropFirst() + " " + noun
     }
+
+    /// How long a trip was, the way somebody would say it mid-sentence: "ten
+    /// days", "three weeks", "two months", "a year".
+    ///
+    /// The ending's last line had "two months" written into it, which was the
+    /// sample trip's length and nobody else's. Days under a fortnight, weeks
+    /// under eight, months to a year and a half, then years — each unit rounded
+    /// to the nearest, so sixty-one days is the two months the design meant.
+    static func tripLength(days: Int) -> String {
+        let days = max(days, 1)
+        func said(_ count: Int, _ unit: String) -> String {
+            guard count != 1 else { return "a \(unit)" }
+            let words = speller.string(from: NSNumber(value: count)) ?? "\(count)"
+            return "\(words) \(unit)s"
+        }
+        if days < 14 { return said(days, "day") }
+        if days < 56 { return said(Int((Double(days) / 7).rounded()), "week") }
+        let months = Int((Double(days) / (365.25 / 12)).rounded())
+        if months <= 18 { return said(months, "month") }
+        return said(Int((Double(days) / 365.25).rounded()), "year")
+    }
 }
 
 /// A tiny memo for the two formatter types, which are expensive to build and
@@ -458,10 +479,10 @@ enum SpendCategory: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .stay:
             ["guesthouse", "hostel", "hotel", "room", "night", "nights", "airbnb",
-             "homestay", "deposit", "orapin", "check-in", "dorm"]
+             "homestay", "deposit", "check-in", "dorm"]
         case .food:
             ["dinner", "lunch", "breakfast", "food", "eat", "coffee", "beer",
-             "market", "street", "noodles", "khao", "soi", "cao", "lầu", "banh",
+             "market", "street", "noodles", "cao", "lầu", "banh",
              "bánh", "phở", "pho", "snack", "water", "drinks", "bar", "restaurant"]
         case .transport:
             ["bus", "train", "taxi", "grab", "tuk", "flight", "ferry", "boat",

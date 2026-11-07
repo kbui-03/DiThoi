@@ -50,6 +50,14 @@ change gets its own line under **Unreleased**.
   was removed on the other phone. Each one can be put on a stop or let go.
 
 ### Changed
+- The observer's home screen draws the travellers' trail, the same drawing
+  as the shelf and the book, once there are two pins. It used to show a
+  hatched placeholder. "Pins only · never a live position" stays under it.
+- New letters are signed with the observer's name, or left unsigned if no
+  name was given. A draft still signed "— me, obviously" takes the name when
+  it's opened; sealed letters keep what they say.
+- The ending's last line says how long the trip was ("ten days", "three
+  weeks", "two months") instead of always "two months".
 - Papers has one "Trip" row where setup, sharing and the shelf were three. It
   opens a Trip screen holding the three.
 - Separated only follows the phone while the meeting point is pinned. An
@@ -71,6 +79,18 @@ change gets its own line under **Unreleased**.
   the rest in plan order.
 
 ### Fixed
+- The ending screen came back on every launch from the last day until the
+  trip was closed. It now comes up once, and once more only if the dates
+  change and the trip has a new last day.
+- "It stops asking for a page today" is kept. Leaving the app used to
+  re-arm the evening prompt the ending had just cancelled.
+- On a blank trip the observer's home screen read "They're in —". It now
+  reads "They're away".
+- Setup's feature list said books were "8 × 8 in" and stamps "GPS only". It
+  now says "8.5 × 8.5 in" and "confirmed on arrival".
+- Spending with "orapin", "khao" or "soi" in it was filed by the sample
+  trip's guesthouse and dinner, and Money shortened "South Korea" to "Korea".
+  Both are gone.
 - A page written on a trip with nowhere planned stored "—" as its city, and
   the book printed "Day 3 · 4 Aug · —". Pages now store nothing, and a page
   with no city, including one an older build stamped "—", takes the city
@@ -314,18 +334,3 @@ is lost.
 - **Should:** a meeting point whose "Which bit of it" starts with a capital
   reads "Go to the Second floor" on Separated.
 
-### Home mode
-- **Should:** the home screen reads "They're in —" on a blank trip, and shows a
-  hatched placeholder where the trail should be.
-- **Should:** letters are signed "— me, obviously" by default.
-
-### Finishing
-- **Must:** the ending screen reappears on every launch from the last day until
-  the trip is closed.
-- **Should:** "It stops asking for a page today" isn't kept, because the prompt
-  is re-armed when the app goes to the background.
-- **Should:** the ending screen says "two months" whatever the trip's length.
-
-### Settings
-- **Should:** feature descriptions still say "8 × 8 in" (it is 8.5 × 8.5) and
-  "GPS only" for stamps (they are confirmed, not GPS-verified).

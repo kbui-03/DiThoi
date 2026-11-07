@@ -251,7 +251,7 @@ extension View {
 
 /// A stored photo, or the hatched stand-in when there isn't one yet.
 ///
-/// **Square, always.** The printed page is square — `BookSpec` is 8 × 8 inches
+/// **Square, always.** The printed page is square — `BookSpec` is 8.5 × 8.5 inches
 /// — and photographs now arrive already cropped to a square somebody chose in
 /// `PhotoCropView`. This used to ask for a height and fill the width, which
 /// made a third aperture: the composer cropped one way, `BookSpreadView`

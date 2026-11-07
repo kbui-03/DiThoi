@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - Which square of a photograph the book gets
 
-/// The printed page is square — `BookSpec` is 8 × 8 inches — so a photograph
+/// The printed page is square — `BookSpec` is 8.5 × 8.5 inches — so a photograph
 /// held any other way is cropped on its way in. Until this existed nobody chose
 /// which square: `BookSpreadView` centre-cropped at print time, `JournalPhoto`
 /// centre-cropped into a *different* shape on screen, and the person who took

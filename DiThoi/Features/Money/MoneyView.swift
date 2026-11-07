@@ -320,7 +320,7 @@ struct MoneyView: View {
         let perDay = leftOnArrival / Double(nights)
 
         let arrival = last.segments.first?.title ?? last.country
-        let country = shortName(last.country)
+        let country = last.country
 
         // At this burn the money is gone before they land, so the sentence has
         // to change shape — a per-day figure of zero reads as advice.
@@ -338,10 +338,6 @@ struct MoneyView: View {
             : "below the trip average"
         let body = "At this rate you'll arrive in \(arrival) with \(store.homeTextRounded(leftOnArrival)) for \(Formatting.spelledCount(nights, "day", spellingUpTo: 0)). That's \(store.homeTextRounded(perDay))/day — \(verdict)."
         return (title, body)
-    }
-
-    private func shortName(_ country: String) -> String {
-        country == "South Korea" ? "Korea" : country
     }
 
     private var balanceHeadline: String {
@@ -399,7 +395,7 @@ struct MoneyView: View {
               let dearest = rates.max(by: { $0.perDay < $1.perDay }),
               cheapest.country != dearest.country
         else { return nil }
-        return "\(store.homeTextRounded(cheapest.perDay))/day in \(shortName(cheapest.country)), \(store.homeTextRounded(dearest.perDay))/day in \(shortName(dearest.country))."
+        return "\(store.homeTextRounded(cheapest.perDay))/day in \(cheapest.country), \(store.homeTextRounded(dearest.perDay))/day in \(dearest.country)."
     }
 
     /// The newest few, in the ledger's own order (`TripStore.ledger`, which

@@ -1406,7 +1406,8 @@ pictures of one route. It is `TrailPicture` now, `BookTrail` on the book's paper
 fitted once to the finished trail (`allowsSinglePlace`, since the first frame may
 be the only place), with the route not yet walked faint and the walked part in
 the accent, the way an opener draws its own country over the rest. A shelved
-trip's page carries the same drawing of the whole trail. Moments are hollow
+trip's page carries the same drawing of the whole trail, and so does the
+observer's home screen (§8.3). Moments are hollow
 diamonds on every one of them — the replay, the shelf, the book's maps and the
 cover — projected like the stamps but never framed, joined or named, and drawn
 *under* the dots, since one kept at a stamp sits exactly on it. Because they are
@@ -2115,7 +2116,7 @@ There is no simulator in CI and no XCTest target. Verification is two things:
 ### 6.1 `./Tools/run-checks.sh`
 
 Compiles everything in `DiThoi/Model/` and `Shared/` plus `Tools/VerifyTrip.swift`
-for **macOS** and runs 1,727 assertions — no simulator; the compile takes a
+for **macOS** and runs 1,745 assertions — no simulator; the compile takes a
 few minutes, the run a few seconds. It
 covers trip shape, rate conversion and round-tripping, budget derivation, the
 date-shift invariants, itinerary reflow after all four edit operations, the
@@ -2577,6 +2578,23 @@ still just drops the em-dash.
 "still on the phone, sorted by hour". The app's Photos access is add-only
 (`PhotoLibrary`), so it can neither sort nor see them; the copy is now "Leave it
 if you like — the book closes the gap."
+
+**The ending comes up once: `endingDue`, never `isFinalDay`.** `dayNumber`
+clamps, so `isFinalDay` is true on the last day and every day after it, and
+`RootView` put `TripEndingView` up on every launch until the trip was closed.
+`endingShownForDays` records the trip length the ending was shown for, on the
+snapshot and never on the payload — this phone's, like `budgetNudgeShows`. A
+length rather than a flag, so moving the dates gives the trip a new last day
+and the ending once more there. Every path that starts a trip over clears it.
+
+**And its promise is the store's.** The screen says "it stops asking for a page
+today", and `onAppear` cancelled the ritual. Going quiet runs
+`rescheduleRitual()`, which found no page tonight and armed the prompt again,
+so the promise lasted until the app was first put away. `noteEndingShown()`
+records the showing and cancels; `rescheduleRitual()` refuses while
+`endingShown`. The last night can still be written from the Book tab; it is
+only no longer asked for. The panel's "for two months again" was the sample
+trip's length; it is `Formatting.tripLength(days:)` now.
 
 ### 8.2 The book (`Model/Book.swift`, `Features/Book/`)
 
@@ -3209,6 +3227,21 @@ she has already passed is a condition that will never come true. The picker
 greys those out and says why, rather than letting him set a letter that silently
 never opens — and `.nextOnline` exists because it is the one condition that
 cannot miss.
+
+**A new letter is signed `defaultSignature`: "— " and the observer's typed
+name, or nothing.** Every letter used to start "— me, obviously", the design's
+own sign-off, and it printed under letters nobody had signed that way. Never
+`observerName`, whose fallback would sign one "— Home"; an unnamed observer
+gets an empty line, and the reader draws no signature for it. A draft still
+holding the old default is shown `defaultSignature` by
+`signature(forDraft:)`. Sealed letters are never rewritten.
+
+**The observer's home screen draws the trail, not a placeholder.** It was a
+`HatchPanel` captioned "their trail". It is `TrailPicture` over
+`bookMap()`, the drawing the shelf and the book use, which is nil under two
+located pins; then only the line "Pins only · never a live position" is
+drawn, as the shelf draws nothing. The headline is the last pin's city, then
+the plan's, and on a blank trip, where both are the em-dash, "They're away".
 
 ### 8.4 More than one trip (`Model/TripLibrary.swift`)
 

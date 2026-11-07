@@ -770,8 +770,8 @@ struct TripSetupView: View {
 
             featureToggle("Letters", "sealed by whoever stays home", \.letters)
             featureToggle("Nightly page", "photo, one line, three taps", \.nightlyPage)
-            featureToggle("Stamps", "places, GPS only", \.stamps)
-            featureToggle("Printed books", "one each, 8 × 8 in", \.printedBooks)
+            featureToggle("Stamps", "places, confirmed on arrival", \.stamps)
+            featureToggle("Printed books", "one each, 8.5 × 8.5 in", \.printedBooks)
             featureToggle("Shared ledger", "split, settle, convert", \.sharedLedger, last: true)
 
             Aside(text: "Anything off here is off everywhere — no empty tab, no greyed-out button, no reminder that it exists. Nothing is deleted by switching it off.",
