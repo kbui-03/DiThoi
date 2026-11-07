@@ -28,7 +28,7 @@ struct MomentsView: View {
         Screen(context: .syncState) {
             MarkMomentLabel(day.map { "Day \($0)" } ?? "Along the way", size: 10.5, canMark: canMark,
                             onKeepSpot: {
-                                let fix = store.location.current.flatMap(TrailView.fresh)?.coordinate
+                                let fix = store.location.freshFix(at: store.now)?.coordinate
                                 kept = store.addMoment(note: "", latitude: fix?.latitude ?? 0,
                                                        longitude: fix?.longitude ?? 0)
                             }) {

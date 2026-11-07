@@ -1,4 +1,5 @@
 import Foundation
+import CoreLocation
 import CryptoKit
 // For the zone and record ids the invitation flow keys off. Nothing here talks
 // to CloudKit — `tripID(fromRecordName:)` is string handling, which is exactly
@@ -333,11 +334,11 @@ struct Verify {
         print("— journal —")
         check("slot one has 3 pages", store.entries(for: .one).count == 3)
         check("slot two has 2 pages", store.entries(for: .two).count == 2)
-        check("today is unwritten", store.todaysEntry == nil)
+        check("today is unwritten", store.tonightsEntry == nil)
         store.save(entry: JournalEntry(dayNumber: 12, date: store.now, city: "Chiang Mai",
                                        line: "Wrong bus, better temple",
                                        tags: ["soaked"], hasPhoto: true, author: .one))
-        check("today is written", store.todaysEntry != nil)
+        check("today is written", store.tonightsEntry != nil)
         check("page count grew", store.nightsWritten == 4, "got \(store.nightsWritten)")
 
         // `save(entry:)` keys on `(dayNumber, author)` and replaces in place.
@@ -4639,6 +4640,249 @@ struct Verify {
             check("a pin arriving mid-separation starts it", blank.location.isTracking)
             blank.endSeparated()
             check("and finding each other stops it", !blank.location.isTracking)
+        }
+
+        print("— the meeting point goes stale —")
+        do {
+            // Three days and one country later Today still said "Wat Phra
+            // Singh · set 08:12", Papers offered it for today, and Separated
+            // measured 600 km to it all night. The fixture agrees it on day 12
+            // at 08:12, in Chiang Mai.
+            let fixture = CheckTrip.snapshot()
+            func at(day: Int, _ hour: Int, _ minute: Int = 0) -> TripStore {
+                TripStore(storeKey: nil, snapshot: fixture,
+                          clock: { CheckTrip.date(day: day, hour: hour, minute: minute, start: fixture.start) },
+                          ritual: SilentRitualScheduler())
+            }
+
+            let evening = at(day: 12, 20)
+            check("agreed this morning, it is tonight's",
+                  evening.meetingStanding == .tonight && evening.hasCurrentMeetingPoint,
+                  "\(evening.meetingStanding)")
+            check("and says when it was set",
+                  evening.meetingSetLine == "set 08:12", evening.meetingSetLine ?? "nil")
+            check("with no question in the sentence",
+                  evening.meetingLine.hasPrefix("Meeting point set at Wat Phra Singh's"), evening.meetingLine)
+
+            let smallHours = at(day: 13, 1)
+            check("at one in the morning it is still tonight's",
+                  smallHours.meetingStanding == .tonight, "\(smallHours.meetingStanding)")
+
+            let nextMorning = at(day: 13, 9)
+            check("the morning after, it is yesterday's",
+                  nextMorning.meetingStanding == .earlier(nights: 1), "\(nextMorning.meetingStanding)")
+            check("still the point to go to",
+                  nextMorning.hasCurrentMeetingPoint && nextMorning.canStartSeparated)
+            check("and asks whether it still is",
+                  nextMorning.meetingSetLine == "set yesterday · still right?"
+                      && nextMorning.meetingNeedsConfirming,
+                  nextMorning.meetingSetLine ?? "nil")
+            check("in a sentence that ends on the question",
+                  nextMorning.meetingLine.hasPrefix("Since yesterday the meeting point has been Wat Phra Singh's north gate")
+                      && nextMorning.meetingLine.hasSuffix("Still right for tonight?"),
+                  nextMorning.meetingLine)
+
+            let later = at(day: 15, 9)
+            let weekday = later.meeting.setAt.text("EEEE")
+            check("three nights on it names the day",
+                  later.meetingStanding == .earlier(nights: 3)
+                      && later.meetingSetLine == "set on \(weekday) · still right?"
+                      && later.meetingLine.hasPrefix("Since \(weekday) the meeting point"),
+                  later.meetingSetLine ?? "nil")
+
+            // "Still here" is the same write as choosing it.
+            nextMorning.confirmMeetingPoint()
+            check("still here makes it tonight's again",
+                  nextMorning.meetingStanding == .tonight
+                      && nextMorning.meeting.setAt == nextMorning.now
+                      && nextMorning.meeting.place == "Wat Phra Singh",
+                  "\(nextMorning.meetingStanding)")
+            check("and the stamp travels, so the other phone takes it",
+                  nextMorning.payload.meetingPoint.updatedAt == nextMorning.now)
+
+            let elsewhere = at(day: 17, 9)
+            let was = elsewhere.lastKnownSegment(forDay: 12)?.primaryPlace ?? "?"
+            check("in the next stop it is somewhere else's",
+                  elsewhere.meetingStanding == .elsewhere(was: was, nights: 5),
+                  "\(elsewhere.meetingStanding)")
+            check("and not the point to go to",
+                  !elsewhere.hasCurrentMeetingPoint && elsewhere.meetingSetLine == nil
+                      && !elsewhere.meetingNeedsConfirming)
+            check("the sentence asks for one here and names the last",
+                  elsewhere.meetingLine.hasPrefix("No meeting point in \(elsewhere.meetingHere) yet — the last one was in \(was)."),
+                  elsewhere.meetingLine)
+            check("a stop's name, never the dash", elsewhere.meetingHere != TripStore.unknownPlace
+                      && !elsewhere.meetingHere.isEmpty, elsewhere.meetingHere)
+            check("the country's numbers still offer Separated", elsewhere.canStartSeparated)
+            elsewhere.location.record(CLLocation(latitude: 19.9, longitude: 99.8))
+            check("but no distance is measured to the old stop's gate",
+                  elsewhere.distanceToMeetingPoint == nil && elsewhere.bearingToMeetingPoint == nil)
+            elsewhere.startSeparated()
+            check("and nothing is followed towards it", !elsewhere.location.isTracking)
+            elsewhere.endSeparated()
+
+            // The plan is what's out of date when they agreed somewhere this
+            // morning in a stop the itinerary has them reaching tomorrow.
+            let early = at(day: 16, 9)
+            early.setMeetingPoint(MeetingPoint(place: "Clock tower", detail: "", localScript: "",
+                                               setAt: early.now))
+            check("a point agreed today is tonight's, whatever the plan says",
+                  early.meetingStanding == .tonight)
+
+            let blank = TripStore(storeKey: nil, ritual: SilentRitualScheduler())
+            check("nobody agreeing one is still none",
+                  blank.meetingStanding == .none && !blank.hasCurrentMeetingPoint
+                      && blank.meetingSetLine == nil)
+            blank.confirmMeetingPoint()
+            check("and still here confirms nothing", blank.meetingStanding == .none)
+        }
+
+        print("— a position is only as good as its age —")
+        do {
+            // The composer and `arrive(at:)` read the last fix raw, so a stamp
+            // — whose position syncs and never changes again — could be pinned
+            // to where the phone was three hours and a town ago.
+            let fixture = CheckTrip.snapshot()
+            let noon = CheckTrip.date(day: 12, hour: 12, start: fixture.start)
+            func fix(minutesAgo: Double) -> CLLocation {
+                CLLocation(coordinate: CLLocationCoordinate2D(latitude: 19.91, longitude: 99.84),
+                           altitude: 0, horizontalAccuracy: 30, verticalAccuracy: -1,
+                           timestamp: noon.addingTimeInterval(-minutesAgo * 60))
+            }
+            check("fourteen minutes is fresh",
+                  LocationService.isFresh(fix(minutesAgo: 14), at: noon))
+            check("sixteen is not", !LocationService.isFresh(fix(minutesAgo: 16), at: noon))
+
+            func arriving(with location: CLLocation) -> (TripStore, Stamp?) {
+                let store = TripStore(storeKey: nil, snapshot: fixture, clock: { noon },
+                                      ritual: SilentRitualScheduler())
+                guard let next = store.nextStamp,
+                      let index = store.stamps.firstIndex(where: { $0.id == next.id }) else { return (store, nil) }
+                // A typed waypoint: no position until somebody stands in it.
+                store.stamps[index].latitude = 0
+                store.stamps[index].longitude = 0
+                store.location.record(location)
+                store.arrive(at: store.stamps[index])
+                return (store, store.stamps.first { $0.id == next.id })
+            }
+            let (stale, staleStamp) = arriving(with: fix(minutesAgo: 180))
+            check("a three-hour-old fix is no position",
+                  stale.location.freshFix(at: stale.now) == nil)
+            check("so the stamp is earned and left without one",
+                  staleStamp?.earned == true && staleStamp?.hasLocation == false)
+            let (_, freshStamp) = arriving(with: fix(minutesAgo: 2))
+            check("a fix from two minutes ago is where they're standing",
+                  freshStamp?.earned == true && freshStamp?.hasLocation == true
+                      && freshStamp?.latitude == 19.91)
+        }
+
+        print("— a page written after midnight —")
+        do {
+            // The composer filed to `dayNumber`, read when Done was tapped: a
+            // page started at 23:55 and saved at 00:05, or opened from the
+            // reminder at 00:30, was tomorrow's.
+            let fixture = CheckTrip.snapshot()
+            func at(day: Int, _ hour: Int, _ minute: Int = 0) -> TripStore {
+                TripStore(storeKey: nil, snapshot: fixture,
+                          clock: { CheckTrip.date(day: day, hour: hour, minute: minute, start: fixture.start) },
+                          ritual: SilentRitualScheduler())
+            }
+            let late = at(day: 12, 23, 55)
+            check("five to midnight, tonight is today",
+                  late.nightDay == 12 && !late.isWritingLastNight, "\(late.nightDay.map(String.init) ?? "nil")")
+            let small = at(day: 13, 0, 30)
+            check("half past midnight, tonight is last night",
+                  small.dayNumber == 13 && small.nightDay == 12 && small.isWritingLastNight,
+                  "\(small.nightDay.map(String.init) ?? "nil")")
+            check("and the hour the reminder's clock uses is the same one",
+                  at(day: 13, 4, 59).nightDay == 12 && at(day: 13, 5).nightDay == 13)
+            check("the small hours of day 1 are no night of the trip",
+                  at(day: 1, 0, 30).nightDay == nil && at(day: 1, 0, 30).tonightsEntry == nil)
+            check("last night isn't missed while it is still tonight",
+                  small.missedNights == late.missedNights, "\(small.missedNights) vs \(late.missedNights)")
+
+            small.save(entry: JournalEntry(dayNumber: small.nightDay ?? 0,
+                                           date: small.date(forDay: 12),
+                                           city: small.cityStamp(forDay: 12), line: "Late one",
+                                           tags: [], hasPhoto: false, author: small.role))
+            check("a page saved then is last night's",
+                  small.tonightsEntry?.dayNumber == 12 && small.tonightsEntry?.line == "Late one")
+            check("and nothing was filed under the new day",
+                  !small.myEntries.contains { $0.dayNumber == 13 })
+        }
+
+        print("— money spent before the trip —")
+        do {
+            // €1,240 of flights put a trip "nine days behind the burn" on day 1
+            // and kept it behind for weeks; before departure Money said
+            // "Day 1 of 61" a fortnight early and judged the bookings.
+            let fixture = CheckTrip.snapshot()
+            func at(day: Int, budget: Double = 8_000, flights: Double = 1_240) -> TripStore {
+                let store = TripStore(storeKey: nil, snapshot: fixture,
+                                      clock: { CheckTrip.date(day: day, hour: 12, start: fixture.start) },
+                                      ritual: SilentRitualScheduler())
+                store.expenses.removeAll()
+                store.budget = budget
+                if flights > 0 {
+                    store.add(Expense(date: CheckTrip.date(day: -20, hour: 10, start: fixture.start),
+                                      amount: flights, currency: store.homeCurrency, payer: .one,
+                                      split: .evenly, note: "Flights", country: ""))
+                }
+                return store
+            }
+            func spend(_ store: TripStore, _ euros: Double) {
+                store.add(Expense(date: store.now, amount: euros, currency: store.homeCurrency, payer: .one,
+                                  split: .evenly, note: "on the trip", country: "Thailand"))
+            }
+
+            let waiting = at(day: -11)
+            check("twelve days out, the flights are before departure",
+                  waiting.spentBeforeDepartureHome == 1_240 && waiting.spentOnTripHome == 0)
+            check("and the headline still counts them",
+                  waiting.moneyHeadline == "\(waiting.homeTextRounded(1_240)) of \(waiting.homeTextRounded(8_000))",
+                  waiting.moneyHeadline)
+            check("a day is worth what the bookings leave",
+                  abs(waiting.pacePerDay - 6_760.0 / 61) < 0.001, "\(waiting.pacePerDay)")
+            check("before departure the line counts down, with no verdict",
+                  waiting.burnLine == "Not yet · 12 days to go. \(waiting.homeTextRounded(1_240)) booked before you leave, so \(waiting.homeTextRounded(6_760.0 / 61)) a day once you're there.",
+                  waiting.burnLine)
+            let nothingBooked = at(day: -11, flights: 0)
+            check("with nothing booked it says what a day is worth",
+                  nothingBooked.burnLine == "Not yet · 12 days to go. \(nothingBooked.homeTextRounded(8_000.0 / 61)) a day once you're there.",
+                  nothingBooked.burnLine)
+            let unbudgetedEarly = at(day: -11, budget: 0)
+            check("and with no budget only what was booked",
+                  unbudgetedEarly.burnLine == "Not yet · 12 days to go. \(unbudgetedEarly.homeTextRounded(1_240)) booked before you leave.",
+                  unbudgetedEarly.burnLine)
+            check("the day before is one day to go",
+                  at(day: 0).burnLine.hasPrefix("Not yet · 1 day to go."), at(day: 0).burnLine)
+
+            let first = at(day: 1)
+            check("on day 1 the bookings are not a debt to the pace",
+                  first.paceDaysAhead >= 0 && !first.burnLine.contains("behind"), first.burnLine)
+            spend(first, 120)
+            check("and a day is judged against what is left after them",
+                  first.paceNote?.hasSuffix(" · over pace") == true, first.paceNote ?? "nil")
+            check("the expense sheet prices against the same day",
+                  first.budgetComparison(forHome: 55)?.contains(first.homeTextRounded(first.pacePerDay)) == true,
+                  first.budgetComparison(forHome: 55) ?? "nil")
+
+            let unbudgeted = at(day: 1, budget: 0)
+            spend(unbudgeted, 100)
+            check("with no budget, a day so far is the trip's own spending",
+                  unbudgeted.burnLine == "Day 1 of \(unbudgeted.dayCount) · \(unbudgeted.homeTextRounded(100)) a day so far.",
+                  unbudgeted.burnLine)
+
+            let spentOut = at(day: 3, budget: 1_000)
+            check("bookings past the budget are said once, not as days behind",
+                  spentOut.bookingsUsedTheBudget && spentOut.paceDaysAhead == 0
+                      && spentOut.burnLine.hasSuffix("what you booked before leaving used the whole budget."),
+                  spentOut.burnLine)
+            check("and there is no day's worth to be a share of",
+                  spentOut.budgetComparison(forHome: 20) == nil)
+            check("before departure too",
+                  at(day: -3, budget: 1_000).burnLine.hasSuffix("What you've booked already uses the whole budget."),
+                  at(day: -3, budget: 1_000).burnLine)
         }
 
         print("— letters on Today, before any has opened —")

@@ -222,9 +222,14 @@ struct TodayView: View {
 
         figures
 
-        SectionRule()
+        // A switched-off feature is off everywhere, Today included: with no
+        // nightly page this row opened a composer for a book the trip
+        // doesn't keep, and the spine beside it goes with it.
+        if store.features.nightlyPage {
+            SectionRule()
 
-        tonight
+            tonight
+        }
 
         // Nothing follows for a phone with no letters on it — not even a line
         // saying so, which would itself be a mention. What each side can see is
@@ -288,7 +293,7 @@ struct TodayView: View {
     /// app already had permission for, never one it asked for here.
     private var nearStop: Stamp? {
         guard canAdd, store.features.stamps,
-              let fix = store.location.current.flatMap(TrailView.fresh),
+              let fix = store.location.freshFix(at: store.now),
               let near = store.nearNextStop(latitude: fix.coordinate.latitude,
                                             longitude: fix.coordinate.longitude),
               !notNow.contains(near.id)
@@ -555,54 +560,89 @@ struct TodayView: View {
             // it kicks `store.rates.refresh()` — and a button inside a button
             // is a trap: it happens to work, and it is one refactor away from
             // swallowing the tap or stealing it. The meeting-point column
-            // beside this one gets away with wrapping everything because it
-            // holds no control of its own.
-            VStack(alignment: .leading, spacing: 0) {
-                if canAdd {
-                    Button { addingExpense = true } label: {
-                        spentColumn.contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityHint("Adds an expense")
-                } else {
-                    spentColumn
-                }
-                RateStamp(size: 10.5, color: Palette.n600)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            Rectangle().fill(Palette.divider).frame(width: 1)
-
-            Button {
-                pickingMeetingPoint = true
-            } label: {
+            // keeps its "still here" outside its button for the same reason.
+            //
+            // With the shared ledger off there is no Money tab, so "Spent
+            // today · + add" was a door to a sheet for a ledger the trip
+            // doesn't keep. The meeting point takes the whole row instead.
+            if store.features.sharedLedger {
                 VStack(alignment: .leading, spacing: 0) {
-                    Mono("Meeting point", size: 10)
-                    // A trip that hasn't met anywhere yet has an empty place and
-                    // a `.distantPast` stamp, so both halves have to say that
-                    // rather than draw a blank title over a time from year one.
-                    // This screen was the only one asking; Papers and Separated
-                    // drew the blank and the year-one time, which is why the
-                    // question is `MeetingPoint.isSet` now and not a private
-                    // property here.
-                    Text(store.meeting.isSet ? meetingTitle : "Not set yet")
-                        .font(Typeface.heading(17, .semibold))
-                        .foregroundStyle(store.meeting.isSet ? Palette.text : Palette.n600)
-                        .multilineTextAlignment(.leading)
-                        .lineSpacing(1)
-                        .padding(.top, 4)
-                    Aside(text: store.meeting.isSet
-                          ? "set \(store.meeting.setAt.text("HH:mm"))"
-                          : "somewhere you can both walk to",
-                          size: 11.5)
+                    if canAdd {
+                        Button { addingExpense = true } label: {
+                            spentColumn.contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Adds an expense")
+                    } else {
+                        spentColumn
+                    }
+                    RateStamp(size: 10.5, color: Palette.n600)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.leading, Space.s3)
-                .contentShape(Rectangle())
+
+                Rectangle().fill(Palette.divider).frame(width: 1)
             }
-            .buttonStyle(.plain)
+
+            // "still here" sits outside the column's button, the way
+            // `RateStamp` sits outside the spent column's: a button inside a
+            // button is one refactor away from swallowing the tap.
+            VStack(alignment: .leading, spacing: 0) {
+                Button {
+                    pickingMeetingPoint = true
+                } label: {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Mono("Meeting point", size: 10)
+                        // A trip that hasn't met anywhere yet has an empty place
+                        // and a `.distantPast` stamp, so both halves have to say
+                        // that rather than draw a blank title over a time from
+                        // year one. One from another stop is no answer either:
+                        // it read "Wat Phra Singh · set 08:12" three days and
+                        // one country later.
+                        Text(meetingColumnTitle)
+                            .font(Typeface.heading(17, .semibold))
+                            .foregroundStyle(store.hasCurrentMeetingPoint ? Palette.text : Palette.n600)
+                            .multilineTextAlignment(.leading)
+                            .lineSpacing(1)
+                            .padding(.top, 4)
+                        Aside(text: meetingColumnNote, size: 11.5)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Changes the meeting point")
+
+                // One tap, once a morning: the design's own promise for the
+                // meeting point. Re-stamps it as tonight's.
+                if store.meetingNeedsConfirming, canAdd, !store.isObserver {
+                    Button { store.confirmMeetingPoint() } label: {
+                        Mono("still here", size: 10, trackingRatio: 0.1, color: Palette.a700)
+                            .padding(.vertical, 10)
+                            .padding(.trailing, Space.s3)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Keeps it as tonight's meeting point")
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.leading, store.features.sharedLedger ? Space.s3 : 0)
         }
         .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var meetingColumnTitle: String {
+        switch store.meetingStanding {
+        case .none: "Not set yet"
+        case .tonight, .earlier: meetingTitle
+        case .elsewhere: "Nothing in \(store.meetingHere) yet"
+        }
+    }
+
+    private var meetingColumnNote: String {
+        if let line = store.meetingSetLine { return line }
+        if case .elsewhere(let was, _) = store.meetingStanding { return "the last one was in \(was)" }
+        return "somewhere you can both walk to"
     }
 
     /// The place, and the bit of it on its own line when there is one. An
@@ -668,7 +708,7 @@ struct TodayView: View {
         HStack(spacing: 12) {
             if showsBook { book }
             VStack(alignment: .leading, spacing: 2) {
-                Mono(store.lettersVisible ? "Tonight's entry" : "Your page tonight", size: 10)
+                Mono(tonightLabel, size: 10)
                 Text(entryTitle)
                     .font(Typeface.heading(17, .semibold))
                     .foregroundStyle(Palette.text)
@@ -679,7 +719,7 @@ struct TodayView: View {
                 }
             }
             Spacer(minLength: 8)
-            OutlineButton(title: store.todaysEntry == nil ? "Write" : "Edit",
+            OutlineButton(title: store.tonightsEntry == nil ? "Write" : "Edit",
                           minHeight: 44, size: 14, fillsWidth: false, horizontalPadding: 16) {
                 writingEntry = true
             }
@@ -711,12 +751,21 @@ struct TodayView: View {
             .accessibilityHidden(true)
     }
 
+    /// In the small hours the page is last night's, and the row says which
+    /// night, because the date above it has already turned over.
+    private var tonightLabel: String {
+        if store.isWritingLastNight, let night = store.nightDay {
+            return "Last night's page · \(store.date(forDay: night).text("EEE d"))"
+        }
+        return store.lettersVisible ? "Tonight's entry" : "Your page tonight"
+    }
+
     private var entryTitle: String {
-        if let entry = store.todaysEntry {
+        if let entry = store.tonightsEntry {
             return entry.line
         }
         if store.lettersVisible { return "One photo, one line" }
-        return store.bookPage(forDay: store.dayNumber).map { "Page \($0) · yours alone" } ?? "One photo, one line · yours alone"
+        return store.bookPage(forDay: store.nightDay ?? store.dayNumber).map { "Page \($0) · yours alone" } ?? "One photo, one line · yours alone"
     }
 }
 

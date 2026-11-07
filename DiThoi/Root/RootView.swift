@@ -97,7 +97,7 @@ struct RootView: View {
             // off. Then the tap has done its job by opening the app.
             guard store.hasOpened, !store.isObserver, store.isLive,
                   store.phase == .during, store.features.nightlyPage,
-                  store.canWritePage(forDay: store.dayNumber) else { return }
+                  let night = store.nightDay, store.canWritePage(forDay: night) else { return }
             outside = .writeTonight
         }
     }

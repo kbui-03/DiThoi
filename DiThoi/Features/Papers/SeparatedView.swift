@@ -25,7 +25,7 @@ struct SeparatedView: View {
                         .padding(.top, 10)
                         .padding(.bottom, Space.s3)
 
-                    if store.meeting.isSet {
+                    if store.hasCurrentMeetingPoint {
                         Panel(border: Palette.a400, padding: EdgeInsets(top: 16, leading: 17, bottom: 16, trailing: 17)) {
                             Text(store.meeting.place)
                                 .font(Typeface.heading(22, .semibold))
@@ -66,8 +66,7 @@ struct SeparatedView: View {
                             // own uncomputed promises is the bug being fixed,
                             // one screen along. This says only what is true
                             // whatever else is or isn't here.
-                            Aside(text: "Nobody agreed one for this trip, so there's nowhere for this screen to send you.",
-                                  size: 12.5, color: Palette.n300)
+                            Aside(text: noPointLine, size: 12.5, color: Palette.n300)
                                 .padding(.top, 3)
                         }
                     }
@@ -87,7 +86,7 @@ struct SeparatedView: View {
                             Aside(text: whereabouts.note, size: 12, color: Palette.n300)
                                 .padding(.top, 2)
 
-                            if store.location.isDenied, store.meeting.hasLocation {
+                            if store.location.isDenied, store.hasCurrentMeetingPoint, store.meeting.hasLocation {
                                 Button {
                                     if let url = URL(string: UIApplication.openSettingsURLString) {
                                         UIApplication.shared.open(url)
@@ -179,6 +178,8 @@ struct SeparatedView: View {
         }
         // The other phone can pin the point, or move it, mid-separation.
         .onChange(of: store.meeting) { store.followMeetingPointIfPinned() }
+        // And at the first morning in a new stop the point stops being one.
+        .onChange(of: store.hasCurrentMeetingPoint) { store.followMeetingPointIfPinned() }
     }
 
     /// "Go to the / gate by the bridge", or something true when there is no
@@ -190,7 +191,18 @@ struct SeparatedView: View {
     /// shape of `DayDetailView.cityName`'s `?? plan?.city`, which had the same
     /// bug for the same reason — a `??` behind a split can only fire if the
     /// split can actually produce nothing.
+    /// Under "No meeting point". A point from another stop is named only as
+    /// the reason there isn't one here: this screen used to lead with it, and
+    /// measure the distance to it all night.
+    private var noPointLine: String {
+        if case .elsewhere(let was, _) = store.meetingStanding {
+            return "The last one was in \(was). Nothing's agreed in \(store.meetingHere), so there's nowhere for this screen to send you."
+        }
+        return "Nobody agreed one for this trip, so there's nowhere for this screen to send you."
+    }
+
     private var headline: String {
+        guard store.hasCurrentMeetingPoint else { return "Stay where\nyou are" }
         let first = store.meeting.detail
             .components(separatedBy: ",")
             .first?
@@ -223,7 +235,7 @@ struct SeparatedView: View {
     /// What this phone can honestly say about the meeting point, or `nil`
     /// when there isn't one.
     private var whereabouts: (label: String, value: String, note: String)? {
-        guard store.meeting.isSet else { return nil }
+        guard store.hasCurrentMeetingPoint else { return nil }
         // Nothing set a meeting point's position until the picker could pin
         // one, so this used to say "Finding you…" for ever: a search with
         // nothing to measure to, however well the phone knew where it was.

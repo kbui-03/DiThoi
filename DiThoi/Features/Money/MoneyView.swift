@@ -311,9 +311,15 @@ struct MoneyView: View {
         // "doesn't fit" was the only one it could reach.
         guard store.hasBudget, let last = store.legs.last else { return nil }
         let daysUntil = last.startDay - store.dayNumber
-        guard daysUntil > 0, store.dayNumber > 0 else { return nil }
+        // Before departure `dayNumber` clamps to 1, so the burn was the
+        // bookings divided by one day. There is no burn yet.
+        // And with nothing spent on the trip yet the burn is nought, which
+        // projected the whole budget landing intact in the last country.
+        guard daysUntil > 0, !store.isBeforeDeparture, !store.bookingsUsedTheBudget,
+              store.spentOnTripHome > 0 else { return nil }
 
-        let burnPerDay = store.spentHome / Double(store.dayNumber)
+        // The trip's own burn: the bookings are spent once, not every day.
+        let burnPerDay = store.spentOnTripHome / Double(store.dayNumber)
         let projected = store.spentHome + burnPerDay * Double(daysUntil)
         let leftOnArrival = max(store.budget - projected, 0)
         let nights = max(last.nights, 1)
@@ -331,7 +337,7 @@ struct MoneyView: View {
         }
 
         // "Comfortable" is relative to the budget they set, not a fixed figure.
-        let comfortable = perDay >= store.budgetPerDay
+        let comfortable = perDay >= store.pacePerDay
         let title = comfortable ? "\(country) is covered" : "\(country) will be tight"
         let verdict = comfortable
             ? "above the trip average"

@@ -12,6 +12,30 @@ fix from the October review, closed on 7 November 2026. **v1.1** is the to-do
 list from the November review that followed it. When an item lands, tick it
 and move its line into Added / Changed / Fixed under a v1.1 release heading.
 
+## [v1.1] — unreleased
+
+### Fixed
+
+- **A switched-off feature showed on Today.** With the shared ledger off the
+  spent column is gone and the meeting point takes the row; with nightly pages
+  off there is no page row.
+- **Old positions were written down for good.** The moment composer and
+  `arrive(at:)` take only a fix under 15 minutes old
+  (`LocationService.freshFix(at:)`), like every other reader.
+- **The meeting point never went stale.** From an earlier night it reads
+  "set yesterday · still right?" with a one-tap "still here"; from another
+  stop it is not offered on Today, Papers or Separated, and Separated measures
+  nothing to it.
+- **Pre-trip spending ruined the pace.** Bookings count against the budget but
+  not the pace (`pacePerDay`); before departure Money says "Not yet · N days to
+  go" and judges nothing, and the forecast waits until something is spent on
+  the trip.
+- **A page written after midnight was filed under the next day.** Before 05:00
+  tonight's page is last night's (`nightDay`), and the composer fixes its night
+  when it opens.
+- **Papers' "never uploaded" line covered too much.** It sits under Documents
+  now, the only part of Papers it is true of.
+
 ## [v1.1] — to-do
 
 From a page-by-page review on 7 November 2026, read against the code rather
@@ -28,18 +52,6 @@ Items carried over from the v1 known issues say so.
   the travellers.** The observer's half of the product, and the pairing that
   makes two phones one trip, work only on one phone. Everything else on this
   list is smaller than this. (expansion §2.0; needs the paid membership.)
-- [ ] **Must · A switched-off feature still shows on Today.** "A feature that's
-  off is off everywhere", but `TodayView` draws "Spent today · + add" (which
-  opens the expense sheet) with the shared ledger off, and "Tonight's entry ·
-  Write" with nightly pages off. Gate `figures`' spent column on
-  `features.sharedLedger` and `tonight` on `features.nightlyPage`, and let the
-  meeting point take the whole row when the ledger is off.
-- [ ] **Must · Stale positions get written down for good.** `MomentComposerView`
-  reads `store.location.current` with no age check, so a moment kept with no
-  fresh fix is pinned to wherever the phone last was (hours ago, another
-  city), and says "The phone has your position". `arrive(at:)` fills a stamp's
-  permanent position the same way. Both should go through `TrailView.fresh`
-  (15 minutes), which every other reader already uses.
 - [ ] **Should · Switching tabs throws each tab away.** `MainTabs` swaps views
   in a `switch`, so a pushed screen (the ledger, the itinerary, a document),
   the scroll position, Money's undo banner and Today's "not yet" on the
@@ -68,9 +80,13 @@ Items carried over from the v1 known issues say so.
   Money's forecast verdict is computed in the view, so its clauses are
   unchecked (move it to the store beside `burnLine`); `ComposeLetterView`
   reads `Date()` instead of `store.now`.
-- [ ] **Should · The screenshots are stale.** `04-today.png` is from July and
-  `10-trail.png` from August: they show "synced just now", "DAY 1 · —" and no
-  "Today together", all fixed since. Re-shoot every route (CLAUDE.md, §6.3).
+- [ ] **Should · The screenshots have gaps.** The sample-trip era shots (Lynn
+  and Emmie, the phase-1 set, the print order and handoff) were deleted on
+  7 November 2026, and `10-trail.png` re-shot; Today is the `v11-` set. Nothing
+  current shows onboarding (who, names, writing to, first stop, the trip),
+  the print file, the book reader at AX size or the ending at AX size, and the
+  October shots still read "synced just now". Re-shoot every route
+  (CLAUDE.md, §6.3).
 - [ ] **Should · The docs have drifted.** CLAUDE.md lists `MainTabs`,
   `HomeTabs` and `ClassicalTabBar` as files in `Root/` (they live in
   `RootView.swift`); README's decisions still say six currencies; this file's
@@ -83,14 +99,6 @@ Items carried over from the v1 known issues say so.
 
 ### Today
 
-- [ ] **Must · The meeting point never goes stale.** It has a time and no
-  date or city: three days and one country later, Today still says "Meeting
-  point · Wat Phra Singh · set 08:12", Papers offers it under "If you're
-  separated today", and Separated measures 600 km to it. Mark a point set on
-  an earlier day as yesterday's ("set yesterday, in Chiang Mai · still
-  right?"), never let Separated lead with a point from another city, and make
-  re-confirming it one tap ("Four seconds, once a morning" is the design's
-  own promise).
 - [ ] **Should · "Today together" shows the first hour, not the next.** At
   6pm it still names the 8am item. Show the next timed item, or the evening's
   last one once the day is over.
@@ -133,14 +141,6 @@ Items carried over from the v1 known issues say so.
 
 ### Money
 
-- [ ] **Must · Pre-trip spending wrecks the pace for the whole trip.** Flights
-  and visas filed "before you left" count in `spentHome` against
-  `paceHome = budgetPerDay × dayNumber`, so a trip with €1,200 of flights is
-  "nine days behind the burn" on day 1 and stays behind for weeks; before
-  departure, `dayNumber` clamps to 1 and Money reads "Day 1 of 61 — N days
-  behind the burn" and the forecast divides by one day. Count pre-departure
-  lines against the budget but not the pace, and say "Not yet · N days to go"
-  before departure.
 - [ ] **Should · The forecast's copy compares against the wrong thing.**
   "€283/day — above the trip average" compares with `budgetPerDay`, which is
   what the budget allows, not what the trip has averaged. Say "more than the
@@ -166,13 +166,6 @@ Items carried over from the v1 known issues say so.
 
 ### Book
 
-- [ ] **Must · A page written after midnight is filed under the wrong night.**
-  `TonightEntryView` files to `store.dayNumber`, read at save time, which
-  turns over at midnight. A page started at 23:55 and saved at 00:05, or
-  opened from a reminder at 00:30, becomes *tomorrow's* page. `RitualClock`
-  already knows "a page written at 00:20 is last night's"; the composer
-  doesn't. Pin the night when the sheet opens, and treat the small hours
-  (before 05:00) as the night before for "tonight".
 - [ ] **Should · Tonight's page has no draft.** Every other composer keeps its
   work on a swipe, and a letter saves itself as a draft, but a page lives only
   in view state: an evicted app, a dead battery or an incoming call that
@@ -190,10 +183,6 @@ Items carried over from the v1 known issues say so.
 
 ### Papers and Separated
 
-- [ ] **Must · "Never uploaded, never in anyone's cloud" covers too much.** The
-  closing line sits under the meeting point and the show-this cards, both of
-  which are on `SyncPayload` and leave the phone the moment CloudKit is on.
-  Scope it to the documents and scans.
 - [ ] **Should · The separated panel looks tappable and isn't.** It is an
   accent-bordered `Panel` whose only way to change the place is "on Today".
   Add "change" opening the same `MeetingPointPicker`.

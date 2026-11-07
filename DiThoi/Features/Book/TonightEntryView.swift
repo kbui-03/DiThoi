@@ -90,8 +90,19 @@ struct TonightEntryView: View {
 
     private let limit = JournalEntry.lineLimit
 
-    private var targetDay: Int { day ?? store.dayNumber }
-    private var isTonight: Bool { targetDay == store.dayNumber }
+    /// The night this sheet writes, fixed when it opens. It was read when
+    /// Done was tapped, and `dayNumber` turns over at midnight: a page
+    /// started at 23:55 and saved at 00:05 became tomorrow's.
+    @State private var pinnedDay: Int?
+    /// Tonight as it was when the sheet opened, so a page started at 04:58
+    /// doesn't turn into "A night you missed" under somebody's thumb.
+    @State private var openedNight: Int?
+
+    private var targetDay: Int { pinnedDay ?? day ?? store.nightDay ?? store.dayNumber }
+    private var isTonight: Bool { targetDay == (openedNight ?? store.nightDay) }
+    /// Whether the night being written is today's calendar day. In the small
+    /// hours tonight's page is last night's, and its moments are yesterday's.
+    private var isCalendarToday: Bool { targetDay == store.dayNumber }
 
     var body: some View {
         Group {
@@ -109,6 +120,10 @@ struct TonightEntryView: View {
         }
         .background(Palette.bg)
         .onAppear {
+            if pinnedDay == nil {
+                pinnedDay = targetDay
+                openedNight = store.nightDay
+            }
             load()
             prompt = pickPrompt()
         }
@@ -334,7 +349,7 @@ struct TonightEntryView: View {
                             .accessibilityHint(onPage ? "Takes its photograph off the page."
                                                : "Copies it onto the page. The moment stays as it is.")
                     }
-                    if isTonight {
+                    if isTonight && isCalendarToday {
                         ForEach(store.unfinishedToday) { moment in
                             Button { finishing = moment } label: { unfinishedTile }
                                 .buttonStyle(.plain)
@@ -353,9 +368,10 @@ struct TonightEntryView: View {
     private static let tile: CGFloat = 62
 
     private var pictureHeading: String {
-        let hasMoments = !stripMoments.isEmpty || (isTonight && !store.unfinishedToday.isEmpty)
+        let hasMoments = !stripMoments.isEmpty || (isTonight && isCalendarToday && !store.unfinishedToday.isEmpty)
         guard hasMoments else { return "Tonight's photo" }
-        return isTonight ? "From today" : "From day \(targetDay)"
+        if isCalendarToday { return "From today" }
+        return isTonight ? "From last night" : "From day \(targetDay)"
     }
 
     @ViewBuilder
@@ -551,7 +567,7 @@ struct TonightEntryView: View {
     /// missed night is being written — the night they were kept is the night
     /// they belong to, whenever it gets its page.
     private var stripMoments: [Moment] {
-        isTonight ? store.momentsToday : store.moments(onDay: targetDay)
+        isCalendarToday ? store.momentsToday : store.moments(onDay: targetDay)
     }
 
     /// The page has room for another photograph: the main one, or an extra.

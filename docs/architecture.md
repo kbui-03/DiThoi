@@ -633,6 +633,23 @@ synthesised decoder throws on a missing non-optional key. Once there is somebody
 to invite it goes back to taking two phones. "Nudge" was renamed "Check for X's
 answer": it re-runs sync and has never sent anything.
 
+**Money spent before the trip counts against the budget, not the pace.**
+Flights and visas filed "before we left" were in `spentHome`, and the pace was
+`budgetPerDay × dayNumber` against it, so €1,240 of flights made a trip "nine
+days behind the burn" on day 1 and kept it behind for weeks. Before departure
+`dayNumber` clamps to 1, so Money said "Day 1 of 61 — N days behind" a
+fortnight early and the forecast divided the bookings by one day. Now
+`spentBeforeDepartureHome` (lines on day < 1) stays in the headline, the bar and
+"/day left", and `pacePerDay` is what is left after it, across every day:
+`paceDaysAhead`, `paceNote`, `budgetComparison` and the forecast all judge
+against that, and count only `spentOnTripHome`. `budgetPerDay` stays as setup's
+figure. Before departure `burnLine` is "Not yet · 12 days to go", plus what was
+booked and what a day is worth after it. The forecast waits for the trip's own
+spending: with none, the burn is nought and it promised the whole budget landing
+intact in the last country.
+Bookings that reach the budget are said once (`bookingsUsedTheBudget`), never
+as days behind, and leave `budgetComparison` nothing to compare with.
+
 ### 3.5 Syncing (`Syncing.swift`, `SyncTransports.swift`, `SyncCoordinator.swift`)
 
 The design is built around two people sharing one trip. Making that true meant
@@ -907,7 +924,10 @@ rather than left off, because an install that ran the old build still carries it
 Keychain (`kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`), excluded from
 backup, never synced. The Papers screen promises "never uploaded, never in
 anyone's cloud — including the one at home", and scans of a passport are the one
-thing here that would genuinely hurt to leak.
+thing here that would genuinely hurt to leak. That line sits under Documents,
+which is all it is true of. It used to close the whole screen, under the meeting
+point and the show-this cards, which are both on `SyncPayload` and leave the
+phone the moment sync is on.
 
 They are handled by **three** types, and the split is entirely about what
 `run-checks.sh` can compile. That script builds `Model/` for macOS, so anything
@@ -1079,6 +1099,16 @@ A pinned meeting point is the second position that leaves the phone, after a
 pin's spot: it is a field on the `MeetingPoint`, and the point is on the
 payload. That is deliberate — the other phone's Separated needs it — and the
 sharing line names it, held by the same check.
+
+**Every reader asks how old the fix is.** `LocationService.freshFix(at:)`
+answers the last fix only if it is under `freshness` (15 minutes) old, measured
+against the caller's clock — the store's `now`, so the checks can move it. The
+trail, its map, the arrival nudge and the moments list always asked; the moment
+composer and `arrive(at:)` read `current` raw, so a moment kept with no new fix
+landed where the phone was hours before ("The phone has your position"), and a
+typed stamp's position — which syncs and never changes again — could be another
+town's. Both go through it now. `record(_:)` is the delegate's way in, and the
+checks'.
 
 ### 3.8 The itinerary
 
@@ -1528,6 +1558,30 @@ trip knows about *that* place — one gate's script left under another gate's na
 is how somebody is driven to the wrong side of a city. Like the show-this card
 editor, it says out loud that the app doesn't translate.
 
+**A meeting point goes stale, by night and by stop.** It had a time and no
+date or place, so three days and one country later Today still said "Wat Phra
+Singh · set 08:12", Papers offered it for today and Separated measured 600 km to
+it. `meetingStanding` derives the answer from `setAt` and the itinerary, so
+nothing new is on the payload (`setAt` is already synced and moved by
+`TripShift`):
+
+- `.tonight` — agreed on tonight's night. Nights are `night(of:)`, which counts
+  the small hours as the evening before (`RitualClock.nightEndsHour`), so a
+  point agreed at 23:00 is still tonight's at 01:00.
+- `.earlier(nights:)` — an earlier night, same stop. Still the point, and Today
+  says "set yesterday · still right?" with "still here", which is
+  `confirmMeetingPoint()`: the same write as choosing it, so it re-stamps and
+  the merge takes it.
+- `.elsewhere(was:nights:)` — another stop. Not offered as the point anywhere:
+  Today and Papers say "Nothing in Hanoi yet" and name the last one, Separated
+  leads with the country, measures nothing and follows nothing.
+
+Stops are compared only once a night has passed: a point agreed this morning in
+a stop the plan reaches tomorrow is tonight's, and the plan is what's out of
+date. With no stop to compare on either side it counts as the same place.
+Readers ask `hasCurrentMeetingPoint`, never `meeting.isSet`, when deciding
+whether there is somewhere to send somebody.
+
 ### 3.12 Day plans and show-this cards
 
 **Day plans and show-this cards are editable, and therefore on `SyncPayload`.**
@@ -1906,6 +1960,12 @@ they are held (`PhotoStore.hold`) until the sheet knows what was kept: the
 prune runs on every return to the foreground, and an app switch mid-compose
 used to delete the photo a page was about to point at.
 
+**A switched-off feature is off on Today too.** Today drew "Spent today ·
+\+ add" with the shared ledger off, which opened the expense sheet for a ledger
+with no tab, and "Tonight's entry · Write" with nightly pages off. `figures`
+draws the spent column only with `features.sharedLedger`, and the meeting point
+takes the row; `tonight` (and the spine in it) only with `features.nightlyPage`.
+
 ### 5.2 What the lock is in front of, and why it is a rule
 
 `AppLock` gates two screens, not the tab they live on. Papers itself is
@@ -2116,7 +2176,7 @@ There is no simulator in CI and no XCTest target. Verification is two things:
 ### 6.1 `./Tools/run-checks.sh`
 
 Compiles everything in `DiThoi/Model/` and `Shared/` plus `Tools/VerifyTrip.swift`
-for **macOS** and runs 1,745 assertions — no simulator; the compile takes a
+for **macOS** and runs 1,792 assertions — no simulator; the compile takes a
 few minutes, the run a few seconds. It
 covers trip shape, rate conversion and round-tripping, budget derivation, the
 date-shift invariants, itinerary reflow after all four edit operations, the
@@ -2181,7 +2241,12 @@ the postcard sheet; `exportpostcard -week n` writes the PNG and prints where.
 `bookpreview -scrubDay n` draws the page bar's bubble held, `entry -promptIndex n`
 picks the blank line's question, and `-seedSpending` puts money on every day so
 far — nothing else seeds an expense, so the facts line had none. `-day N` moves the trip to that day and may be zero or negative
-(`-day -5` is six days before departure). `-screen widget` draws all four widget
+(`-day -5` is six days before departure). `-featuresOff sharedLedger,nightlyPage`
+switches features off after the seeds (`TripFeatures`' own names);
+`-seedPreTrip` files €1,240 of flights twenty days before departure;
+`-meetingDaysAgo N` pins Wat Phra Singh and dates it N days back (with `-day 14`
+the same stop, with `-day 30` another); `-clock HH:mm` makes it that time today,
+so the small hours can be photographed. `-screen widget` draws all four widget
 families; `dayplan`, `showcards`, `showcard`, `country` reach the newer screens.
 `countryedit`, `renamestop`, `addstop` (typed "Chiang Rai", so the "on the map"
 line shows) and `placestamp` reach the itinerary sheets; `editororphan` takes
@@ -2273,7 +2338,7 @@ Three traps in the routes themselves, all learned the hard way:
   same argument applies to any conditional warning: a route that can only reach
   the quiet branch signs the screen off having never shown the loud one.
 
-107 screenshots — every screen, plus accessibility variants — are in
+113 screenshots — most screens, some at accessibility sizes — are in
 [Screenshots/](../Screenshots), at the repository root.
 
 **A Simulator window can stop repainting while the device is fine.** After a
@@ -2595,6 +2660,18 @@ records the showing and cancels; `rescheduleRitual()` refuses while
 `endingShown`. The last night can still be written from the Book tab; it is
 only no longer asked for. The panel's "for two months again" was the sample
 trip's length; it is `Formatting.tripLength(days:)` now.
+
+**A page belongs to a night, and the night ends at 05:00.** The composer
+filed to `dayNumber`, read when Done was tapped, which turns over at midnight:
+a page started at 23:55 and saved at 00:05, or opened from the reminder at
+00:30, became tomorrow's. `nightDay` is the trip day of `now`, minus one before
+`RitualClock.nightEndsHour` — the same hour the habit already used — and nil
+before the first night. The composer pins its night (and whether it is tonight)
+when it opens. `tonightsEntry`, `missedNights`, `backfillCandidate`, the Book
+tab's rows, Today's row ("Last night's page · Thu 30" in the small hours) and the
+widget's link all read it, and only tonight's page teaches the clock. The date
+on Today and the reminder's schedule stay on the calendar day: at 00:30 the page
+is last night's, and this evening still gets its prompt.
 
 ### 8.2 The book (`Model/Book.swift`, `Features/Book/`)
 

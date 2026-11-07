@@ -51,13 +51,10 @@ struct TrailView: View {
     /// A position worth drawing: this phone's own, on a traveller's live trip,
     /// and recent. On the observer's phone it would put their kitchen on
     /// somebody else's trail — the reason `arrive(at:)` refuses them.
-    private var here: CLLocation? { canMark ? store.location.current.flatMap(TrailView.fresh) : nil }
+    private var here: CLLocation? { canMark ? store.location.freshFix(at: store.now) : nil }
 
-    /// Fifteen minutes. A distance is a claim about now, and a number without
-    /// its age pretends to be current.
-    static func fresh(_ location: CLLocation) -> CLLocation? {
-        -location.timestamp.timeIntervalSinceNow < 15 * 60 ? location : nil
-    }
+    // Fifteen minutes, `LocationService.freshness`: the rule lives in the
+    // model now, where `arrive(at:)` and the composer can't skip it.
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: Space.s2), count: 4)
 
