@@ -5,10 +5,238 @@ What the app does, and what is known to be wrong with it. The format follows
 
 The project went into git on 12 October 2026 with everything below already
 built. Nothing before that was versioned, so the first entry describes the
-current state as a whole rather than a list of commits. From here on, each
-change gets its own line under **Unreleased**.
+current state as a whole rather than a list of commits.
 
-## [Unreleased]
+**v1** is the first iteration: the 1.0 build that went into git, plus every
+fix from the October review, closed on 7 November 2026. **v1.1** is the to-do
+list from the November review that followed it. When an item lands, tick it
+and move its line into Added / Changed / Fixed under a v1.1 release heading.
+
+## [v1.1] — to-do
+
+From a page-by-page review on 7 November 2026, read against the code rather
+than the screenshots (several screenshots are months older than the code).
+**Must** means it breaks something a screen promises or files something in
+the wrong place; **should** means it is wrong or rough, but nothing is lost;
+**nice** is a missing feature or a missing link between two parts of the app,
+judged against "does it survive week five?" and against the privacy posture.
+Items carried over from the v1 known issues say so.
+
+### Everywhere
+
+- [ ] **Must · CloudKit has never run, so the letters from home cannot reach
+  the travellers.** The observer's half of the product, and the pairing that
+  makes two phones one trip, work only on one phone. Everything else on this
+  list is smaller than this. (expansion §2.0; needs the paid membership.)
+- [ ] **Must · A switched-off feature still shows on Today.** "A feature that's
+  off is off everywhere", but `TodayView` draws "Spent today · + add" (which
+  opens the expense sheet) with the shared ledger off, and "Tonight's entry ·
+  Write" with nightly pages off. Gate `figures`' spent column on
+  `features.sharedLedger` and `tonight` on `features.nightlyPage`, and let the
+  meeting point take the whole row when the ledger is off.
+- [ ] **Must · Stale positions get written down for good.** `MomentComposerView`
+  reads `store.location.current` with no age check, so a moment kept with no
+  fresh fix is pinned to wherever the phone last was (hours ago, another
+  city), and says "The phone has your position". `arrive(at:)` fills a stamp's
+  permanent position the same way. Both should go through `TrailView.fresh`
+  (15 minutes), which every other reader already uses.
+- [ ] **Should · Switching tabs throws each tab away.** `MainTabs` swaps views
+  in a `switch`, so a pushed screen (the ledger, the itinerary, a document),
+  the scroll position, Money's undo banner and Today's "not yet" on the
+  arrival nudge are all lost on every tab change. The nudge comes back every
+  time Today is opened. Keep the five tabs alive (an `opacity`/`hidden` stack,
+  or `TabView` with the custom bar) and move "not yet" into the store as an
+  event for the day.
+- [ ] **Should · Nothing happens at midnight or on resume.** The ending cover
+  and Separated are only checked in `MainTabs.onAppear`, so a phone resumed
+  (not relaunched) on the last day never shows the ending until a cold launch.
+  Nothing republishes the store when the date turns, so a screen left open
+  across midnight keeps yesterday. Re-check both, and nudge
+  `objectWillChange`, on `.active` and on `significantTimeChangeNotification`.
+- [ ] **Should · Location errors are swallowed.** `didFailWithError` is empty,
+  so "Finding where you are…" on the meeting point picker waits for ever when
+  no fix comes. Give `LocationService` a failed state and the picker a timeout,
+  the way Separated's "Finding you…" was fixed.
+- [ ] **Should · Helper copy that never goes away.** "Tap a line to edit it;
+  hold it to delete" (Money), "Tap one to open it; hold it to edit or delete"
+  (Trail, Papers) are permanent lines on screens used fifty times. Show each
+  until it has been used once, then drop it. The Trail's version is also
+  wrong: tapping a moment *edits* it, there is no separate "open".
+- [ ] **Should · Rule drift in `Features/`, where the checks can't see it.**
+  "The whole ledger · N lines" is a hand-written ternary (`spelledCount`);
+  `budgetComparison` uses `String(format: "%.1f")` (`Formatting.decimal`);
+  Money's forecast verdict is computed in the view, so its clauses are
+  unchecked (move it to the store beside `burnLine`); `ComposeLetterView`
+  reads `Date()` instead of `store.now`.
+- [ ] **Should · The screenshots are stale.** `04-today.png` is from July and
+  `10-trail.png` from August: they show "synced just now", "DAY 1 · —" and no
+  "Today together", all fixed since. Re-shoot every route (CLAUDE.md, §6.3).
+- [ ] **Should · The docs have drifted.** CLAUDE.md lists `MainTabs`,
+  `HomeTabs` and `ClassicalTabBar` as files in `Root/` (they live in
+  `RootView.swift`); README's decisions still say six currencies; this file's
+  1.0 entry says 1,304 assertions where README says 1,745.
+- [ ] **Should · An uncommitted Xcode edit stripped `DiThoi-Info.plist`.** The
+  working tree drops every comment explaining `DiThoiCloudKitEnabled`,
+  `CKSharingSupported` and the URL scheme (the file says "edit it by hand"),
+  and sets `UIStatusBarStyle` to an empty string. Restore the comments, keep
+  the new `LSApplicationCategoryType`, and decide the status bar on purpose.
+
+### Today
+
+- [ ] **Must · The meeting point never goes stale.** It has a time and no
+  date or city: three days and one country later, Today still says "Meeting
+  point · Wat Phra Singh · set 08:12", Papers offers it under "If you're
+  separated today", and Separated measures 600 km to it. Mark a point set on
+  an earlier day as yesterday's ("set yesterday, in Chiang Mai · still
+  right?"), never let Separated lead with a point from another city, and make
+  re-confirming it one tap ("Four seconds, once a morning" is the design's
+  own promise).
+- [ ] **Should · "Today together" shows the first hour, not the next.** At
+  6pm it still names the 8am item. Show the next timed item, or the evening's
+  last one once the day is over.
+- [ ] **Should · The letter card never leaves.** "A letter opened itself here"
+  shows the newest opened letter on every day after it opened, pushing
+  "Today together" down for weeks. Show it on the day it opened (or until it
+  has been read), then only in the letters row.
+- [ ] **Should · The header names the holder instead of the place** on a phone
+  with no letters (`lettersVisible ? currentCity : myName`). Both travellers
+  are in the same city; both headers should say it.
+- [ ] **Should · The meeting point opens for editing on a read-only trip**
+  (the button isn't gated on `canAdd`), and saves with a success haptic into a
+  store that persists nothing.
+- [ ] **Nice · A real countdown.** Before departure Today has the first stop
+  and the itinerary. Add what is actually useful in the last week, each line a
+  link: documents in Papers (and whether the passport has a scan), show-this
+  cards written, the money set up, and the second phone paired. Each line is
+  computed, none is a checklist to tick.
+- [ ] **Nice · "Same place as last night?"** In the picker, offer yesterday's
+  point as one tap when the city hasn't changed, and the city's previous
+  points first. `meetingPlaces` grows for the whole trip and is never filtered
+  by city or trimmed; a remembered place can't be forgotten.
+
+### Trail
+
+- [ ] **Should · A skipped stop blocks the rest of the trail.** `nextStamp` is
+  strictly the first unearned one, so a stop they decided not to go to stops
+  every later stamp (and every letter sealed to one) until somebody opens the
+  itinerary editor and removes it. Offer "We didn't go" beside "I'm standing
+  in it": it leaves the stamp unearned and moves on, and the book can say so.
+- [ ] **Should · An archived trip's trail hides its moments.** `momentsSection`
+  is behind `!isReadOnly`, so the shelf's "Open it again · The trail" shows no
+  moments at all. Read-only should mean "no editing", not "nothing listed".
+- [ ] **Should · (carried over)** A typed stop the city list doesn't know (a
+  camp, a village under 15,000 people) still has no position until somebody
+  stands in it.
+- [ ] **Nice · A moment you can read.** Tapping a moment opens the editor.
+  Open a read view (the photo large, the line, the day and place, a small map)
+  with "edit" in its corner; hold still edits or deletes.
+
+### Money
+
+- [ ] **Must · Pre-trip spending wrecks the pace for the whole trip.** Flights
+  and visas filed "before you left" count in `spentHome` against
+  `paceHome = budgetPerDay × dayNumber`, so a trip with €1,200 of flights is
+  "nine days behind the burn" on day 1 and stays behind for weeks; before
+  departure, `dayNumber` clamps to 1 and Money reads "Day 1 of 61 — N days
+  behind the burn" and the forecast divides by one day. Count pre-departure
+  lines against the budget but not the pace, and say "Not yet · N days to go"
+  before departure.
+- [ ] **Should · The forecast's copy compares against the wrong thing.**
+  "€283/day — above the trip average" compares with `budgetPerDay`, which is
+  what the budget allows, not what the trip has averaged. Say "more than the
+  budget's €131 a day".
+- [ ] **Should · No way to log a currency the itinerary doesn't have.** The
+  expense sheet offers the legs' currencies and home only, with no
+  "another…" (which the setup pickers have). A layover in Singapore, or
+  dollars in Cambodia, can't be written down. The chips are also an `HStack`
+  that squeezes past five currencies; use `FlowRow`.
+- [ ] **Should · Empty Money says nothing.** With no lines, "Recent" is a
+  bare heading over "Tap a line to edit it", and "By country" is empty on a
+  trip with no legs. Each needs its own sentence.
+- [ ] **Should · "How many nights" sits on every expense.** "×7" on a coffee
+  means nothing. Show it for lodging (or call it "repeat").
+- [ ] **Should · (carried over)** The rates are today's, so the CSV's home
+  column and every converted figure move with the rate instead of recording
+  what a line cost the day it was spent. Store the rate on the line at save.
+- [ ] **Should · (carried over)** With sync on, nothing tells the other phone
+  a settlement is waiting; "Check for X's answer" only looks again.
+- [ ] **Nice · From Today's "Spent today" to the day's lines.** The figure
+  only adds; holding it (or a "see today" under it) could open the ledger
+  filtered to today.
+
+### Book
+
+- [ ] **Must · A page written after midnight is filed under the wrong night.**
+  `TonightEntryView` files to `store.dayNumber`, read at save time, which
+  turns over at midnight. A page started at 23:55 and saved at 00:05, or
+  opened from a reminder at 00:30, becomes *tomorrow's* page. `RitualClock`
+  already knows "a page written at 00:20 is last night's"; the composer
+  doesn't. Pin the night when the sheet opens, and treat the small hours
+  (before 05:00) as the night before for "tonight".
+- [ ] **Should · Tonight's page has no draft.** Every other composer keeps its
+  work on a swipe, and a letter saves itself as a draft, but a page lives only
+  in view state: an evicted app, a dead battery or an incoming call that
+  kills it loses the evening's line. Keep a local draft per night until it is
+  saved or thrown away. The journal is the payload of the product.
+- [ ] **Should · The copy argues with the book.** "Nobody minds; the book skips
+  them" (Book), "the book closes the gap" (backfill offer) — but a missed
+  night leaves a line in the book, on purpose (§8.2). Say that.
+- [ ] **Should · "Your pages · Nobody reads them until the books are printed"**
+  on the sharing screen implies the two books meet. Each book stays on its
+  own phone and the app doesn't print. Say "Yours alone. Each of you has your
+  own book."
+- [ ] **Nice · After the trip, "61 days in"** is still the headline. Say "The
+  whole trip · 61 days" and lead with the export.
+
+### Papers and Separated
+
+- [ ] **Must · "Never uploaded, never in anyone's cloud" covers too much.** The
+  closing line sits under the meeting point and the show-this cards, both of
+  which are on `SyncPayload` and leave the phone the moment CloudKit is on.
+  Scope it to the documents and scans.
+- [ ] **Should · The separated panel looks tappable and isn't.** It is an
+  accent-bordered `Panel` whose only way to change the place is "on Today".
+  Add "change" opening the same `MeetingPointPicker`.
+- [ ] **Should · "We got separated" works on a closed trip.** The buttons
+  aren't gated on `store.isLive`.
+- [ ] **Should · (carried over)** A meeting point whose "Which bit of it"
+  starts with a capital reads "Go to the Second floor" on Separated.
+- [ ] **Nice · The next country's card before the border.** Papers only knows
+  `currentCountry`. In the last two days of a country, show the next one's
+  card too (emergency numbers, plugs, two sentences), and link it from Today's
+  "Vietnam is done" panel.
+
+### Home mode (the observer)
+
+- [ ] **Should · "They're in Hanoi" is sometimes the plan, not a pin.**
+  `whereabouts` falls back to `currentCity` from the itinerary under a line
+  promising "Pins only". Say "They're in X" only from a pin, with its age
+  ("since Tuesday"), and "Due in X" from the plan.
+- [ ] **Should · "Their phone last reached wifi…"** reads `sync.lastSyncedAt`,
+  which is *this* phone's last round, as the code's own comment says. Say what
+  it is, or carry their last contact on the payload.
+
+### Onboarding and the shelf
+
+- [ ] **Nice · Pairing at the end of onboarding can't happen in this build,**
+  so the invite step is skipped silently. Say once, on the Trip screen, that
+  the second phone is not connected and what that means for letters.
+
+### Score
+
+**6.5 / 10** on 7 November 2026. As a one-phone travel journal, ledger and
+papers wallet it is close to an 8: the model layer is unusually careful (1,745
+checks, privacy enforced by types rather than by promises), the copy is honest
+about almost everything, and the October review's fixes are real. It loses the
+rest because the thing that makes it *this* app — two phones as one trip, and
+letters from home that open when they arrive — has never run, and because the
+two nightly rituals it is built around (the page and the meeting point) both
+break on the clock: the page after midnight, the meeting point after the first
+day.
+
+## [v1] — 2026-11-07 — the first iteration
+
+Everything in **[v1 · base]** below, plus the October review's fixes.
 
 ### Added
 - Tapping the day widget during the trip opens tonight's page, or tonight's
@@ -170,7 +398,7 @@ change gets its own line under **Unreleased**.
 - A document being edited no longer reverts to the saved one after the vault
   re-locks and unlocks.
 
-## [1.0 (build 1)] — 2026-10-12 — first commit
+## [v1 · base: 1.0 (build 1)] — 2026-10-12 — first commit
 
 The version Xcode carries (`MARKETING_VERSION 1.0`, build 1). Never submitted
 to the App Store; run on the simulator and on a device through a free personal
@@ -308,29 +536,6 @@ team.
 
 ## Known issues
 
-From a screen-by-screen review on 12 October 2026. **Must** means it breaks
-something the app promises; **should** means it is wrong or rough, but nothing
-is lost.
-
-### Everywhere
-- **Should:** location copy still says it is only read in Separated. Moments,
-  pins, the trail and the arrival nudge read it too.
-- **Should:** toggling a feature re-stamps the shared settings, so a local
-  switch can override the other phone's budget change.
-- **Should:** "1 nights", "1 days" and "1 places" in a few places.
-
-### Trail
-- **Should:** a typed stop the city list doesn't know (a camp, a village under
-  15,000 people) still has no position until somebody stands in it.
-
-### Money
-- **Should:** the rates are today's, so the home-money column of the CSV and
-  every converted figure move with the rate rather than recording what a line
-  cost the day it was spent.
-- **Should:** with sync on, nothing tells the other phone a settlement is
-  waiting; "Check for X's answer" only looks again.
-
-### Papers and Separated
-- **Should:** a meeting point whose "Which bit of it" starts with a capital
-  reads "Go to the Second floor" on Separated.
-
+Moved into **[v1.1] — to-do** at the top of this file. The October review's
+three open items are there, marked "carried over"; the rest of that review was
+fixed in v1.

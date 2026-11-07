@@ -153,7 +153,8 @@ only if usage data shows people reaching for the phone specifically for those.
 |---|---|---|---|
 | **1 · Make it real** | ~8 | ✅ Sync engine, editable itinerary, photos, maps, encrypted scans, location | Two people *could* take it on a trip — once 2.0 lands |
 | **2 · Worth opening** | ~9 | ✅ The evening ritual, the book, multi-trip, the writing side, smarter money, pairing (unrun) · ⛔ real CloudKit | It survives week five and ends properly — for one phone |
-| **2.6 · Review fixes** | ~2 | ⛔ The known issues in the changelog | The ledger and the journal can be trusted on a real trip |
+| **2.6 · Review fixes** | ~2 | ✅ The October review (shipped as v1) | The ledger and the journal can be trusted on a real trip |
+| **v1.1 · November review** | ~2 | ⛔ The to-do list at the top of the changelog | The nightly page and the meeting point survive the clock |
 | **2.5 · The travellers' trail** | — | ✅ Editable waypoints, moments, the book's last section · ✅ marking from anywhere, the explorable map, "you are here", undo, grouping | A blank trip can have a trail; spontaneous things get kept, in seconds |
 | **3 · Worth trying** | — | Peer sync, voice, search, postcards | Prototype first |
 
