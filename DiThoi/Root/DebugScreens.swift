@@ -78,6 +78,58 @@ enum DebugScreen {
         ProcessInfo.processInfo.arguments.contains("-noBudget")
     }
 
+    /// `-featuresOff sharedLedger,nightlyPage` switches those features off
+    /// after the seeds, so Today without the ledger or the page can be
+    /// photographed. The names are `TripFeatures`' own.
+    static var featuresOff: Set<String> {
+        Set((value(for: "-featuresOff") ?? "").split(separator: ",").map(String.init))
+    }
+
+    @MainActor
+    static func applyFeaturesOff(to store: TripStore) {
+        let off = featuresOff
+        guard !off.isEmpty else { return }
+        var features = store.features
+        if off.contains("letters") { features.letters = false }
+        if off.contains("nightlyPage") { features.nightlyPage = false }
+        if off.contains("stamps") { features.stamps = false }
+        if off.contains("printedBooks") { features.printedBooks = false }
+        if off.contains("sharedLedger") { features.sharedLedger = false }
+        store.features = features
+    }
+
+    /// `-seedPreTrip` files €1,240 of flights twenty days before departure —
+    /// the line that put every trip "nine days behind the burn" on day 1.
+    static var wantsPreTrip: Bool {
+        ProcessInfo.processInfo.arguments.contains("-seedPreTrip")
+    }
+
+    @MainActor
+    static func seedPreTrip(into store: TripStore) {
+        guard !store.spending.contains(where: { store.dayNumber(for: $0.date) < 1 }) else { return }
+        store.add(Expense(date: store.expenseDate(forDay: -20), amount: 1_240,
+                          currency: store.homeCurrency, payer: .one, split: .evenly,
+                          note: "Flights", country: store.expenseCountry(forDay: -20)))
+    }
+
+    /// `-meetingDaysAgo 3` pins Wat Phra Singh and dates it three days back,
+    /// so a stale meeting point can be photographed: with `-day 14` it is the
+    /// same stop on an earlier day; with `-day 30` it is another stop.
+    static var meetingDaysAgo: Int? { value(for: "-meetingDaysAgo").flatMap(Int.init) }
+
+    /// `-clock 00:40` makes it that time today, so the small hours — when
+    /// tonight's page is last night's — can be photographed without staying
+    /// up for them. Read once, at launch, by `DiThoiApp`.
+    static var clock: () -> Date {
+        guard let text = value(for: "-clock") else { return { Date() } }
+        let parts = text.split(separator: ":").compactMap { Int($0) }
+        guard parts.count == 2,
+              let target = Calendar.trip.date(bySettingHour: parts[0], minute: parts[1], second: 0, of: Date())
+        else { return { Date() } }
+        let offset = target.timeIntervalSince(Date())
+        return { Date().addingTimeInterval(offset) }
+    }
+
     @MainActor
     static func seedLetters(into store: TripStore) {
         guard store.letters.isEmpty else { return }
@@ -851,6 +903,12 @@ struct DebugScreenHost: View {
             if DebugScreen.wantsSpending { DebugScreen.seedSpending(into: store) }
             if DebugScreen.wantsLetters { DebugScreen.seedLetters(into: store) }
             if DebugScreen.wantsNoBudget { store.budget = 0 }
+            if DebugScreen.wantsPreTrip { DebugScreen.seedPreTrip(into: store) }
+            if let days = DebugScreen.meetingDaysAgo {
+                DebugScreen.seedPinnedMeetingPoint(into: store)
+                store.backdateMeetingPoint(byDays: days)
+            }
+            DebugScreen.applyFeaturesOff(to: store)
             if DebugScreen.wantsJournal {
                 DebugScreen.nameTheTravellers(in: store)
                 if DebugScreen.wantsItinerary { DebugScreen.seedWaypoints(into: store) }
@@ -890,6 +948,10 @@ struct DebugScreenHost: View {
         case "today":
             // B1 as itself, without walking onboarding to reach it.
             MainTabs(initialTab: .today)
+        case "money":
+            // The Money tab, which CLAUDE.md's own example launches. It had no
+            // route, so `-seedPreTrip` could only be photographed by tapping.
+            MainTabs(initialTab: .money)
         case "todayother":
             // G1 · the traveller the letters aren't for. `adopt` is what empties
             // the letterbox, so this is the real state and not a hidden one.

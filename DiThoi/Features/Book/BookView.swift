@@ -205,6 +205,10 @@ struct BookView: View {
         var heading: String?
     }
 
+    /// The night a page written now is filed under — `nightDay`, the same
+    /// night the composer opens on.
+    private var tonight: Int { store.nightDay ?? store.dayNumber }
+
     private var timeline: [Row] {
         let entries = store.myEntries
         let legs = store.legs
@@ -219,7 +223,9 @@ struct BookView: View {
         }
         var rows: [Row] = []
         var previous: UUID?
-        for day in stride(from: store.dayNumber, through: 1, by: -1) {
+        // From tonight's night down: in the small hours that is last night,
+        // and the new day has no row until its evening.
+        for day in stride(from: tonight, through: 1, by: -1) {
             let here = leg(forDay: day)
             let heading = here != nil && here?.id != previous ? here?.country : nil
             previous = here?.id
@@ -231,7 +237,7 @@ struct BookView: View {
     @ViewBuilder
     private func entryRow(_ row: Row) -> some View {
         Button {
-            if row.day == store.dayNumber && row.entry == nil {
+            if row.day == tonight && row.entry == nil {
                 writing = true
             } else if let entry = row.entry {
                 editing = entry
@@ -257,7 +263,7 @@ struct BookView: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Mono("Day \(row.day)\(cityFragment(row))", size: 9.5, trackingRatio: 0.1,
-                         color: row.entry == nil ? Palette.n500 : (row.day == store.dayNumber ? Palette.a700 : Palette.n600))
+                         color: row.entry == nil ? Palette.n500 : (row.day == tonight ? Palette.a700 : Palette.n600))
 
                     if let entry = row.entry, !entry.line.isEmpty {
                         Text(entry.line)
@@ -265,7 +271,7 @@ struct BookView: View {
                             .foregroundStyle(Palette.text)
                             .lineSpacing(2)
                             .multilineTextAlignment(.leading)
-                    } else if row.day == store.dayNumber {
+                    } else if row.day == tonight {
                         Aside(text: "Not written yet. One photo, one line.", size: 12.5)
                     } else {
                         Aside(text: "Skipped. Add it later if you feel like it.", size: 12.5, color: Palette.n600)

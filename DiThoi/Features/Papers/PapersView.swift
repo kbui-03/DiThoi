@@ -35,12 +35,27 @@ struct PapersView: View {
         let sentence = detail.isEmpty
             ? nil
             : "\(detail.prefix(1).uppercased() + detail.dropFirst())."
-        // `.distantPast` is the blank trip's seed, not a time of day.
-        let agreed = store.meeting.setAt > .distantPast
-            ? "Agreed at \(store.meeting.setAt.text("HH:mm"))."
-            : nil
+        // `.distantPast` is the blank trip's seed, not a time of day. A point
+        // from an earlier night says when, and asks.
+        let agreed: String?
+        if let when = store.meetingAgreedWhen(withOn: true) {
+            agreed = "Agreed \(when) — still right?"
+        } else if store.meeting.setAt > .distantPast {
+            agreed = "Agreed at \(store.meeting.setAt.text("HH:mm"))."
+        } else {
+            agreed = nil
+        }
         let parts = [sentence, agreed].compactMap { $0 }
         return parts.isEmpty ? nil : parts.joined(separator: " ")
+    }
+
+    /// Under "Nothing agreed": with a point from another stop, which one it
+    /// was, so nobody wonders where it went — but never as the point.
+    private var notAgreedLine: String {
+        let ask = "Pick somewhere you can both walk to on Today, and it shows up here for whoever is holding the phone."
+        guard case .elsewhere(let was, _) = store.meetingStanding else { return ask }
+        let when = store.meetingAgreedWhen(withOn: true).map { ", \($0)" } ?? ""
+        return "The last one was \(store.meeting.place), in \(was)\(when). \(ask)"
     }
 
     var body: some View {
@@ -63,7 +78,7 @@ struct PapersView: View {
                     // `.distantPast` rendered as a time somebody chose. Both
                     // halves of the same mistake: copy built from a value that
                     // exists without being an answer.
-                    if store.meeting.isSet {
+                    if store.hasCurrentMeetingPoint {
                         Text(store.meeting.place)
                             .font(Typeface.heading(20, .semibold))
                             .foregroundStyle(Palette.text)
@@ -98,12 +113,11 @@ struct PapersView: View {
                         }
                         .padding(.top, Space.s3)
                     } else {
-                        Text("Nothing agreed yet")
+                        Text(store.meeting.isSet ? "Nothing agreed in \(store.meetingHere) yet" : "Nothing agreed yet")
                             .font(Typeface.heading(20, .semibold))
                             .foregroundStyle(Palette.text)
                             .padding(.top, 5)
-                        Aside(text: "Pick somewhere you can both walk to on Today, and it shows up here for whoever is holding the phone.",
-                              size: 12)
+                        Aside(text: notAgreedLine, size: 12)
                             .padding(.top, 5)
                         // Offered for the emergency numbers and the two
                         // phrases, which are no less use on a night nobody
@@ -183,6 +197,15 @@ struct PapersView: View {
                             .padding(.top, Space.s2)
                     }
                 }
+
+                // The promise sits under the thing it is about. It used to
+                // close the whole screen, under the meeting point and the
+                // show-this cards — both on `SyncPayload`, so both leave the
+                // phone the moment sync is on. Documents and their scans are
+                // the one part of Papers that never does.
+                Aside(text: "Stored on this phone only. Never uploaded, never in anyone's cloud — including the one at home.",
+                      size: 11.5, color: Palette.n600)
+                    .padding(.top, Space.s2)
 
                 SectionRule()
 
@@ -319,10 +342,6 @@ struct PapersView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-
-                SectionRule()
-
-                Aside(text: "Stored on the phone only. Never uploaded, never in anyone's cloud — including the one at home.", size: 12)
             }
             // The cards themselves, one tap from the tab, full brightness, no
             // list in between.

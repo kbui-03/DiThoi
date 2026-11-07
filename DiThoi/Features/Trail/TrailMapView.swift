@@ -24,7 +24,7 @@ struct TrailMapView: View {
 
     private var canMark: Bool { !isReadOnly && store.isLive && !store.isObserver }
 
-    private var here: CLLocation? { canMark ? store.location.current.flatMap(TrailView.fresh) : nil }
+    private var here: CLLocation? { canMark ? store.location.freshFix(at: store.now) : nil }
 
     private var hasMarks: Bool {
         store.orderedStamps.contains(where: \.hasLocation) || store.orderedMoments.contains(where: \.hasLocation)

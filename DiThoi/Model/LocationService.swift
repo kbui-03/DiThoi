@@ -96,6 +96,35 @@ final class LocationService: NSObject, ObservableObject {
         manager.requestLocation()
     }
 
+    // MARK: - How old a fix is
+
+    /// Fifteen minutes. A position is a claim about now, and one without its
+    /// age pretends to be current. Every reader goes through this — the trail,
+    /// the map, the arrival nudge, the moment composer and `arrive(at:)` — so
+    /// nothing written down for good is pinned to wherever the phone last was.
+    ///
+    /// The composer and the stamp used to read `current` raw, so a moment kept
+    /// with no new fix landed hours back down the road, and a stamp's position
+    /// — which syncs, and never changes again — could be another town's.
+    static let freshness: TimeInterval = 15 * 60
+
+    /// Measured against the caller's clock, not `Date()`: the store's `now`
+    /// is the clock, and the checks move it.
+    static func isFresh(_ fix: CLLocation, at now: Date) -> Bool {
+        now.timeIntervalSince(fix.timestamp) < freshness
+    }
+
+    /// The last fix, if it is recent enough to stand for where they are now.
+    func freshFix(at now: Date) -> CLLocation? {
+        current.flatMap { Self.isFresh($0, at: now) ? $0 : nil }
+    }
+
+    /// Takes a fix as though Core Location had just delivered it. The
+    /// delegate's path, and the checks' way in.
+    func record(_ fix: CLLocation) {
+        current = fix
+    }
+
     // MARK: - Distances
 
     func distance(toLatitude latitude: Double, longitude: Double) -> Measurement<UnitLength>? {
@@ -117,7 +146,7 @@ extension LocationService: @preconcurrency CLLocationManagerDelegate {
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         Task { @MainActor in
             guard let newest = locations.last else { return }
-            current = newest
+            record(newest)
         }
     }
 

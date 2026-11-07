@@ -21,7 +21,11 @@ struct DiThoiApp: App {
         if DebugScreen.wantsReset { DebugScreen.reset() }
         #endif
         Storage.sweepStrayLoopbackFiles()
+        #if DEBUG
+        _store = StateObject(wrappedValue: TripStore(clock: DebugScreen.clock))
+        #else
         _store = StateObject(wrappedValue: TripStore())
+        #endif
     }
 
     var body: some Scene {

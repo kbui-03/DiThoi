@@ -1339,14 +1339,117 @@ final class TripStore: ObservableObject {
     /// interpolation it read "set at The bridge's  if you lose each other"
     /// whenever "Which bit of it" was left empty — the possessive belongs to
     /// the detail, not to the line.
+    ///
+    /// A point from an earlier night is still the point, and asks whether it
+    /// still is; one from another stop isn't offered at all. It used to say
+    /// "set at Wat Phra Singh" three days and one country later.
     var meetingLine: String {
-        guard meeting.isSet else {
-            return "No meeting point yet. Pick somewhere you can both walk to if the phones die."
-        }
         let place = meeting.place.trimmingCharacters(in: .whitespacesAndNewlines)
         let detail = meeting.detail.trimmingCharacters(in: .whitespacesAndNewlines)
         let spot = detail.isEmpty ? place : "\(place)'s \(detail)"
-        return "Meeting point set at \(spot) if you lose each other."
+        switch meetingStanding {
+        case .none:
+            return "No meeting point yet. Pick somewhere you can both walk to if the phones die."
+        case .tonight:
+            return "Meeting point set at \(spot) if you lose each other."
+        case .earlier:
+            let since = meetingAgreedWhen(withOn: false) ?? "before"
+            return "Since \(since) the meeting point has been \(spot). Still right for tonight?"
+        case .elsewhere(let was, _):
+            return "No meeting point in \(meetingHere) yet — the last one was in \(was). Pick somewhere you can both walk to if the phones die."
+        }
+    }
+
+    // MARK: - How old the meeting point is
+
+    /// Where tonight's meeting point stands against where they are now.
+    enum MeetingStanding: Equatable {
+        /// Nobody has agreed one.
+        case none
+        /// Agreed tonight — today, or in the small hours, last night.
+        case tonight
+        /// Agreed on an earlier night in this same stop. Still the point, and
+        /// worth a "still right?".
+        case earlier(nights: Int)
+        /// Agreed in another stop. Not the point any more: nobody is walking
+        /// 600 km to a temple gate.
+        case elsewhere(was: String, nights: Int)
+    }
+
+    /// The trip day a moment belongs to, counting the small hours as the
+    /// night before — `nightDay`'s rule, unclamped. A point agreed at 23:00 is
+    /// still tonight's at 01:00, and the morning after is a new day.
+    func night(of date: Date) -> Int {
+        let day = Calendar.trip.days(from: start, to: date) + 1
+        return Calendar.trip.component(.hour, from: date) < RitualClock.nightEndsHour ? day - 1 : day
+    }
+
+    /// Worked out from `setAt` and the itinerary, so nothing new rides on the
+    /// payload: the date is already synced and already moved by `TripShift`.
+    ///
+    /// Stops are compared only once a night has passed. A point agreed this
+    /// morning in a place the plan says they reach tomorrow is tonight's
+    /// point; the plan is the thing that's out of date. Where either night has
+    /// no stop to compare (no itinerary, or set before departure) it is the
+    /// same place, since the app can't say otherwise.
+    var meetingStanding: MeetingStanding {
+        guard meeting.isSet else { return .none }
+        let thenNight = night(of: meeting.setAt)
+        let nowNight = night(of: now)
+        let nights = nowNight - thenNight
+        guard nights > 0 else { return .tonight }
+        let thenStop = thenNight >= 1 ? lastKnownSegment(forDay: min(thenNight, dayCount)) : nil
+        let nowStop = lastKnownSegment(forDay: min(max(nowNight, 1), dayCount))
+        if let thenStop, let nowStop, thenStop.id != nowStop.id {
+            return .elsewhere(was: thenStop.primaryPlace, nights: nights)
+        }
+        return .earlier(nights: nights)
+    }
+
+    /// A meeting point that is still somewhere to go: agreed, and in this
+    /// stop. What Papers and Separated send somebody to.
+    var hasCurrentMeetingPoint: Bool {
+        switch meetingStanding {
+        case .tonight, .earlier: true
+        case .none, .elsewhere: false
+        }
+    }
+
+    /// Whether the point is from an earlier night and worth a "still right?".
+    var meetingNeedsConfirming: Bool {
+        if case .earlier = meetingStanding { return true }
+        return false
+    }
+
+    /// When an earlier point was agreed: "yesterday", "Tuesday" (or "on
+    /// Tuesday"), "12 Jul" ("on 12 Jul"). Nil for tonight's, and for none.
+    func meetingAgreedWhen(withOn: Bool) -> String? {
+        let nights: Int
+        switch meetingStanding {
+        case .earlier(let n): nights = n
+        case .elsewhere(_, let n): nights = n
+        case .none, .tonight: return nil
+        }
+        if nights == 1 { return "yesterday" }
+        let date = nights < 7 ? meeting.setAt.text("EEEE") : meeting.setAt.text("d MMM")
+        return withOn ? "on \(date)" : date
+    }
+
+    /// The small line under the meeting point on Today: "set 08:12", or
+    /// "set yesterday · still right?". Nil with no point, and from another
+    /// stop, where the title says what there is to say.
+    var meetingSetLine: String? {
+        switch meetingStanding {
+        case .tonight: return "set \(meeting.setAt.text("HH:mm"))"
+        case .earlier: return "set \(meetingAgreedWhen(withOn: true) ?? "earlier") · still right?"
+        case .none, .elsewhere: return nil
+        }
+    }
+
+    /// Where "here" is, for "No meeting point in Hanoi yet".
+    var meetingHere: String {
+        let city = cityStamp(forDay: min(max(night(of: now), 1), dayCount))
+        return city.isEmpty ? "here" : city
     }
 
     // MARK: - Money
@@ -1360,14 +1463,46 @@ final class TripStore: ObservableObject {
     var budgetFraction: Double { budget > 0 ? min(spentHome / budget, 1) : 0 }
     var daysLeft: Int { max(dayCount - dayNumber + 1, 1) }
     var dailyAllowanceHome: Double { remainingHome / Double(daysLeft) }
+    /// What the budget allows a day, before anything is spent. Setup's
+    /// figure. The pace uses `pacePerDay`, which takes the bookings out.
     var budgetPerDay: Double { budget / Double(max(dayCount, 1)) }
 
-    /// Where the burn should be if they were spending evenly.
-    var paceHome: Double { budgetPerDay * Double(dayNumber) }
+    // MARK: Before they left
 
+    /// Flights, visas and deposits: everything filed before day 1.
+    ///
+    /// These count against the budget — the headline and the bar include
+    /// them — but not against the pace. Counted in the burn, €1,240 of
+    /// flights put a trip "nine days behind" on its first morning and kept it
+    /// there for weeks, for money spent before anybody left.
+    var spentBeforeDepartureHome: Double {
+        spending.filter { dayNumber(for: $0.date) < 1 }.reduce(0) { $0 + inHome($1) }
+    }
+
+    /// Everything spent from day 1 on.
+    var spentOnTripHome: Double { max(spentHome - spentBeforeDepartureHome, 0) }
+
+    /// What a day is worth once the bookings are paid for: the rest of the
+    /// budget across every day of the trip. Nought with no budget, or when
+    /// the bookings have used it all.
+    var pacePerDay: Double {
+        guard hasBudget else { return 0 }
+        return max(budget - spentBeforeDepartureHome, 0) / Double(max(dayCount, 1))
+    }
+
+    /// Whether what was spent before leaving is the whole budget already.
+    var bookingsUsedTheBudget: Bool {
+        hasBudget && spentBeforeDepartureHome >= budget
+    }
+
+    /// Where the burn should be if they were spending evenly.
+    var paceHome: Double { pacePerDay * Double(dayNumber) }
+
+    /// Days ahead of the burn (negative: behind), counting only what was
+    /// spent on the trip against `pacePerDay`.
     var paceDaysAhead: Int {
-        guard budgetPerDay > 0 else { return 0 }
-        return Int(((paceHome - spentHome) / budgetPerDay).rounded())
+        guard pacePerDay > 0 else { return 0 }
+        return Int(((paceHome - spentOnTripHome) / pacePerDay).rounded())
     }
 
     func expenses(onDay day: Int) -> [Expense] {
@@ -1448,7 +1583,7 @@ final class TripStore: ObservableObject {
             figure = nil
         }
         guard budget > 0 else { return figure }
-        let verdict = home <= budgetPerDay ? "under pace" : "over pace"
+        let verdict = home <= pacePerDay ? "under pace" : "over pace"
         return [figure, verdict].compactMap { $0 }.joined(separator: " · ")
     }
 
@@ -1725,33 +1860,60 @@ final class TripStore: ObservableObject {
     /// The line under it. Against a budget, how far ahead of the burn they
     /// are; with none, what a day has cost so far, since "exactly on the
     /// burn" against a budget of nothing was the one verdict it could reach.
+    ///
+    /// Before departure there is no day to be on and no burn to be ahead of:
+    /// `dayNumber` clamps to 1, so it read "Day 1 of 61 — nine days behind
+    /// the burn" a fortnight early. It says how long is left, and what the
+    /// bookings leave a day for.
     var burnLine: String {
+        if isBeforeDeparture { return notYetLine }
         let day = "Day \(dayNumber) of \(dayCount)"
         guard hasBudget else {
-            guard spentHome > 0 else { return "\(day) · nothing spent yet." }
-            return "\(day) · \(homeTextRounded(spentHome / Double(max(dayNumber, 1)))) a day so far."
+            guard spentOnTripHome > 0 else { return "\(day) · nothing spent yet." }
+            return "\(day) · \(homeTextRounded(spentOnTripHome / Double(max(dayNumber, 1)))) a day so far."
         }
+        if bookingsUsedTheBudget { return "\(day) — what you booked before leaving used the whole budget." }
         let ahead = paceDaysAhead
         if ahead > 0 { return "\(day) — \(Formatting.spelledCount(ahead, "day", spellingUpTo: 0)) ahead of the burn." }
         if ahead < 0 { return "\(day) — \(Formatting.spelledCount(-ahead, "day", spellingUpTo: 0)) behind the burn." }
         return "\(day) — exactly on the burn."
     }
 
+    /// Money's line before day 1: "Not yet · 12 days to go." and, with a
+    /// budget, what a day is worth once they're there.
+    private var notYetLine: String {
+        let toGo = 1 - trueDayNumber
+        let head = "Not yet · \(Formatting.spelledCount(toGo, "day", spellingUpTo: 0)) to go."
+        let booked = spentBeforeDepartureHome
+        guard hasBudget else {
+            return booked > 0 ? "\(head) \(homeTextRounded(booked)) booked before you leave." : head
+        }
+        if bookingsUsedTheBudget {
+            return "\(head) What you've booked already uses the whole budget."
+        }
+        let perDay = homeTextRounded(pacePerDay)
+        guard booked > 0 else { return "\(head) \(perDay) a day once you're there." }
+        return "\(head) \(homeTextRounded(booked)) booked before you leave, so \(perDay) a day once you're there."
+    }
+
     /// The add-expense sheet's "Is this cheap?" — this amount against what a
     /// day is worth. Nil with no budget, and the panel goes with it; it drew
     /// as an empty box.
     func budgetComparison(forHome home: Double) -> String? {
-        guard home > 0, hasBudget else { return nil }
+        // Nil, too, once the bookings have used the budget: there is no day's
+        // worth left to be a share of.
+        guard home > 0, hasBudget, pacePerDay > 0 else { return nil }
         // Everything is priced against the budget they set, so the verdict
-        // means something different for a €2,000 trip than a €9,000 one.
-        let share = home / budgetPerDay
+        // means something different for a €2,000 trip than a €9,000 one —
+        // after the flights, which were never a day's spending.
+        let share = home / pacePerDay
         if share < 0.1 {
             return "Under a tenth of a day's budget."
         }
         if share < 1 {
-            return "About \(Int((share * 100).rounded()))% of a day's budget — \(homeTextRounded(budgetPerDay)) is what a day is worth on this trip."
+            return "About \(Int((share * 100).rounded()))% of a day's budget — \(homeTextRounded(pacePerDay)) is what a day is worth on this trip."
         }
-        return "That's \(String(format: "%.1f", share)) days of budget, at \(homeTextRounded(budgetPerDay)) a day."
+        return "That's \(String(format: "%.1f", share)) days of budget, at \(homeTextRounded(pacePerDay)) a day."
     }
 
     /// Whether Money should offer to set a budget: none set, a traveller's
@@ -2776,7 +2938,9 @@ final class TripStore: ObservableObject {
         // the map and adds nothing to the distance. Standing in it is the one
         // moment the phone can answer that, and it only ever fills a blank: a
         // waypoint that arrived with a coordinate keeps the one it came with.
-        if !stamps[index].hasLocation, let fix = location.current?.coordinate {
+        // A fresh fix only: this position syncs and never changes again, and
+        // the phone's last one can be hours and a town back.
+        if !stamps[index].hasLocation, let fix = location.freshFix(at: now)?.coordinate {
             stamps[index].latitude = fix.latitude
             stamps[index].longitude = fix.longitude
         }
@@ -2840,14 +3004,36 @@ final class TripStore: ObservableObject {
         meetingPlaces = meetingPlaces.remembering(chosen)
     }
 
+    /// "Still here": the point from an earlier night is tonight's again.
+    ///
+    /// The same write as choosing it, so it re-stamps `setAt` and syncs as
+    /// any other choice does — the merge already takes the newer point. The
+    /// observer sets no meeting point, so confirms none either.
+    func confirmMeetingPoint() {
+        guard !isObserver, isLive, meeting.isSet else { return }
+        setMeetingPoint(meeting)
+    }
+
+    #if DEBUG
+    /// `-meetingDaysAgo`: moves tonight's point back by whole days, so the
+    /// stale states can be photographed without waiting for them.
+    func backdateMeetingPoint(byDays days: Int) {
+        guard meeting.isSet else { return }
+        var value = meeting
+        value.setAt = TripShift.move(value.setAt, by: -days)
+        meetingPoint = StampedMeetingPoint(value: value, updatedAt: meetingPoint.updatedAt,
+                                           setBy: meetingPoint.setBy)
+    }
+    #endif
+
     /// How far they are from tonight's meeting point, if the phone knows both.
     var distanceToMeetingPoint: Measurement<UnitLength>? {
-        guard meeting.hasLocation else { return nil }
+        guard hasCurrentMeetingPoint, meeting.hasLocation else { return nil }
         return location.distance(toLatitude: meeting.latitude, longitude: meeting.longitude)
     }
 
     var bearingToMeetingPoint: String? {
-        guard meeting.hasLocation else { return nil }
+        guard hasCurrentMeetingPoint, meeting.hasLocation else { return nil }
         return location.compassDirection(toLatitude: meeting.latitude, longitude: meeting.longitude)
     }
 
@@ -2864,13 +3050,40 @@ final class TripStore: ObservableObject {
     /// was "12 pages" in the Book tab's corner over a row saying "34 pages".
     var nightsWritten: Int { myEntries.count }
 
-    var todaysEntry: JournalEntry? {
-        myEntries.first { $0.dayNumber == dayNumber }
+    /// The night a page written now belongs to: today, or — before 05:00 —
+    /// yesterday. Nil before the first night has begun, which includes the
+    /// small hours of day 1.
+    ///
+    /// The composer used to file to `dayNumber`, read when Done was tapped,
+    /// and that turns over at midnight: a page started at 23:55 and saved at
+    /// 00:05, or opened from the reminder at 00:30, became tomorrow's. The
+    /// reminder's own clock already said "a page written at 00:20 is last
+    /// night's" (`RitualClock.nightEndsHour`); now the page agrees with it.
+    ///
+    /// Only the page moves. The date on Today, the reminder's schedule and
+    /// everything else stay on the calendar day.
+    var nightDay: Int? {
+        let night = self.night(of: now)
+        guard night >= 1 else { return nil }
+        return min(night, dayCount)
     }
 
+    /// Whether it is the small hours, and tonight's page is last night's.
+    var isWritingLastNight: Bool {
+        nightDay.map { $0 < dayNumber } ?? false
+    }
+
+    /// This phone's page for tonight — the night `nightDay` names.
+    var tonightsEntry: JournalEntry? {
+        guard let night = nightDay else { return nil }
+        return myEntries.first { $0.dayNumber == night }
+    }
+
+    /// Nights before tonight with no page. Tonight isn't missed yet, and in
+    /// the small hours tonight is last night.
     var missedNights: Int {
         let written = Set(myEntries.map(\.dayNumber))
-        return (1..<dayNumber).filter { !written.contains($0) }.count
+        return (1..<(nightDay ?? dayNumber)).filter { !written.contains($0) }.count
     }
 
     /// Takes a page out of the book. The photograph is left to
@@ -2922,7 +3135,7 @@ final class TripStore: ObservableObject {
 
         // Only tonight's page teaches the clock. Backfilling day 35 at
         // lunchtime says nothing about when this person writes.
-        if entry.dayNumber == dayNumber, entry.author == role {
+        if entry.dayNumber == nightDay, entry.author == role {
             ritualClock.observe(now)
         }
         if let index = journal.firstIndex(where: { $0.dayNumber == entry.dayNumber && $0.author == entry.author }) {
@@ -3073,7 +3286,10 @@ final class TripStore: ObservableObject {
             ritual.cancelAll()
             return
         }
-        guard todaysEntry == nil, let fire = tonightsPromptTime else {
+        // The calendar day, not `nightDay`: at 00:30 the page being written is
+        // last night's, and tonight — this evening — still wants its prompt.
+        let writtenToday = myEntries.contains { $0.dayNumber == dayNumber }
+        guard !writtenToday, let fire = tonightsPromptTime else {
             // Written already, or the trip is over. Tomorrow, then.
             guard let tomorrow = Calendar.trip.date(byAdding: .day, value: 1, to: now),
                   dayNumber < dayCount,
@@ -3092,7 +3308,7 @@ final class TripStore: ObservableObject {
     /// about. Nil almost always.
     var backfillCandidate: Int? {
         guard features.nightlyPage, isLive else { return nil }
-        return backfill.candidate(today: dayNumber, writtenDays: Set(myEntries.map(\.dayNumber)))
+        return backfill.candidate(today: nightDay ?? dayNumber, writtenDays: Set(myEntries.map(\.dayNumber)))
     }
 
     /// Asked once. Either answer retires the day for good.
@@ -3164,7 +3380,7 @@ final class TripStore: ObservableObject {
     /// the two phrases from the night nobody had agreed one. With neither, the
     /// screen would be a headline over nothing, so it isn't offered.
     var canStartSeparated: Bool {
-        meeting.isSet || CountryFacts.lookup(currentCountry) != nil
+        hasCurrentMeetingPoint || CountryFacts.lookup(currentCountry) != nil
     }
 
     func startSeparated() {
@@ -3180,7 +3396,9 @@ final class TripStore: ObservableObject {
     /// point changes, because the other phone can pin it mid-separation, and
     /// on the way back into the screen after a relaunch.
     func followMeetingPointIfPinned() {
-        guard isSeparated, meeting.hasLocation else {
+        // Not towards a point in another stop: that was a distance of 600 km
+        // to a gate in the last city, measured all night.
+        guard isSeparated, hasCurrentMeetingPoint, meeting.hasLocation else {
             if location.isTracking { location.stop() }
             return
         }

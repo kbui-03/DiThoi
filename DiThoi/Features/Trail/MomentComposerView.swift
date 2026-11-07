@@ -249,8 +249,11 @@ struct MomentComposerView: View {
 
     // MARK: - What the phone knows
 
+    /// A fresh fix only. The last one the phone had can be hours old and a
+    /// town back, and a moment kept on it is pinned there for good — under
+    /// "The phone has your position".
     private var fix: CLLocationCoordinate2D? {
-        store.location.current?.coordinate
+        store.location.freshFix(at: store.now)?.coordinate
     }
 
     private var positionLine: String {

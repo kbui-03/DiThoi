@@ -46,7 +46,7 @@ DiThoiWidget/      WidgetBundle, DayWidget (timeline), MarkMomentControl (iOS 18
 docs/              README, architecture, expansion, CHANGELOG; archive/
 Tools/             run-checks.sh, CheckTrip.swift, VerifyTrip.swift,
                    render-icons.sh, RenderIcons, build-cities.sh
-Screenshots/       138 files: every screen, most at 3 text sizes
+Screenshots/       113 files: most screens, some at AX sizes
 ```
 
 About 33k lines of Swift, no third-party dependencies. Not every model rule is in a
@@ -55,7 +55,7 @@ check: `Features/` and `Root/` aren't compiled by the checks.
 ## Before you change anything
 
 ```bash
-./Tools/run-checks.sh          # 1,745 model assertions, macOS, no simulator
+./Tools/run-checks.sh          # 1,792 model assertions, macOS, no simulator
 ./Tools/render-icons.sh        # regenerates the icon set and re-tests actool
 ```
 
@@ -64,7 +64,8 @@ check: `Features/` and `Root/` aren't compiled by the checks.
 - Reach any screen with `xcrun simctl launch <device> com.lovedones.dithoi
   -resetTrip -screen <route>`. There are 83 routes, plus `-day N` (zero or
   negative allowed), `-seedItinerary`, `-seedJournal`, `-seedSpending`,
-  `-seedLetters` (with `-openLetter`), `-noBudget` and `-planned`. The empty states are half of what there is to look at, which is
+  `-seedLetters` (with `-openLetter`), `-noBudget`, `-planned`, `-seedPreTrip`,
+  `-featuresOff a,b`, `-meetingDaysAgo N` and `-clock HH:mm`. The empty states are half of what there is to look at, which is
   why seeding is a flag, not a route. (§6.2)
 - **Take the screenshots.** Eleven rounds of fully green checks have sat over a
   screen that was wrong. (§6.3)
@@ -96,6 +97,8 @@ The general lessons behind them are §11; the debt kept on purpose is §7.
 - The widget gets one scalar-only key, `dithoi.widget.v1`, and never the trip.
   `Storage.defaults` stays `.standard`. (§8.8)
 - The imported PDF is opened in place and never copied. (§3.6)
+- Papers' "never uploaded" line sits under Documents, the only part of Papers
+  it is true of. The meeting point and the cards are on the payload. (§3.6)
 - The ledger CSV is handled as the book is: `Storage.exportDirectory`, cleared
   on share and on background, formula fields defused by `LedgerExport.field`.
   (§3.6)
@@ -226,7 +229,7 @@ The general lessons behind them are §11; the debt kept on purpose is §7.
 - The stamp's city is a choice among the stop's places. The drift escape hatch
   is for editing only. (§3.9)
 - `kilometresTravelled` skips positionless waypoints. `arrive(at:)` fills a
-  position only if something asked for one. (§3.9)
+  position only if something asked for one, and only from a fresh fix. (§3.9)
 
 ### Moments and the trail
 - `Moment` has no `author`, and none is needed. (§3.10)
@@ -246,6 +249,9 @@ The general lessons behind them are §11; the debt kept on purpose is §7.
   sentence is `MeetingPoint.fromHere`: "north-east of you". (§3.7)
 - Separated tracks only while the meeting point is pinned:
   `followMeetingPointIfPinned()`, on start, on change and on relaunch. (§3.7)
+- Every position goes through `LocationService.freshFix(at: now)`, 15 minutes.
+  The composer and `arrive(at:)` too: what they write down is kept for good.
+  (§3.7)
 - "You are here" never asks for permission: `requestOnceIfAllowed`, a fix under
   15 minutes old, live traveller trips only. (§3.7)
 - Arrival is suggested, never awarded. The nudge goes to Trail's own
@@ -272,6 +278,8 @@ The general lessons behind them are §11; the debt kept on purpose is §7.
 - Every panel that looks tappable is tappable and says so in words. A tappable
   `Panel` is pixel-identical to a dead one. (§5.1)
 - `RateStamp` is a `Button`; never nest it inside another. (§5.1)
+- A switched-off feature is off on Today: no spent column without
+  `sharedLedger`, no page row without `nightlyPage`. (§5.1)
 - "Today together" is drawn on every phone. The letter card sits above it, and
   the letters row never waits for a letter to open. (§5.1)
 - `meetingLine`, `paceNote` and `letterTally` are the store's, so their
@@ -293,6 +301,11 @@ The general lessons behind them are §11; the debt kept on purpose is §7.
 - There is one tonight's point and a `meetingPlaces` history, both synced. The
   merge unions the history and LWWs the point. (§3.11)
 - `MeetingPoint` has no id; `placeKey` is the identity. (§3.11)
+- A point goes stale by night and by stop: `meetingStanding` is tonight,
+  earlier (same stop, "still right?") or elsewhere (never offered). Derived
+  from `setAt`, never a payload field. Ask `hasCurrentMeetingPoint`, not
+  `isSet`, before sending somebody there. "Still here" is
+  `confirmMeetingPoint()`, the same write as choosing it. (§3.11)
 - The local script belongs to the place, not to the screen. (§3.11)
 - A pin belongs to the place, like the script: change "Where" and the pin is
   that place's or none. A pin is optional. (§3.11)
@@ -352,6 +365,9 @@ The general lessons behind them are §11; the debt kept on purpose is §7.
 - A line filed under another day is stamped through `expenseCountry(forDay:)`.
   An edit re-stamps only when its day changed. The sheet keeps today as `nil`.
   (§3.4)
+- Lines before day 1 count against the budget, not the pace. Judge against
+  `pacePerDay` and `spentOnTripHome`; `budgetPerDay` is setup's figure. Before
+  departure `burnLine` counts down and judges nothing. (§3.4)
 - No budget is no verdict on Money either: `moneyHeadline`, `burnLine`,
   `budgetComparison` and the forecast all ask `hasBudget`. `budgetNudgeShows`
   is this phone's, never on the payload, and stops at three. (§3.4)
@@ -451,6 +467,9 @@ The general lessons behind them are §11; the debt kept on purpose is §7.
   still be fixed. (§8.2)
 - `RitualClock` stores its zone and schedules by interval. It never touches
   `UNUserNotificationCenter` without permission. (§8.1)
+- A page is filed under `nightDay`: before `RitualClock.nightEndsHour` (05:00)
+  it is last night. The composer pins its night when it opens. Today's date and
+  the reminder stay on the calendar day. (§8.1)
 - `save(entry:)` replaces on `(dayNumber, author)`, and refuses a night that
   hasn't begun (`canWritePage(forDay:)`). Before departure the Book tab draws
   no rows. (§8.1)

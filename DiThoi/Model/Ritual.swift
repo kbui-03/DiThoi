@@ -38,6 +38,10 @@ struct RitualClock: Codable, Equatable {
     /// A fortnight is enough to have a habit and short enough to follow one
     /// that changes when the trip does.
     static let window = 14
+    /// Before this hour it is still last night. One number for the habit and
+    /// for which night a page is filed under (`TripStore.nightDay`): a page
+    /// written at 00:20 is last night's for both.
+    static let nightEndsHour = 5
 
     init(observations: [Int] = [], zoneID: String? = nil) {
         self.observations = observations
@@ -60,7 +64,7 @@ struct RitualClock: Codable, Equatable {
         // small hours count as a late evening rather than dragging the median
         // back to breakfast.
         let raw = hour * 60 + minute
-        observations.append(raw < 5 * 60 ? raw + 24 * 60 : raw)
+        observations.append(raw < Self.nightEndsHour * 60 ? raw + 24 * 60 : raw)
         if observations.count > Self.window { observations.removeFirst(observations.count - Self.window) }
     }
 
