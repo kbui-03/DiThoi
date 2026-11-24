@@ -14,6 +14,25 @@ and move its line into Added / Changed / Fixed under a v1.1 release heading.
 
 ## [v1.1] — unreleased
 
+### Added
+
+- **"Before you go" on Today, in the last week.** Under the itinerary, one
+  line each for Papers ("6 · passports not scanned"), the show-this cards,
+  the money (the budget and how many currencies) and the second phone, each
+  worked out from the trip and each the way to it: Papers and Money switch
+  tab, the second phone opens the Trip screen. Nothing is ticked by hand
+  (`departureLines`).
+- **"Same place as last night?" in the meeting point picker.** While
+  yesterday's point is still this stop's, it is one tap at the top ("keep
+  it", the same write as Today's "still here"). Remembered places are listed
+  by stop: "Here in Chiang Mai" first, then "Earlier on the trip", each with
+  its city. In a new stop the fields open empty instead of on the last
+  city's gate.
+- **Forgetting a meeting place.** Hold a remembered place and "Forget" it:
+  off the picker and the book's meeting pages on both phones, until somebody
+  agrees it again. A synced tombstone (`forgottenMeetingPlaces`), because the
+  history unions. Tonight's point can't be forgotten.
+
 ### Fixed
 
 - **A switched-off feature showed on Today.** With the shared ledger off the
@@ -63,6 +82,19 @@ and move its line into Added / Changed / Fixed under a v1.1 release heading.
   `LSApplicationCategoryType` stays, and the status bar is dark content again,
   on purpose: the app is locked to light paper, and Separated and the crop
   screen flip it themselves.
+- **"Today together" named the first hour, not the next.** At 6pm it still
+  said the 8am breakfast. It names the hour under way ("now", for an hour
+  after it starts), the next one ("next · 19:00"), or the evening's last
+  ("last tonight"), redrawn every minute (`todayTogether`).
+- **The letter card never left.** "A letter opened itself today" shows the
+  newest letter on the night it opened, small hours included
+  (`letterOfTheNight`), then only in the letters row.
+- **The header named the holder instead of the place.** Both phones say the
+  city; the name is left only where no stop covers today.
+- **The meeting point opened for editing on a read-only trip.** The column is
+  a door only where the trip is live, not read-only and not the observer's,
+  and `setMeetingPoint` refuses a closed trip and says so, so the picker's
+  success haptic plays only when the point was kept.
 
 ## [v1.1] — to-do
 
@@ -88,32 +120,9 @@ Items carried over from the v1 known issues say so.
   October shots still read "synced just now". Re-shoot every route
   (CLAUDE.md, §6.3). The Everywhere fixes added screens no shot has: the pin
   row's "Couldn't find you", Separated's "Can't find you", and Money, the
-  trail and Papers with their helper lines gone.
-
-### Today
-
-- [ ] **Should · "Today together" shows the first hour, not the next.** At
-  6pm it still names the 8am item. Show the next timed item, or the evening's
-  last one once the day is over.
-- [ ] **Should · The letter card never leaves.** "A letter opened itself here"
-  shows the newest opened letter on every day after it opened, pushing
-  "Today together" down for weeks. Show it on the day it opened (or until it
-  has been read), then only in the letters row.
-- [ ] **Should · The header names the holder instead of the place** on a phone
-  with no letters (`lettersVisible ? currentCity : myName`). Both travellers
-  are in the same city; both headers should say it.
-- [ ] **Should · The meeting point opens for editing on a read-only trip**
-  (the button isn't gated on `canAdd`), and saves with a success haptic into a
-  store that persists nothing.
-- [ ] **Nice · A real countdown.** Before departure Today has the first stop
-  and the itinerary. Add what is actually useful in the last week, each line a
-  link: documents in Papers (and whether the passport has a scan), show-this
-  cards written, the money set up, and the second phone paired. Each line is
-  computed, none is a checklist to tick.
-- [ ] **Nice · "Same place as last night?"** In the picker, offer yesterday's
-  point as one tap when the city hasn't changed, and the city's previous
-  points first. `meetingPlaces` grows for the whole trip and is never filtered
-  by city or trimmed; a remembered place can't be forgotten.
+  trail and Papers with their helper lines gone. The Today fixes are shot at
+  the default size only (`v11-today-*`, `v11-meetingpoint-*`): the countdown
+  and the picker's two lists still want an AX pass.
 
 ### Trail
 

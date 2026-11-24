@@ -203,6 +203,12 @@ struct MainTabs: View {
                 selection = .trail
             },
             answered: { arrivalAsked = nil }))
+        // Today's countdown links to Papers and Money. A tab that's switched
+        // off isn't there to go to, so the request is dropped.
+        .environment(\.openTab, OpenTab { tab in
+            guard tabs.contains(tab) else { return }
+            selection = tab
+        })
         .overlay(alignment: .top) { SyncNotices() }
         .background(Palette.bg.ignoresSafeArea())
         .fullScreenCover(isPresented: $showingSeparated) {
@@ -274,6 +280,25 @@ struct KeptTab<Content: View>: View {
             .opacity(isActive ? 1 : 0)
             .allowsHitTesting(isActive)
             .accessibilityHidden(!isActive)
+    }
+}
+
+/// Switching tabs from inside one, as the arrival nudge does for the trail.
+/// Outside `MainTabs` it does nothing, so a screen drawn on its own never
+/// jumps anywhere.
+struct OpenTab {
+    var perform: (Tab) -> Void = { _ in }
+    func callAsFunction(_ tab: Tab) { perform(tab) }
+}
+
+private struct OpenTabKey: EnvironmentKey {
+    static let defaultValue = OpenTab()
+}
+
+extension EnvironmentValues {
+    var openTab: OpenTab {
+        get { self[OpenTabKey.self] }
+        set { self[OpenTabKey.self] = newValue }
     }
 }
 

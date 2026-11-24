@@ -59,6 +59,10 @@ final class TripStore: ObservableObject {
     /// doesn't lose yesterday's. Shared for the same reason the point is:
     /// either of them may have been the one who typed it.
     @Published private(set) var meetingPlaces: [MeetingPoint] { didSet { save(); bookInputsChanged() } }
+    /// The places the picker was asked to forget. A tombstone beside the
+    /// history, because the history unions (§3.11). Read the history through
+    /// `rememberedMeetingPlaces`.
+    @Published private(set) var forgottenMeetingPlaces: ForgottenPlaces { didSet { save(); bookInputsChanged() } }
     @Published private(set) var settlements: [SettlementProposal] { didSet { save() } }
 
     // This phone only — never enters a sync payload
@@ -262,6 +266,7 @@ final class TripStore: ObservableObject {
             stamps = snapshot.stamps
             meetingPoint = snapshot.meetingPoint
             meetingPlaces = snapshot.meetingPlaces
+            forgottenMeetingPlaces = snapshot.forgottenMeetingPlaces
             settlements = snapshot.settlements
             journal = snapshot.journal
             letters = snapshot.letters
@@ -310,6 +315,7 @@ final class TripStore: ObservableObject {
                 value: MeetingPoint(place: "", detail: "", localScript: "", setAt: .distantPast),
                 updatedAt: .distantPast, setBy: .one)
             meetingPlaces = []
+            forgottenMeetingPlaces = ForgottenPlaces()
             settlements = []
             journal = []
             letters = []
@@ -603,6 +609,7 @@ final class TripStore: ObservableObject {
         stamps = TripShift.stamps(stamps, by: shift)
         meetingPoint.value.setAt = moved(meetingPoint.value.setAt)
         meetingPlaces = TripShift.meetingPlaces(meetingPlaces, by: shift)
+        forgottenMeetingPlaces = forgottenMeetingPlaces.shifted(by: shift)
         separatedSince = separatedSince.map(moved)
     }
 
@@ -774,6 +781,43 @@ final class TripStore: ObservableObject {
     }
 
     var todayPlan: DayPlan? { plan(forDay: dayNumber) }
+
+    /// Where an hour on "Today together" stands against the clock.
+    enum TogetherTiming: Equatable {
+        /// Started within the last hour, and nothing after it has.
+        case now
+        /// The next one to start, with its time as it was typed.
+        case next(String)
+        /// Every timed hour is behind them; this is the evening's last.
+        case lastTonight
+        /// The day has hours, and none of them has a clock time.
+        case untimed
+    }
+
+    /// How long an hour stays "now" once it has started.
+    static let togetherNowMinutes = 60
+
+    /// The hour "Today together" names: the one under way, or the next one.
+    ///
+    /// It used to be `orderedItems.first`, so at 6pm the panel still named
+    /// the 8am breakfast. Once the last timed hour is behind them it stays on
+    /// that one ("last tonight") rather than going blank: the evening's plan is
+    /// still the evening's. Minutes come from `now` through `Calendar.trip`.
+    var todayTogether: (item: PlanItem, timing: TogetherTiming)? {
+        guard let items = todayPlan?.orderedItems, let first = items.first else { return nil }
+        let timed = items.compactMap { item in item.minutes.map { (item: item, minutes: $0) } }
+        guard !timed.isEmpty else { return (first, .untimed) }
+        let clock = Calendar.trip.dateComponents([.hour, .minute], from: now)
+        let minute = (clock.hour ?? 0) * 60 + (clock.minute ?? 0)
+        func upcoming(_ index: Int) -> (item: PlanItem, timing: TogetherTiming) {
+            let item = timed[index].item
+            return (item, .next(item.time.trimmingCharacters(in: .whitespaces)))
+        }
+        guard let started = timed.lastIndex(where: { $0.minutes <= minute }) else { return upcoming(0) }
+        if minute - timed[started].minutes < Self.togetherNowMinutes { return (timed[started].item, .now) }
+        if started + 1 < timed.count { return upcoming(started + 1) }
+        return (timed[started].item, .lastTonight)
+    }
 
     /// What was written about a day, if anything still is. Every reader goes
     /// through here, which makes it the one place tombstones have to be
@@ -1319,6 +1363,90 @@ final class TripStore: ObservableObject {
     /// The counts go through `Formatting.spelledCount` at `spellingUpTo: 0` —
     /// the numeral branch, which still pluralises. This is a 13pt aside under a
     /// numeral headline, not the 38pt one the spelling is for.
+    /// One line of "Before you go": what is ready, worked out, never ticked.
+    struct DepartureLine: Equatable, Identifiable {
+        enum Kind: String, Equatable { case papers, cards, money, secondPhone }
+        var kind: Kind
+        var detail: String
+        var id: Kind { kind }
+
+        var title: String {
+            switch kind {
+            case .papers: "Papers"
+            case .cards: "Show-this cards"
+            case .money: "Money"
+            case .secondPhone: "Second phone"
+            }
+        }
+
+        /// "none yet", "3 documents", "3 · passport not scanned",
+        /// "6 · 1 of 2 passports scanned". Static and fed counts, because
+        /// the scans live in `ScanVault` and the checks shouldn't need one.
+        static func papersDetail(documents: Int, passports: Int, scannedPassports: Int) -> String {
+            guard documents > 0 else { return "none yet" }
+            guard passports > 0 else {
+                return Formatting.spelledCount(documents, "document", spellingUpTo: 0)
+            }
+            let noun = passports == 1 ? "passport" : "passports"
+            let state: String
+            switch scannedPassports {
+            case passports: state = "\(noun) scanned"
+            case 0: state = "\(noun) not scanned"
+            default: state = "\(scannedPassports) of \(passports) passports scanned"
+            }
+            return "\(documents) · \(state)"
+        }
+    }
+
+    /// How many days out "Before you go" appears on Today.
+    static let departureLinesWindow = 7
+
+    /// The last week before departure: Papers, the show-this cards, the
+    /// money and the second phone, each worked out from the trip. Empty
+    /// further out, on the trip, on a closed trip and on the observer's
+    /// phone. Money only while the trip keeps a ledger.
+    var departureLines: [DepartureLine] {
+        guard case .before(let days) = phase, days <= Self.departureLinesWindow,
+              isLive, !isObserver else { return [] }
+        let passports = documents.filter {
+            $0.badge.trimmingCharacters(in: .whitespaces).lowercased() == "passport"
+        }
+        let scanned = passports.filter { scanCount(for: $0.id) > 0 }.count
+        var lines = [
+            DepartureLine(kind: .papers,
+                          detail: DepartureLine.papersDetail(documents: documents.count,
+                                                             passports: passports.count,
+                                                             scannedPassports: scanned)),
+            DepartureLine(kind: .cards,
+                          detail: orderedShowCards.isEmpty
+                              ? "none yet"
+                              : Formatting.spelledCount(orderedShowCards.count, "card", spellingUpTo: 0))
+        ]
+        if features.sharedLedger {
+            let currencies = tripCurrencies.count
+            let detail: String
+            if !hasBudget {
+                detail = "no budget yet"
+            } else if currencies == 0 {
+                detail = homeTextRounded(budget)
+            } else {
+                detail = "\(homeTextRounded(budget)) · "
+                    + Formatting.spelledCount(currencies, "currency", plural: "currencies", spellingUpTo: 0)
+            }
+            lines.append(DepartureLine(kind: .money, detail: detail))
+        }
+        lines.append(DepartureLine(kind: .secondPhone,
+                                   detail: sync.isShared ? "connected" : "not connected"))
+        return lines
+    }
+
+    /// The sentence under "Before you go", while letters can't reach this
+    /// phone. Nil once it is paired, or on a trip with no letters.
+    var departureLettersNote: String? {
+        guard !departureLines.isEmpty, features.letters, !sync.isShared else { return nil }
+        return "Letters from home reach a paired phone only."
+    }
+
     var packedSummary: String {
         var clauses = [Formatting.spelledCount(dayCount, "day", spellingUpTo: 0)]
         if !legs.isEmpty {
@@ -2160,7 +2288,7 @@ final class TripStore: ObservableObject {
         }
         lines.append(SharingLine(
             title: "Tonight's meeting point", detail: "And everywhere you have already agreed to meet.",
-            state: "shared", isShared: true, fields: ["meetingPoint", "meetingPlaces"]))
+            state: "shared", isShared: true, fields: ["meetingPoint", "meetingPlaces", "forgottenMeetingPlaces"]))
         lines.append(SharingLine(
             title: "Cards to show people", detail: "Written once, on whichever phone is nearer.",
             state: "shared", isShared: true, fields: ["showCards"]))
@@ -2251,6 +2379,20 @@ final class TripStore: ObservableObject {
 
     var newestOpenLetter: Letter? {
         letters.filter(\.isOpen).max { ($0.openedOn ?? .distantPast) < ($1.openedOn ?? .distantPast) }
+    }
+
+    /// The letter Today shows as a card: the newest one, on the night it
+    /// opened and no longer.
+    ///
+    /// It used to be `newestOpenLetter` on every day after, so a letter that
+    /// opened in week two sat above "Today together" for the rest of the
+    /// trip. Nights are `night(of:)`, so a letter that opened at 23:00 is
+    /// still tonight's at 01:00. Derived from `openedOn`: nothing read-shaped
+    /// is stored (§8.3). After its night it is in the letters row.
+    var letterOfTheNight: Letter? {
+        guard let letter = newestOpenLetter, let opened = letter.openedOn,
+              night(of: opened) == night(of: now) else { return nil }
+        return letter
     }
 
     /// Opens one letter, by number, at a place.
@@ -3057,8 +3199,13 @@ final class TripStore: ObservableObject {
     /// not: `setBy` is `role`, and in home mode `role` is the traveller being
     /// *written to* — so an observer's write would land on both phones under
     /// one of their names.
-    func setMeetingPoint(_ point: MeetingPoint) {
-        guard !isObserver else { return }
+    ///
+    /// A closed trip takes no new point either: the shelf's reader stores
+    /// persist nothing, and the picker played its success haptic over a write
+    /// that went nowhere. Returns whether the point was set.
+    @discardableResult
+    func setMeetingPoint(_ point: MeetingPoint) -> Bool {
+        guard !isObserver, isLive else { return false }
         var chosen = point
         chosen.setAt = now
         // Trimmed here rather than only at the field, because the place is an
@@ -3067,6 +3214,7 @@ final class TripStore: ObservableObject {
         chosen.place = chosen.place.trimmingCharacters(in: .whitespacesAndNewlines)
         meetingPoint = StampedMeetingPoint(value: chosen, updatedAt: now, setBy: role)
         meetingPlaces = meetingPlaces.remembering(chosen)
+        return true
     }
 
     /// "Still here": the point from an earlier night is tonight's again.
@@ -3079,7 +3227,68 @@ final class TripStore: ObservableObject {
         setMeetingPoint(meeting)
     }
 
+    /// The history the picker offers and the book prints: everything agreed,
+    /// less what was forgotten since.
+    var rememberedMeetingPlaces: [MeetingPoint] {
+        meetingPlaces.remembered(despite: forgottenMeetingPlaces)
+    }
+
+    /// Whether the picker may offer to forget this place. Tonight's point is
+    /// where somebody may already be walking, so it stays.
+    func canForgetMeetingPlace(_ point: MeetingPoint) -> Bool {
+        !isObserver && isLive && !point.placeKey.isEmpty
+            && !(hasCurrentMeetingPoint && point.placeKey == meeting.placeKey)
+    }
+
+    /// "Forget it" in the picker: off the list on both phones until somebody
+    /// agrees the place again. A tombstone, because the history unions.
+    @discardableResult
+    func forgetMeetingPlace(_ point: MeetingPoint) -> Bool {
+        guard canForgetMeetingPlace(point) else { return false }
+        forgottenMeetingPlaces = forgottenMeetingPlaces.forgetting(point.placeKey, at: now)
+        return true
+    }
+
+    /// The stop a remembered place was agreed in: the stop of the night it
+    /// was set. Derived from `setAt`, which `TripShift` already moves. Nil
+    /// for a place set before departure or on a trip with nowhere planned.
+    func meetingPlaceStop(_ point: MeetingPoint) -> Segment? {
+        let night = night(of: point.setAt)
+        guard night >= 1 else { return nil }
+        return lastKnownSegment(forDay: min(night, dayCount))
+    }
+
+    /// The picker's two lists: this stop's places, then the rest of the trip,
+    /// both most recent first. Tonight's point, if any, leads the first.
+    var meetingPlacesByStop: (here: [MeetingPoint], earlier: [MeetingPoint]) {
+        let nowStop = lastKnownSegment(forDay: min(max(night(of: now), 1), dayCount))
+        var places = rememberedMeetingPlaces
+        if hasCurrentMeetingPoint, !places.contains(where: { $0.placeKey == meeting.placeKey }) {
+            places.insert(meeting, at: 0)
+        }
+        var here: [MeetingPoint] = []
+        var earlier: [MeetingPoint] = []
+        for place in places {
+            let stop = meetingPlaceStop(place)
+            // With no stop on either side it is the same place, the
+            // `meetingStanding` rule: the app can't say otherwise.
+            if stop == nil || nowStop == nil || stop?.id == nowStop?.id {
+                here.append(place)
+            } else {
+                earlier.append(place)
+            }
+        }
+        return (here, earlier)
+    }
+
     #if DEBUG
+    /// `-seedMeetingHistory`: places agreed on earlier days, in earlier stops,
+    /// so the picker's two lists can be photographed. Their `setAt` is kept,
+    /// which `setMeetingPoint` would overwrite with now.
+    func rememberMeetingPlacesForScreens(_ points: [MeetingPoint]) {
+        meetingPlaces = meetingPlaces.remembering(points)
+    }
+
     /// `-meetingDaysAgo`: moves tonight's point back by whole days, so the
     /// stale states can be photographed without waiting for them.
     func backdateMeetingPoint(byDays days: Int) {
@@ -3088,6 +3297,9 @@ final class TripStore: ObservableObject {
         value.setAt = TripShift.move(value.setAt, by: -days)
         meetingPoint = StampedMeetingPoint(value: value, updatedAt: meetingPoint.updatedAt,
                                            setBy: meetingPoint.setBy)
+        // The history's entry was agreed at the same moment; leaving it at now
+        // filed yesterday's gate under whatever stop the screen is on.
+        meetingPlaces = meetingPlaces.map { $0.placeKey == value.placeKey ? value : $0 }
     }
     #endif
 
@@ -3521,7 +3733,7 @@ final class TripStore: ObservableObject {
         guard features.printedBooks else { return .empty }
         return BookPlan.build(entries: myEntries, legs: legs, stamps: stamps.live,
                               moments: printedMoments,
-                              meetingPlaces: meetingPlaces,
+                              meetingPlaces: rememberedMeetingPlaces,
                               volumes: max(features.volumes, 1),
                               includeStamps: features.stamps)
     }
@@ -3550,7 +3762,7 @@ final class TripStore: ObservableObject {
                                  line: "", tags: [], hasPhoto: false, author: role)
         let plan = BookPlan.build(entries: myEntries + [entry], legs: legs, stamps: stamps.live,
                                   moments: printedMoments,
-                                  meetingPlaces: meetingPlaces,
+                                  meetingPlaces: rememberedMeetingPlaces,
                                   volumes: 1, includeStamps: features.stamps)
         return plan.firstPage(ofSpread: BookSpread.day(entryID: entry.id).id)
     }
@@ -3617,7 +3829,7 @@ final class TripStore: ObservableObject {
     }
 
     /// The meeting places as the book prints them.
-    var bookMeetingPlaces: [MeetingPoint] { BookPlan.meetingPlacesInOrder(meetingPlaces) }
+    var bookMeetingPlaces: [MeetingPoint] { BookPlan.meetingPlacesInOrder(rememberedMeetingPlaces) }
 
     /// Today's, for tonight's page — only today's, so the evening prompt never
     /// becomes a list of chores from last week.
@@ -3984,6 +4196,7 @@ final class TripStore: ObservableObject {
             updatedAt: .distantPast, setBy: role)
         // Last trip's gates are in last trip's city.
         meetingPlaces = []
+        forgottenMeetingPlaces = ForgottenPlaces()
         // Day plans and papers are for another country. The cards are for
         // whoever is reading them: an allergy is an allergy in Japan too.
         dayPlans = []
@@ -4176,6 +4389,7 @@ final class TripStore: ObservableObject {
             stamps: stamps,
             meetingPoint: meetingPoint,
             meetingPlaces: meetingPlaces,
+            forgottenMeetingPlaces: forgottenMeetingPlaces,
             settlements: settlements,
             dayPlans: dayPlans,
             showCards: showCards,
@@ -4223,6 +4437,7 @@ final class TripStore: ObservableObject {
         // it, and the place it just set still has to be one this phone can
         // offer back.
         meetingPlaces = payload.meetingPlaces.remembering(meetingPoint.value)
+        forgottenMeetingPlaces = payload.forgottenMeetingPlaces
         expenses = payload.expenses
         stamps = payload.stamps
         settlements = payload.settlements
@@ -4407,7 +4622,8 @@ final class TripStore: ObservableObject {
             hasOpened: hasOpened, role: role, start: start, dayCount: dayCount,
             budget: budget, homeCurrency: homeCurrency, settingsUpdatedAt: settingsUpdatedAt,
             itinerary: itinerary, expenses: expenses, stamps: stamps,
-            meetingPoint: meetingPoint, meetingPlaces: meetingPlaces, settlements: settlements,
+            meetingPoint: meetingPoint, meetingPlaces: meetingPlaces,
+            forgottenMeetingPlaces: forgottenMeetingPlaces, settlements: settlements,
             journal: journal, moments: moments, letters: letters,
             lettersBelongTo: lettersBelongTo, letterKeys: letterKeys_,
             separatedSince: separatedSince,
@@ -4474,6 +4690,7 @@ final class TripStore: ObservableObject {
             value: MeetingPoint(place: "", detail: "", localScript: "", setAt: .distantPast),
             updatedAt: .distantPast, setBy: .one)
         meetingPlaces = []
+        forgottenMeetingPlaces = ForgottenPlaces()
         settlements = []
         separatedSince = nil
         ritualClock = RitualClock()
@@ -4564,6 +4781,8 @@ struct TripSnapshot: Codable {
     var meetingPoint: StampedMeetingPoint
     /// Where this trip has met before now. Dated, so `setStart` moves it.
     var meetingPlaces: [MeetingPoint]
+    /// See `TripStore.forgottenMeetingPlaces`. Dated, so `setStart` moves it.
+    var forgottenMeetingPlaces: ForgottenPlaces = ForgottenPlaces()
     var settlements: [SettlementProposal]
     var journal: [JournalEntry]
     /// Never on `SyncPayload`, and dated, so `setStart` moves it.
@@ -4700,6 +4919,9 @@ extension TripSnapshot {
         // Absent on every trip saved before the history existed, and empty is
         // the honest answer: those trips kept no record of where they had met.
         meetingPlaces = try c.decodeIfPresent([MeetingPoint].self, forKey: .meetingPlaces) ?? []
+        // Absent on every trip saved before a place could be forgotten.
+        forgottenMeetingPlaces = try c.decodeIfPresent(ForgottenPlaces.self,
+                                                       forKey: .forgottenMeetingPlaces) ?? ForgottenPlaces()
         settlements = try c.decodeIfPresent([SettlementProposal].self, forKey: .settlements) ?? []
         journal = try c.decodeIfPresent([JournalEntry].self, forKey: .journal) ?? []
         moments = try c.decodeIfPresent([Moment].self, forKey: .moments) ?? []

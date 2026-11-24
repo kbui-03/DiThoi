@@ -387,6 +387,32 @@ enum DebugScreen {
         for place in places { store.setMeetingPoint(place) }
     }
 
+    /// `-seedMeetingHistory`: three places from earlier in the trip, one in
+    /// this stop and two in stops before it, so the picker's "Here in" and
+    /// "Earlier on the trip" lists both have something in them. Idempotent.
+    static var wantsMeetingHistory: Bool {
+        ProcessInfo.processInfo.arguments.contains("-seedMeetingHistory")
+    }
+
+    @MainActor
+    static func seedMeetingHistory(into store: TripStore) {
+        guard !store.meetingPlaces.contains(where: { $0.placeKey == "lumphini park" }) else { return }
+        // Days in `-seedItinerary`'s stops: Bangkok 1–4, Ayutthaya · Pai
+        // 5–10, Chiang Mai 11–17.
+        func morning(ofDay day: Int) -> Date {
+            let date = store.date(forDay: day)
+            return Calendar.trip.date(bySettingHour: 9, minute: 0, second: 0, of: date) ?? date
+        }
+        store.rememberMeetingPlacesForScreens([
+            MeetingPoint(place: "Tha Phae Gate", detail: "the coffee cart side",
+                         localScript: "ประตูท่าแพ", setAt: morning(ofDay: 12)),
+            MeetingPoint(place: "The bus stop by the river", detail: "under the tamarind",
+                         localScript: "", setAt: morning(ofDay: 6)),
+            MeetingPoint(place: "Lumphini Park", detail: "by the lake",
+                         localScript: "สวนลุมพินี", setAt: morning(ofDay: 2))
+        ])
+    }
+
     /// Tonight's point, pinned at Wat Phra Singh's north gate.
     ///
     /// Idempotent: a point that already has a position is left alone.
@@ -904,6 +930,7 @@ struct DebugScreenHost: View {
             if DebugScreen.wantsLetters { DebugScreen.seedLetters(into: store) }
             if DebugScreen.wantsNoBudget { store.budget = 0 }
             if DebugScreen.wantsPreTrip { DebugScreen.seedPreTrip(into: store) }
+            if DebugScreen.wantsMeetingHistory { DebugScreen.seedMeetingHistory(into: store) }
             if let days = DebugScreen.meetingDaysAgo {
                 DebugScreen.seedPinnedMeetingPoint(into: store)
                 store.backdateMeetingPoint(byDays: days)

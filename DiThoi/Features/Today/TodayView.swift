@@ -14,6 +14,7 @@ struct TodayView: View {
     @State private var going: Destination?
     @Environment(\.arrivalRequest) private var arrivalRequest
     @Environment(\.isActiveTab) private var isActiveTab
+    @Environment(\.openTab) private var openTab
     // Nudges waved away are the store's (`deferArrival(at:)`), for the day.
     // Not persisted: a relaunch in the same street may ask once more, which
     // is a smaller cost than a stamp nobody was reminded of.
@@ -36,7 +37,7 @@ struct TodayView: View {
     /// One destination rather than two `navigationDestination(isPresented:)`
     /// modifiers on the same view: stacked, the later one can swallow the
     /// earlier and the push silently does nothing.
-    private enum Destination: Hashable { case itinerary, today, letters, book(spread: Int) }
+    private enum Destination: Hashable { case itinerary, today, letters, book(spread: Int), tripHub }
 
     var body: some View {
         NavigationStack {
@@ -64,6 +65,8 @@ struct TodayView: View {
                     LettersView()
                 case .book(let spread):
                     BookPreviewView(startAt: spread)
+                case .tripHub:
+                    TripHubView()
                 }
             }
             .sheet(item: $readingLetter) { letter in
@@ -150,12 +153,51 @@ struct TodayView: View {
         planRow("The whole itinerary", detail: "\(Formatting.spelledCount(store.dayCount, "day", spellingUpTo: 0))",
                 hint: "Opens the full itinerary") { going = .itinerary }
 
+        beforeYouGo
+
         Rule()
 
         memory
 
         Aside(text: "Nothing to write down until you're there. The letters open themselves.", size: 12)
             .padding(.top, Space.s3)
+    }
+
+    /// The last week: what is ready, each line the way to fix it. Worked
+    /// out by the store, never a checklist somebody ticks.
+    @ViewBuilder
+    private var beforeYouGo: some View {
+        let lines = store.departureLines
+        if !lines.isEmpty {
+            Mono("Before you go", size: 10)
+                .padding(.top, Space.s3)
+            ForEach(lines) { line in
+                planRow(line.title, detail: line.detail, hint: departureHint(line.kind)) {
+                    follow(line.kind)
+                }
+            }
+            if let note = store.departureLettersNote {
+                Aside(text: note, size: 12)
+                    .padding(.bottom, Space.s2)
+            }
+        }
+    }
+
+    private func follow(_ kind: TripStore.DepartureLine.Kind) {
+        switch kind {
+        case .papers, .cards: openTab(.papers)
+        case .money: openTab(.money)
+        case .secondPhone: going = .tripHub
+        }
+    }
+
+    private func departureHint(_ kind: TripStore.DepartureLine.Kind) -> String {
+        switch kind {
+        case .papers: "Opens Papers"
+        case .cards: "Opens Papers, where the cards are"
+        case .money: "Opens Money"
+        case .secondPhone: "Opens the trip's setup and sharing"
+        }
     }
 
     /// "A year ago today", from the shelf — below the day, never above it:
@@ -262,8 +304,16 @@ struct TodayView: View {
             Mono(dayLabel, size: 10.5, color: Palette.a700)
 
             Spacer()
-            Mono(store.lettersVisible ? store.currentCity : store.myName, size: 10.5)
+            Mono(headerPlace, size: 10.5)
         }
+    }
+
+    /// Where they are, on every phone: both travellers are in the same city.
+    /// It used to be the holder's name on a phone with no letters. The name
+    /// stays only where no stop covers today, rather than the dash.
+    private var headerPlace: String {
+        let city = store.cityStamp(forDay: store.dayNumber)
+        return city.isEmpty ? store.myName : city
     }
 
     private var dayLabel: String {
@@ -376,11 +426,12 @@ struct TodayView: View {
         return "\(store.start.shortDate) · \(country)"
     }
 
-    /// The newest letter that has opened, when one has.
+    /// The newest letter that has opened, on the night it opened. After that
+    /// it is one of "All N" in the row below the day.
     @ViewBuilder
     private var letterCard: some View {
-        if store.lettersVisible, let letter = store.newestOpenLetter {
-            Mono("A letter opened itself here", size: 10)
+        if store.lettersVisible, let letter = store.letterOfTheNight {
+            Mono("A letter opened itself today", size: 10)
                 .padding(.bottom, 9)
 
             Button {
@@ -514,17 +565,39 @@ struct TodayView: View {
         return days <= 1 ? "Home again" : "Home \(days) days"
     }
 
-    @ViewBuilder
+    private var together: (item: PlanItem, timing: TripStore.TogetherTiming)? { store.todayTogether }
+
+    /// "now", "next · 19:00", "last tonight". Nothing for a day whose hours
+    /// have no clock time, where there is no "next" to claim.
+    private var togetherTimingText: String? {
+        switch together?.timing {
+        case .now: "now"
+        case .next(let time): "next · \(time)"
+        case .lastTonight: "last tonight"
+        case .untimed, nil: nil
+        }
+    }
+
+    /// Redrawn every minute: the store republishes when the date turns, not
+    /// when 19:00 does, and the panel's hour moves on with the clock.
     private var togetherBlock: some View {
+        TimelineView(.everyMinute) { _ in togetherPanel }
+    }
+
+    @ViewBuilder
+    private var togetherPanel: some View {
         Button { going = .today } label: {
             Panel {
-                Mono("Today together", size: 9.5)
-                // The first hour of the day, not the one at a literal "12:00".
-                // That string match was written against a seeded day plan
-                // whose hours happened to include noon; now the hours are
-                // typed by hand, it would miss almost every time and quietly
-                // fall through to the same `first` anyway.
-                Text(plan?.orderedItems.first?.title ?? "Nothing planned")
+                HStack(alignment: .firstTextBaseline) {
+                    Mono("Today together", size: 9.5)
+                    Spacer(minLength: 8)
+                    if let timing = togetherTimingText {
+                        Mono(timing, size: 9.5, color: Palette.a700)
+                    }
+                }
+                // The hour under way or the next one, not the first: at 6pm
+                // this named the 8am breakfast. The store's, so it's checked.
+                Text(together?.item.title ?? "Nothing planned")
                     .font(Typeface.heading(19, .semibold))
                     .foregroundStyle(Palette.text)
                     .padding(.top, 5)
@@ -590,34 +663,24 @@ struct TodayView: View {
             // `RateStamp` sits outside the spent column's: a button inside a
             // button is one refactor away from swallowing the tap.
             VStack(alignment: .leading, spacing: 0) {
-                Button {
-                    pickingMeetingPoint = true
-                } label: {
-                    VStack(alignment: .leading, spacing: 0) {
-                        Mono("Meeting point", size: 10)
-                        // A trip that hasn't met anywhere yet has an empty place
-                        // and a `.distantPast` stamp, so both halves have to say
-                        // that rather than draw a blank title over a time from
-                        // year one. One from another stop is no answer either:
-                        // it read "Wat Phra Singh · set 08:12" three days and
-                        // one country later.
-                        Text(meetingColumnTitle)
-                            .font(Typeface.heading(17, .semibold))
-                            .foregroundStyle(store.hasCurrentMeetingPoint ? Palette.text : Palette.n600)
-                            .multilineTextAlignment(.leading)
-                            .lineSpacing(1)
-                            .padding(.top, 4)
-                        Aside(text: meetingColumnNote, size: 11.5)
+                // A door only where the meeting point can be changed. On a
+                // read-only or closed trip it opened the picker and "saved"
+                // with a success haptic into a store that keeps nothing.
+                if canSetMeetingPoint {
+                    Button {
+                        pickingMeetingPoint = true
+                    } label: {
+                        meetingColumn.contentShape(Rectangle())
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Changes the meeting point")
+                } else {
+                    meetingColumn
                 }
-                .buttonStyle(.plain)
-                .accessibilityHint("Changes the meeting point")
 
                 // One tap, once a morning: the design's own promise for the
                 // meeting point. Re-stamps it as tonight's.
-                if store.meetingNeedsConfirming, canAdd, !store.isObserver {
+                if store.meetingNeedsConfirming, canSetMeetingPoint {
                     Button { store.confirmMeetingPoint() } label: {
                         Mono("still here", size: 10, trackingRatio: 0.1, color: Palette.a700)
                             .padding(.vertical, 10)
@@ -632,6 +695,30 @@ struct TodayView: View {
             .padding(.leading, store.features.sharedLedger ? Space.s3 : 0)
         }
         .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// The ledger's gate plus the store's own: the observer sets no meeting
+    /// point. `setMeetingPoint` refuses all three anyway; this is the courtesy.
+    private var canSetMeetingPoint: Bool { canAdd && !store.isObserver }
+
+    /// What the column says, without the button around it.
+    private var meetingColumn: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Mono("Meeting point", size: 10)
+            // A trip that hasn't met anywhere yet has an empty place and a
+            // `.distantPast` stamp, so both halves have to say that rather
+            // than draw a blank title over a time from year one. One from
+            // another stop is no answer either: it read "Wat Phra Singh · set
+            // 08:12" three days and one country later.
+            Text(meetingColumnTitle)
+                .font(Typeface.heading(17, .semibold))
+                .foregroundStyle(store.hasCurrentMeetingPoint ? Palette.text : Palette.n600)
+                .multilineTextAlignment(.leading)
+                .lineSpacing(1)
+                .padding(.top, 4)
+            Aside(text: meetingColumnNote, size: 11.5)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var meetingColumnTitle: String {
@@ -816,6 +903,10 @@ struct MeetingPointPicker: View {
     /// `pinPatience` went by. Location errors used to be swallowed, so
     /// "Finding where you are…" waited for ever.
     @State private var pinGaveUp = false
+    /// What the fields opened with: tonight's point, or nothing when the
+    /// point on file is another stop's. "Dirty" is measured against this, so
+    /// a form opened blank in a new city doesn't ask before it closes.
+    @State private var loaded = MeetingPoint(place: "", detail: "", localScript: "", setAt: .distantPast)
 
     /// Twenty seconds: a cold start outdoors, with room. Core Location's own
     /// failure ends the wait sooner.
@@ -845,10 +936,10 @@ struct MeetingPointPicker: View {
     }
 
     private var isDirty: Bool {
-        typed != store.meeting.place
-            || detail.trimmingCharacters(in: .whitespaces) != store.meeting.detail
-            || script.trimmingCharacters(in: .whitespacesAndNewlines) != store.meeting.localScript
-            || pin != Pin(store.meeting)
+        typed != loaded.place
+            || detail.trimmingCharacters(in: .whitespaces) != loaded.detail
+            || script.trimmingCharacters(in: .whitespacesAndNewlines) != loaded.localScript
+            || pin != Pin(loaded)
     }
 
     private var typedPoint: MeetingPoint {
@@ -869,23 +960,35 @@ struct MeetingPointPicker: View {
         if typed.isEmpty { askingToDiscard = true } else { save(typedPoint) }
     }
 
-    /// Everywhere this trip has met, most recent first. A trip suggests nothing
-    /// until it has a history of its own.
-    ///
-    /// `store.meetingPlaces` is the list; tonight's point is in it, and is here
-    /// separately as well because a trip that met somewhere before this build
-    /// remembered exactly one place and it is this one.
+    /// Everywhere this trip has met and hasn't forgotten: this stop's places,
+    /// then the rest. A trip suggests nothing until it has a history of its
+    /// own. The store's (`meetingPlacesByStop`), which also puts tonight's
+    /// point in for a trip that met somewhere before the history existed.
     private var suggestions: [MeetingPoint] {
-        var seen: [MeetingPoint] = []
-        func offer(_ option: MeetingPoint) {
-            guard !option.placeKey.isEmpty,
-                  !seen.contains(where: { $0.placeKey == option.placeKey })
-            else { return }
-            seen.append(option)
+        let lists = store.meetingPlacesByStop
+        return lists.here + lists.earlier
+    }
+
+    /// Yesterday's point, offered as one tap when it is still this stop's.
+    /// From another stop it isn't offered at all (`meetingStanding`).
+    private var lastNight: MeetingPoint? {
+        guard case .earlier = store.meetingStanding else { return nil }
+        return store.meeting
+    }
+
+    /// "Same place as last night?" — one tap, the same write as Today's
+    /// "still here".
+    private func keepLastNight() {
+        store.confirmMeetingPoint()
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        dismiss()
+    }
+
+    private var lastNightTitle: String {
+        guard case .earlier(let nights) = store.meetingStanding, nights > 1 else {
+            return "Same place as last night?"
         }
-        offer(store.meeting)
-        store.meetingPlaces.forEach(offer)
-        return seen
+        return "Same place as \(store.meetingAgreedWhen(withOn: true) ?? "before")?"
     }
 
     private var typed: String { place.trimmingCharacters(in: .whitespaces) }
@@ -1020,6 +1123,32 @@ struct MeetingPointPicker: View {
                     Aside(text: "Somewhere you can both walk to if the phones die.", size: 12.5)
                         .padding(.bottom, Space.s4)
 
+                    if let lastNight {
+                        Button(action: keepLastNight) {
+                            Panel(border: Palette.accent, fill: Palette.a100) {
+                                Mono(lastNightTitle, size: 9.5, color: Palette.a700)
+                                HStack(alignment: .center, spacing: Space.s2) {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(lastNight.place)
+                                            .font(Typeface.heading(19, .semibold))
+                                            .foregroundStyle(Palette.text)
+                                            .multilineTextAlignment(.leading)
+                                        if !lastNight.detail.isEmpty {
+                                            Aside(text: lastNight.detail, size: 12)
+                                        }
+                                    }
+                                    Spacer(minLength: Space.s2)
+                                    Mono("keep it", size: 10, trackingRatio: 0.08, color: Palette.a700)
+                                }
+                                .padding(.top, 5)
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Keeps it as tonight's meeting point")
+                        .padding(.bottom, Space.s4)
+                    }
+
                     WrittenField(label: "Where", text: $place,
                                  placeholder: "The bridge", size: 24)
 
@@ -1045,37 +1174,23 @@ struct MeetingPointPicker: View {
                     pinRow
                         .padding(.top, Space.s4)
 
-                    if !suggestions.isEmpty {
-                        Mono("Or somewhere you've used", size: 10)
+                    let lists = store.meetingPlacesByStop
+                    if !lists.here.isEmpty {
+                        Mono(store.meetingHere == "here" ? "Somewhere you've used"
+                                                         : "Here in \(store.meetingHere)", size: 10)
                             .padding(.top, Space.s6)
                             .padding(.bottom, 9)
-
-                        ForEach(suggestions, id: \.place) { option in
-                            let isTonight = option.placeKey == store.meeting.placeKey
-                            Button { save(option) } label: {
-                                Panel(border: isTonight ? Palette.accent : Palette.divider,
-                                      fill: isTonight ? Palette.a100 : .clear) {
-                                    Text(option.place)
-                                        .font(Typeface.heading(19, .semibold))
-                                        .foregroundStyle(Palette.text)
-                                    Aside(text: option.detail, size: 12)
-                                        .padding(.top, 2)
-                                    if !option.localScript.isEmpty {
-                                        Text(option.localScript)
-                                            .font(Typeface.heading(15, .semibold))
-                                            .foregroundStyle(Palette.a700)
-                                            .padding(.top, 6)
-                                    }
-                                    if option.hasLocation {
-                                        Mono("pinned", size: 9.5, trackingRatio: 0.1, color: Palette.a700)
-                                            .padding(.top, 6)
-                                    }
-                                }
-                                .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                            .padding(.bottom, Space.s2)
-                        }
+                        placeList(lists.here, namingStop: false)
+                    }
+                    if !lists.earlier.isEmpty {
+                        Mono("Earlier on the trip · \(lists.earlier.count)", size: 10)
+                            .padding(.top, lists.here.isEmpty ? Space.s6 : Space.s3)
+                            .padding(.bottom, 9)
+                        placeList(lists.earlier, namingStop: true)
+                    }
+                    if !suggestions.isEmpty, store.showsHint(.meetingPlace),
+                       suggestions.contains(where: store.canForgetMeetingPlace) {
+                        Aside(text: "Hold a place to forget it.", size: 12)
                     }
 
                     Aside(text: "Four seconds, once a morning.",
@@ -1100,11 +1215,20 @@ struct MeetingPointPicker: View {
             dismiss()
         }
         .onAppear {
-            place = store.meeting.place
-            detail = store.meeting.detail
-            script = store.meeting.localScript
-            scriptPlace = store.meeting.placeKey
-            pin = Pin(store.meeting)
+            // Another stop's gate is no starting point: in Hanoi the fields
+            // used to open on Wat Phra Singh. Tonight's or yesterday's here
+            // still fills them, to be corrected rather than retyped.
+            // A local first: a `@State` written in this closure isn't read
+            // back in it, and the fields opened blank.
+            let start = store.hasCurrentMeetingPoint
+                ? store.meeting
+                : MeetingPoint(place: "", detail: "", localScript: "", setAt: .distantPast)
+            loaded = start
+            place = start.place
+            detail = start.detail
+            script = start.localScript
+            scriptPlace = start.placeKey
+            pin = Pin(start)
         }
         .onChange(of: place) { placeChanged() }
         // The fix comes back on its own time, after the permission prompt if
@@ -1126,9 +1250,67 @@ struct MeetingPointPicker: View {
         }
     }
 
+    /// One remembered place a row: tap chooses it, hold forgets it. Places
+    /// from an earlier stop say which stop.
+    @ViewBuilder
+    private func placeList(_ places: [MeetingPoint], namingStop: Bool) -> some View {
+        ForEach(places, id: \.placeKey) { option in
+            let isTonight = store.hasCurrentMeetingPoint && option.placeKey == store.meeting.placeKey
+            Button { save(option) } label: {
+                Panel(border: isTonight ? Palette.accent : Palette.divider,
+                      fill: isTonight ? Palette.a100 : .clear) {
+                    Text(option.place)
+                        .font(Typeface.heading(19, .semibold))
+                        .foregroundStyle(Palette.text)
+                        .multilineTextAlignment(.leading)
+                    let note = placeNote(option, namingStop: namingStop)
+                    if !note.isEmpty {
+                        Aside(text: note, size: 12)
+                            .padding(.top, 2)
+                    }
+                    if !option.localScript.isEmpty {
+                        Text(option.localScript)
+                            .font(Typeface.heading(15, .semibold))
+                            .foregroundStyle(Palette.a700)
+                            .padding(.top, 6)
+                    }
+                    if option.hasLocation {
+                        Mono("pinned", size: 9.5, trackingRatio: 0.1, color: Palette.a700)
+                            .padding(.top, 6)
+                    }
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .contextMenu {
+                if store.canForgetMeetingPlace(option) {
+                    Button("Forget \(option.place)", role: .destructive) {
+                        withGentleAnimation(.easeInOut(duration: 0.25)) {
+                            _ = store.forgetMeetingPlace(option)
+                        }
+                        store.learned(.meetingPlace)
+                    }
+                }
+            }
+            .padding(.bottom, Space.s2)
+        }
+    }
+
+    /// "by the lake", or "Bangkok · by the lake" in the earlier list. The
+    /// separator belongs to the detail, never a dangling "Bangkok · ".
+    private func placeNote(_ point: MeetingPoint, namingStop: Bool) -> String {
+        let detail = point.detail.trimmingCharacters(in: .whitespaces)
+        guard namingStop, let stop = store.meetingPlaceStop(point)?.primaryPlace, !stop.isEmpty else {
+            return detail
+        }
+        return detail.isEmpty ? stop : "\(stop) · \(detail)"
+    }
+
+    /// The haptic says it was kept, so it plays only when the store took it.
     private func save(_ point: MeetingPoint) {
-        store.setMeetingPoint(point)
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        if store.setMeetingPoint(point) {
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        }
         dismiss()
     }
 }
