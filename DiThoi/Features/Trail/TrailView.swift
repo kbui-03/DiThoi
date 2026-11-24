@@ -12,6 +12,7 @@ struct TrailView: View {
     /// draws; the one control that hands out a stamp does not.
     @Environment(\.isReadOnly) private var isReadOnly
     @Environment(\.arrivalRequest) private var arrivalRequest
+    @Environment(\.isActiveTab) private var isActiveTab
     @State private var earned: Stamp?
     @State private var unlocked: [Letter] = []
     @State private var showingStamp = false
@@ -206,7 +207,10 @@ struct TrailView: View {
         // Never a prompt: the trail is opened on any afternoon, and the ask
         // belongs to the act that needs a position. Only a phone that already
         // said yes is asked for a fix.
-        .task { if canMark { store.location.requestOnceIfAllowed() } }
+        // Per visit: the tab is kept alive, so `.task` alone ran once a launch.
+        .task(id: isActiveTab) {
+            if isActiveTab, canMark { store.location.requestOnceIfAllowed() }
+        }
         // Today's nudge lands here as the dialog this screen already has —
         // re-checked against `nextStamp`, because a sync round can have moved
         // the order between the tap on Today and this screen appearing.
@@ -299,19 +303,22 @@ struct TrailView: View {
                     ForEach(store.orderedMoments.prefix(Self.momentsShown)) { moment in
                         Button {
                             editingMoment = moment
+                            store.learned(.moment)
                         } label: {
                             MomentRow(moment: moment)
                         }
                         .buttonStyle(.plain)
                         .disabled(!canMark)
                         .modifier(MomentRowMenu(canEdit: canMark,
-                                                onEdit: { editingMoment = moment },
-                                                onDelete: { delete(moment) }))
+                                                onEdit: { editingMoment = moment; store.learned(.moment) },
+                                                onDelete: { delete(moment); store.learned(.moment) }))
                     }
                 }
 
-                if canMark {
-                    Aside(text: "Tap one to open it; hold it to edit or delete.", size: 11.5)
+                // Until it has been used once. Tapping a moment edits it: the
+                // line used to say "open", and there is no separate open.
+                if canMark, store.showsHint(.moment) {
+                    Aside(text: "Tap one to edit it; hold it to delete.", size: 11.5)
                         .padding(.top, Space.s1)
                 }
 

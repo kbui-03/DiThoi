@@ -4883,6 +4883,138 @@ struct Verify {
             check("before departure too",
                   at(day: -3, budget: 1_000).burnLine.hasSuffix("What you've booked already uses the whole budget."),
                   at(day: -3, budget: 1_000).burnLine)
+
+            // `String(format: "%.1f")` sat in the store, past `Formatting`.
+            let priced = at(day: 1, flights: 0)
+            check("a share of days goes through Formatting.decimal",
+                  priced.budgetComparison(forHome: priced.pacePerDay * 2.5)
+                      == "That's 2.5 days of budget, at \(priced.homeTextRounded(priced.pacePerDay)) a day.",
+                  priced.budgetComparison(forHome: priced.pacePerDay * 2.5) ?? "nil")
+        }
+
+        print("— the forecast for the last country —")
+        do {
+            // It was worked out in `MoneyView`, where no check could see it.
+            let fixture = CheckTrip.snapshot()
+            func at(day: Int, budget: Double = 8_000, perDay: Double) -> TripStore {
+                let store = TripStore(storeKey: nil, snapshot: fixture,
+                                      clock: { CheckTrip.date(day: day, hour: 12, start: fixture.start) },
+                                      ritual: SilentRitualScheduler())
+                store.expenses.removeAll()
+                store.budget = budget
+                if perDay > 0, day >= 1 {
+                    for spent in 1...day {
+                        store.add(Expense(date: CheckTrip.date(day: spent, hour: 12, start: fixture.start),
+                                          amount: perDay, currency: store.homeCurrency, payer: .one,
+                                          split: .evenly, note: "on the trip", country: ""))
+                    }
+                }
+                return store
+            }
+            // The fixture is a packed trip; a missing last leg is a broken fixture.
+            let last = at(day: 1, perDay: 0).legs.last!
+            let day = 10
+            let daysUntil = Double(last.startDay - day)
+            check("the fixture's last country is still ahead on day \(day)", daysUntil > 0, "\(last.startDay)")
+
+            check("no budget, no forecast", at(day: day, budget: 0, perDay: 50).moneyForecast == nil)
+            check("nothing spent on the trip, no forecast", at(day: day, perDay: 0).moneyForecast == nil)
+            check("before departure, no forecast", at(day: -5, perDay: 0).moneyForecast == nil)
+            check("in the last country already, no forecast",
+                  at(day: last.startDay, perDay: 20).moneyForecast == nil)
+
+            let frugal = at(day: day, perDay: 10)
+            check("a slow burn covers it",
+                  frugal.moneyForecast?.title == "\(last.country) is covered"
+                      && frugal.moneyForecast?.body.hasSuffix("above the trip average.") == true,
+                  "\(String(describing: frugal.moneyForecast))")
+
+            // A burn that lands with half a day's worth a night.
+            let pace = at(day: day, perDay: 0).pacePerDay
+            let tightBurn = (8_000 - pace * Double(max(last.nights, 1)) / 2) / (Double(day) + daysUntil)
+            let tight = at(day: day, perDay: tightBurn)
+            check("a burn that leaves under a day's worth is tight",
+                  tight.moneyForecast?.title == "\(last.country) will be tight"
+                      && tight.moneyForecast?.body.hasSuffix("below the trip average.") == true,
+                  "\(String(describing: tight.moneyForecast))")
+
+            let lavish = at(day: day, perDay: 700)
+            check("a burn that spends it all first doesn't fit",
+                  lavish.moneyForecast?.title == "\(last.country) doesn't fit"
+                      && lavish.moneyForecast?.body.hasPrefix("At this rate the budget runs out before") == true,
+                  "\(String(describing: lavish.moneyForecast))")
+        }
+
+        print("— \"not yet\" on the arrival nudge is for the day —")
+        do {
+            // It was `TodayView`'s `@State`, and the tabs were rebuilt on
+            // every switch, so the nudge came back each time Today opened.
+            let fixture = CheckTrip.snapshot()
+            var today = 12
+            let store = TripStore(storeKey: nil, snapshot: fixture,
+                                  clock: { CheckTrip.date(day: today, hour: 12, start: fixture.start) },
+                                  ritual: SilentRitualScheduler())
+            let stamp = UUID()
+            check("nothing is waved away to begin with", !store.isArrivalDeferred(at: stamp))
+            store.deferArrival(at: stamp)
+            check("\"not yet\" holds for the day", store.isArrivalDeferred(at: stamp))
+            check("for that stop only", !store.isArrivalDeferred(at: UUID()))
+            today = 13
+            check("and tomorrow it is asked again", !store.isArrivalDeferred(at: stamp))
+            let labels = Mirror(reflecting: store.snapshot).children.compactMap(\.label)
+                + Mirror(reflecting: store.payload).children.compactMap(\.label)
+            check("never written down, never sent", !labels.contains { $0.lowercased().contains("arrival") },
+                  "\(labels)")
+        }
+
+        print("— helper lines go once they've been used —")
+        do {
+            let store = TripStore(storeKey: nil, snapshot: CheckTrip.snapshot(),
+                                  ritual: SilentRitualScheduler())
+            check("every hint shows on a new phone",
+                  UsageHint.allCases.allSatisfy(store.showsHint))
+            store.learned(.ledgerLine)
+            check("a used one goes", !store.showsHint(.ledgerLine) && store.showsHint(.moment))
+            check("and is written down", store.snapshot.hintsLearned == [.ledgerLine])
+
+            let reopened = TripStore(storeKey: nil, snapshot: store.snapshot, ritual: SilentRitualScheduler())
+            check("so it stays gone after a relaunch", !reopened.showsHint(.ledgerLine))
+
+            if let data = try? JSONEncoder().encode(store.snapshot),
+               var json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
+                json["hintsLearned"] = nil
+                let stripped = (try? JSONSerialization.data(withJSONObject: json)) ?? Data()
+                check("a trip saved before it existed shows every hint",
+                      TripSnapshot.decode(stripped)?.hintsLearned == [])
+            }
+
+            reopened.beginNextTrip(discarding: true)
+            check("the next trip doesn't teach it again", !reopened.showsHint(.ledgerLine))
+            reopened.resetTrip()
+            check("a reset forgets it", reopened.showsHint(.ledgerLine))
+
+            let payloadLabels = Mirror(reflecting: store.payload).children.compactMap(\.label)
+            check("this phone's, never on the payload", !payloadLabels.contains("hintsLearned"))
+        }
+
+        print("— a location failure is an answer —")
+        do {
+            // `didFailWithError` was empty, so "Finding where you are…" on the
+            // meeting point picker waited for ever.
+            let location = LocationService()
+            check("no failure to begin with", location.failures == 0 && !location.hasFailedSinceFix)
+            location.fail(CLError(.locationUnknown))
+            check("a one-shot that can't find the phone is a failure",
+                  location.failures == 1 && location.hasFailedSinceFix)
+            location.record(CLLocation(latitude: 18.79, longitude: 98.99))
+            check("a fix after it clears it", !location.hasFailedSinceFix && location.failures == 1)
+            location.start()
+            location.fail(CLError(.locationUnknown))
+            check("while tracking, \"still trying\" is not a failure",
+                  location.failures == 1 && !location.hasFailedSinceFix)
+            location.fail(CLError(.network))
+            check("but anything else is", location.failures == 2 && location.hasFailedSinceFix)
+            location.stop()
         }
 
         print("— letters on Today, before any has opened —")

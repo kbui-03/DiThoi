@@ -54,8 +54,8 @@ struct LedgerView: View {
 
                         ForEach(group.lines) { expense in
                             LedgerLine(expense: expense, showsDay: false,
-                                       onEdit: { editingExpense = expense },
-                                       onDelete: { remove(expense) })
+                                       onEdit: { editingExpense = expense; store.learned(.ledgerLine) },
+                                       onDelete: { remove(expense); store.learned(.ledgerLine) })
                         }
                     }
                     .padding(.top, Space.s4)

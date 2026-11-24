@@ -37,8 +37,9 @@ DiThoi/Model/      TripStore, Models, SampleTrip (commented out), TripShape,
                    BookScrub, Postcard, AmountEntry, LedgerExport
 DiThoi/Design/     Components, AppLock, ReadOnly
 DiThoi/Features/   41 screens grouped by tab, incl. Arrival/, Home/ and Trips/
-DiThoi/Root/       RootView, MainTabs, HomeTabs, ClassicalTabBar, DebugScreens,
-                   AppShortcuts
+DiThoi/Root/       RootView (MainTabs, HomeTabs, KeptTab, ClassicalTabBar),
+                   DebugScreens, AppShortcuts, ShareAcceptance,
+                   OrientationLock, WidgetGallery
 DiThoi/Resources/  cities.tsv (GeoNames, made by Tools/build-cities.sh)
 Shared/            both targets: Theme, TripMark, TripMarkView, WidgetSnapshot,
                    DayWidgetView, QuickAction, MarkMomentIntent
@@ -55,7 +56,7 @@ check: `Features/` and `Root/` aren't compiled by the checks.
 ## Before you change anything
 
 ```bash
-./Tools/run-checks.sh          # 1,792 model assertions, macOS, no simulator
+./Tools/run-checks.sh          # 1,819 model assertions, macOS, no simulator
 ./Tools/render-icons.sh        # regenerates the icon set and re-tests actool
 ```
 
@@ -252,6 +253,9 @@ The general lessons behind them are §11; the debt kept on purpose is §7.
 - Every position goes through `LocationService.freshFix(at: now)`, 15 minutes.
   The composer and `arrive(at:)` too: what they write down is kept for good.
   (§3.7)
+- A location failure is an answer: `fail(_:)` counts `failures`. A screen that
+  waits for a fix notes the count when it asks and gives up on a later failure
+  or after 20 s. `locationUnknown` while tracking is not a failure. (§3.7)
 - "You are here" never asks for permission: `requestOnceIfAllowed`, a fix under
   15 minutes old, live traveller trips only. (§3.7)
 - Arrival is suggested, never awarded. The nudge goes to Trail's own
@@ -286,6 +290,12 @@ The general lessons behind them are §11; the debt kept on purpose is §7.
   clauses are checked. No budget is no verdict. (§3.4, §3.11)
 - Push through one `navigationDestination(item:)`, never two stacked
   `isPresented:`. (§5.1)
+- The tabs are kept alive (`KeptTab`). Anything per visit reads `\.isActiveTab`,
+  never `onAppear` or a bare `.task`. Today's "not yet" is the store's, for the
+  day, never persisted. (§5.1)
+- A helper line about a gesture shows until it's used: `showsHint`,
+  `learned(_:)`. `hintsLearned` is this phone's, never on the payload, and
+  survives `beginNextTrip`. `UsageHint` raw values are persisted. (§5.1)
 - Empty states compute their own promises. Separators belong to the clause,
   not the line ("12 Jan · "). (§5.1, §3.11)
 - Every editable sheet keeps its work. New work uses `guardsUnsavedWork`; an
@@ -477,6 +487,9 @@ The general lessons behind them are §11; the debt kept on purpose is §7.
   em-dash, and read through `city(of:)`: a stamp wins, empty resolves against
   the itinerary. (§8.1)
 - `nextLetterLine` never names a `secretCondition` letter. (§8.3)
+- The date turning republishes: `dayMayHaveTurned()` on `.active` and on
+  `significantTimeChangeNotification`. `MainTabs` re-checks the ending and
+  Separated on change, not only on appear. (§8.1)
 - The ending comes up on `endingDue`, never `isFinalDay`, which stays true
   from the last day on. Once it is shown, `rescheduleRitual()` arms nothing;
   `endingShownForDays` is this phone's and never syncs. (§8.1)

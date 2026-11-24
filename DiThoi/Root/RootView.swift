@@ -62,6 +62,13 @@ struct RootView: View {
         .task { readQuickAction() }
         // The widget's tap. Into the same inbox as Siri's, so a cold launch
         // and a warm one are read by the same code.
+        // Midnight, a time-zone change or the clock being set, while the app
+        // is open. Nothing else republishes when only the date moved, so a
+        // screen left open across midnight kept yesterday.
+        .onReceive(NotificationCenter.default.publisher(
+            for: UIApplication.significantTimeChangeNotification)) { _ in
+            store.dayMayHaveTurned()
+        }
         .onOpenURL { url in
             guard let action = QuickAction(url: url) else { return }
             quickActions.pending = action
@@ -167,15 +174,21 @@ struct MainTabs: View {
         }
     }
 
+    /// Every tab opened so far. A tab is built the first time it is chosen
+    /// and then kept, so the trail's map isn't drawn at launch.
+    @State private var visited: Set<Tab> = []
+
     var body: some View {
         VStack(spacing: 0) {
+            // Kept alive rather than swapped in a `switch`: swapped, every tab
+            // change threw away the pushed screen (the ledger, the itinerary,
+            // a document), the scroll position and Money's undo. A kept tab
+            // doesn't appear again, so what a visit does is `isActiveTab`'s.
             ZStack {
-                switch selection {
-                case .today: TodayView()
-                case .trail: TrailView()
-                case .money: MoneyView()
-                case .book: BookView()
-                case .papers: PapersView(showingSeparated: $showingSeparated)
+                ForEach(tabs) { tab in
+                    if tab == selection || visited.contains(tab) {
+                        KeptTab(isActive: tab == selection) { content(for: tab) }
+                    }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -207,20 +220,76 @@ struct MainTabs: View {
         // Tonight's page opens over the Book tab, so closing it lands where
         // the page now is.
         .onChange(of: outside) { showBookIfWriting() }
+        .onChange(of: selection) { _, tab in visited.insert(tab) }
         .onAppear {
             selection = tabs.contains(initialTab) ? initialTab : (tabs.first ?? .today)
+            visited.insert(selection)
             showBookIfWriting()
-            if store.isSeparated { showingSeparated = true }
-            // I7 · day 61. Shown once, and only because the trip actually got
-            // there — never as a preview of an ending that hasn't happened.
-            // `endingDue`, not `isFinalDay`: that one stays true from the last
-            // day on, and the ending came back on every launch.
-            if store.endingDue { showingEnding = true }
+            presentDueCovers()
         }
+        // Not only at launch. A phone resumed on the last day, or left open
+        // across midnight into it, never showed the ending until a cold
+        // launch: these were read in `onAppear` alone. The store republishes
+        // on resume and when the date turns (`dayMayHaveTurned()`), and these
+        // pick it up.
+        .onChange(of: store.endingDue) { presentDueCovers() }
+        .onChange(of: store.isSeparated) { presentDueCovers() }
+    }
+
+    private func presentDueCovers() {
+        if store.isSeparated { showingSeparated = true }
+        // I7 · day 61. Shown once, and only because the trip actually got
+        // there — never as a preview of an ending that hasn't happened.
+        // `endingDue`, not `isFinalDay`: that one stays true from the last
+        // day on, and the ending came back on every launch.
+        if store.endingDue { showingEnding = true }
     }
 
     private func showBookIfWriting() {
         if outside == .writeTonight, tabs.contains(.book) { selection = .book }
+    }
+
+    @ViewBuilder
+    private func content(for tab: Tab) -> some View {
+        switch tab {
+        case .today: TodayView()
+        case .trail: TrailView()
+        case .money: MoneyView()
+        case .book: BookView()
+        case .papers: PapersView(showingSeparated: $showingSeparated)
+        }
+    }
+}
+
+/// One tab, kept in the hierarchy whether or not it is the one on screen.
+/// Hidden by opacity, out of hit testing and out of VoiceOver, and told
+/// whether it is the one being looked at.
+struct KeptTab<Content: View>: View {
+    var isActive: Bool
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        content
+            .environment(\.isActiveTab, isActive)
+            .opacity(isActive ? 1 : 0)
+            .allowsHitTesting(isActive)
+            .accessibilityHidden(!isActive)
+    }
+}
+
+private struct IsActiveTabKey: EnvironmentKey {
+    /// True outside the tabs: a screen drawn on its own (the shelf, a debug
+    /// route) is the one being looked at.
+    static let defaultValue = true
+}
+
+extension EnvironmentValues {
+    /// Whether this tab is the one on screen. The tabs are kept alive, so
+    /// `onAppear` fires once per launch, not once per visit; anything that
+    /// counts or refreshes per visit reads this instead (§5.1).
+    var isActiveTab: Bool {
+        get { self[IsActiveTabKey.self] }
+        set { self[IsActiveTabKey.self] = newValue }
     }
 }
 
@@ -237,20 +306,16 @@ struct HomeTabs: View {
         [.today, .book, .trail].filter { $0 != .trail || store.features.stamps }
     }
 
+    /// Kept alive the way `MainTabs`' are.
+    @State private var visited: Set<Tab> = []
+
     var body: some View {
         VStack(spacing: 0) {
             ZStack {
-                switch selection {
-                case .book: LetterBoardView()
-                // The observer reads the trail; they do not write it. The
-                // guarantee is in `TripStore` — `arrive` refuses an observer
-                // outright — and this is what stops the app *offering* the tap.
-                //
-                // On this tab only: the other two are the letters, which are
-                // what this phone is for and are not part of the trip the flag
-                // speaks about.
-                case .trail: TrailView().environment(\.isReadOnly, true)
-                default: HomeView()
+                ForEach(tabs) { tab in
+                    if tab == selection || visited.contains(tab) {
+                        KeptTab(isActive: tab == selection) { content(for: tab) }
+                    }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -262,8 +327,26 @@ struct HomeTabs: View {
         // itinerary moved.
         .overlay(alignment: .top) { SyncNotices() }
         .background(Palette.bg.ignoresSafeArea())
+        .onChange(of: selection) { _, tab in visited.insert(tab) }
         .onAppear {
             if !tabs.contains(selection) { selection = tabs.first ?? .today }
+            visited.insert(selection)
+        }
+    }
+
+    @ViewBuilder
+    private func content(for tab: Tab) -> some View {
+        switch tab {
+        case .book: LetterBoardView()
+        // The observer reads the trail; they do not write it. The guarantee
+        // is in `TripStore` — `arrive` refuses an observer outright — and this
+        // is what stops the app *offering* the tap.
+        //
+        // On this tab only: the other two are the letters, which are what
+        // this phone is for and are not part of the trip the flag speaks
+        // about.
+        case .trail: TrailView().environment(\.isReadOnly, true)
+        default: HomeView()
         }
     }
 }

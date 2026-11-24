@@ -44,7 +44,7 @@ struct ShowCardsView: View {
                     Section {
                         ForEach(cards) { card in
                             Button {
-                                if !isReadOnly { editing = card }
+                                if !isReadOnly { editing = card; store.learned(.showCard) }
                             } label: {
                                 row(card)
                             }
@@ -57,8 +57,11 @@ struct ShowCardsView: View {
                             // dialog.
                             .contextMenu {
                                 if !isReadOnly {
-                                    Button("Edit") { editing = card }
-                                    Button("Delete", role: .destructive) { remove(card) }
+                                    Button("Edit") { editing = card; store.learned(.showCard) }
+                                    Button("Delete", role: .destructive) {
+                                        remove(card)
+                                        store.learned(.showCard)
+                                    }
                                 }
                             }
                         }
@@ -70,12 +73,17 @@ struct ShowCardsView: View {
                         // its own white band under a `.plain` list and takes no
                         // `listRowBackground` — the paper stopped at the last
                         // card and the sentence sat on a white strip.
-                        Aside(text: isReadOnly
-                              ? "This trip is closed, so the cards are as they were written."
-                              : "Tap a card to write it; hold it to edit or delete.",
-                              size: 11.5)
-                            .padding(.vertical, Space.s1)
-                            .listRowBackground(Palette.bg)
+                        //
+                        // The closed trip's sentence always; the gesture's
+                        // until it has been used once (`hintsLearned`).
+                        if isReadOnly || store.showsHint(.showCard) {
+                            Aside(text: isReadOnly
+                                  ? "This trip is closed, so the cards are as they were written."
+                                  : "Tap a card to write it; hold it to edit or delete.",
+                                  size: 11.5)
+                                .padding(.vertical, Space.s1)
+                                .listRowBackground(Palette.bg)
+                        }
                     } header: {
                         HStack(alignment: .firstTextBaseline) {
                             Text("In the order you swipe them")
