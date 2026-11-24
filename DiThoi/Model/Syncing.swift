@@ -28,6 +28,10 @@ struct SyncPayload: Codable, Equatable {
     /// the point itself is: either of them can be the one who typed it, and
     /// either of them can be the one picking it again a week later.
     var meetingPlaces: [MeetingPoint]
+    /// The places either of them asked the picker to forget. A tombstone,
+    /// because `meetingPlaces` unions: a removal alone would come straight
+    /// back from the other phone.
+    var forgottenMeetingPlaces: ForgottenPlaces
     var settlements: [SettlementProposal]
     /// What they wrote about each day, and the cards they hand to strangers.
     ///
@@ -71,6 +75,7 @@ struct SyncPayload: Codable, Equatable {
                 value: MeetingPoint(place: "", detail: "", localScript: "", setAt: .distantPast),
                 updatedAt: .distantPast, setBy: .one),
             meetingPlaces: [],
+            forgottenMeetingPlaces: ForgottenPlaces(),
             settlements: [],
             dayPlans: [], showCards: [],
             letterKeys: .blank
@@ -81,6 +86,7 @@ struct SyncPayload: Codable, Equatable {
          itinerary: ItineraryDocument,
          expenses: [Expense], stamps: [Stamp], meetingPoint: StampedMeetingPoint,
          meetingPlaces: [MeetingPoint] = [],
+         forgottenMeetingPlaces: ForgottenPlaces = ForgottenPlaces(),
          settlements: [SettlementProposal],
          dayPlans: [DayPlan] = [], showCards: [ShowCard] = [],
          letterKeys: LetterKeyring = .blank) {
@@ -92,6 +98,7 @@ struct SyncPayload: Codable, Equatable {
         self.stamps = stamps
         self.meetingPoint = meetingPoint
         self.meetingPlaces = meetingPlaces
+        self.forgottenMeetingPlaces = forgottenMeetingPlaces
         self.settlements = settlements
         self.dayPlans = dayPlans
         self.showCards = showCards
@@ -116,6 +123,9 @@ struct SyncPayload: Codable, Equatable {
         // nowhere" — the merge unions, so an erasure here would be one phone
         // forgetting on the other's behalf.
         meetingPlaces = try c.decodeIfPresent([MeetingPoint].self, forKey: .meetingPlaces) ?? []
+        // Absent is "forgot nothing", which the merge reads as no opinion.
+        forgottenMeetingPlaces = try c.decodeIfPresent(ForgottenPlaces.self,
+                                                       forKey: .forgottenMeetingPlaces) ?? ForgottenPlaces()
         settlements = try c.decode([SettlementProposal].self, forKey: .settlements)
         // A payload pushed by a phone running the older build carries neither
         // of these. Absent has to mean "nothing to say about them", not
@@ -291,6 +301,8 @@ enum SyncMerge {
         merged.meetingPlaces = local.meetingPlaces
             .remembering(remote.meetingPlaces)
             .remembering([local.meetingPoint.value, remote.meetingPoint.value])
+        merged.forgottenMeetingPlaces = local.forgottenMeetingPlaces
+            .merged(with: remote.forgottenMeetingPlaces)
 
         if remote.meetingPoint.updatedAt > local.meetingPoint.updatedAt {
             merged.meetingPoint = remote.meetingPoint
@@ -351,6 +363,7 @@ extension SyncPayload {
         stamps = TripShift.stamps(stamps, by: days)
         meetingPoint.value.setAt = TripShift.move(meetingPoint.value.setAt, by: days)
         meetingPlaces = TripShift.meetingPlaces(meetingPlaces, by: days)
+        forgottenMeetingPlaces = forgottenMeetingPlaces.shifted(by: days)
     }
 }
 

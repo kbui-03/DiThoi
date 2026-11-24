@@ -56,7 +56,7 @@ check: `Features/` and `Root/` aren't compiled by the checks.
 ## Before you change anything
 
 ```bash
-./Tools/run-checks.sh          # 1,834 model assertions, macOS, no simulator
+./Tools/run-checks.sh          # 1,866 model assertions, macOS, no simulator
 ./Tools/render-icons.sh        # regenerates the icon set and re-tests actool
 ```
 
@@ -66,7 +66,7 @@ check: `Features/` and `Root/` aren't compiled by the checks.
   -resetTrip -screen <route>`. There are 83 routes, plus `-day N` (zero or
   negative allowed), `-seedItinerary`, `-seedJournal`, `-seedSpending`,
   `-seedLetters` (with `-openLetter`), `-noBudget`, `-planned`, `-seedPreTrip`,
-  `-featuresOff a,b`, `-meetingDaysAgo N` and `-clock HH:mm`. The empty states are half of what there is to look at, which is
+  `-featuresOff a,b`, `-meetingDaysAgo N`, `-seedMeetingHistory` and `-clock HH:mm`. The empty states are half of what there is to look at, which is
   why seeding is a flag, not a route. (§6.2)
 - **Take the screenshots.** Eleven rounds of fully green checks have sat over a
   screen that was wrong. (§6.3)
@@ -296,6 +296,9 @@ The general lessons behind them are §11; the debt kept on purpose is §7.
   derived from `openedOn`. Nothing read-shaped is stored. (§5.1, §8.3)
 - Today's header is the city (`cityStamp`) on every phone, and the holder's
   name only where no stop covers today. (§5.1)
+- "Before you go" is `departureLines`: the last 7 days, live trips, never the
+  observer. Every line is computed and is a link; nothing is ticked. Tabs
+  switch through `\.openTab`, which drops a tab that's switched off. (§5.1)
 - `meetingLine`, `paceNote` and `letterTally` are the store's, so their
   clauses are checked. No budget is no verdict. (§3.4, §3.11)
 - Push through one `navigationDestination(item:)`, never two stacked
@@ -329,6 +332,13 @@ The general lessons behind them are §11; the debt kept on purpose is §7.
 - The local script belongs to the place, not to the screen. (§3.11)
 - A pin belongs to the place, like the script: change "Where" and the pin is
   that place's or none. A pin is optional. (§3.11)
+- Forgetting a place is a tombstone, `forgottenMeetingPlaces`, on the payload:
+  the history unions, so a removal would come back. Read the history through
+  `rememberedMeetingPlaces` (picker and book). Agreeing a place again
+  outranks the forget. Tonight's point can't be forgotten. (§3.11)
+- The picker lists `meetingPlacesByStop`, this stop's first; a place's stop is
+  derived from `setAt`. It opens blank when the point on file is another
+  stop's, and "dirty" is measured against what it opened with. (§3.11)
 
 ### Day plans and show-this cards
 - Both are editable and therefore on `SyncPayload`. (§3.12)

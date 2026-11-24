@@ -4827,6 +4827,165 @@ struct Verify {
                   !store.meetingPlaces.contains { $0.placeKey == "clock tower" })
         }
 
+        print("— before you go —")
+        do {
+            // The countdown said the first stop and the itinerary and nothing
+            // that is useful in the last week. Each line is worked out.
+            let fixture = CheckTrip.snapshot()
+            func out(_ days: Int, _ edit: (inout TripSnapshot) -> Void = { _ in }) -> TripStore {
+                var snapshot = fixture
+                edit(&snapshot)
+                return TripStore(storeKey: nil, snapshot: snapshot,
+                                 clock: { CheckTrip.date(day: 1 - days, hour: 10, start: fixture.start) },
+                                 ritual: SilentRitualScheduler())
+            }
+            let eight = out(8)
+            check("eight days out it isn't there yet",
+                  eight.phase == .before(daysUntil: 8) && eight.departureLines.isEmpty, "\(eight.phase)")
+            let week = out(7)
+            let lines = week.departureLines
+            check("a week out it is", week.phase == .before(daysUntil: 7)
+                      && lines.map(\.kind) == [.papers, .cards, .money, .secondPhone],
+                  "\(lines.map(\.kind))")
+            let documents = week.documents.count
+            check("papers counts the documents and says the passports have no scans",
+                  lines.first?.detail == "\(documents) · passports not scanned",
+                  lines.first?.detail ?? "nil")
+            check("the cards are counted",
+                  lines[1].detail == Formatting.spelledCount(week.orderedShowCards.count, "card", spellingUpTo: 0),
+                  lines[1].detail)
+            check("the money is the budget and the currencies on the way",
+                  lines[2].detail == "\(week.homeTextRounded(week.budget)) · 3 currencies", lines[2].detail)
+            check("and this build's second phone isn't connected",
+                  lines[3].detail == "not connected"
+                      && week.departureLettersNote == "Letters from home reach a paired phone only.")
+
+            let noLedger = out(3) { $0.features.sharedLedger = false }
+            check("no ledger, no money line",
+                  !noLedger.departureLines.contains { $0.kind == .money })
+            let noBudget = out(3) { $0.budget = 0 }
+            check("no budget says so",
+                  noBudget.departureLines.first { $0.kind == .money }?.detail == "no budget yet")
+            let bare = out(3) { $0.documents = []; $0.showCards = [] }
+            check("nothing in Papers is none yet",
+                  bare.departureLines.first?.detail == "none yet"
+                      && bare.departureLines[1].detail == "none yet")
+            check("on the trip it is gone", TripStore(storeKey: nil, snapshot: fixture,
+                                                      ritual: SilentRitualScheduler()).departureLines.isEmpty)
+
+            typealias Line = TripStore.DepartureLine
+            check("documents without a passport are only counted",
+                  Line.papersDetail(documents: 2, passports: 0, scannedPassports: 0) == "2 documents")
+            check("one passport, scanned",
+                  Line.papersDetail(documents: 3, passports: 1, scannedPassports: 1) == "3 · passport scanned")
+            check("one passport, not",
+                  Line.papersDetail(documents: 1, passports: 1, scannedPassports: 0) == "1 · passport not scanned")
+            check("two, one scanned",
+                  Line.papersDetail(documents: 6, passports: 2, scannedPassports: 1)
+                      == "6 · 1 of 2 passports scanned")
+        }
+
+        print("— the picker sorts places by stop, and forgets on both phones —")
+        do {
+            // `meetingPlaces` grew for the whole trip, unsorted by city, and a
+            // place could never be forgotten. Bangkok is days 1–5 and Chiang
+            // Mai 9–17 in the fixture.
+            let fixture = CheckTrip.snapshot()
+            func at(day: Int, _ hour: Int = 12, from snapshot: TripSnapshot) -> TripStore {
+                TripStore(storeKey: nil, snapshot: snapshot,
+                          clock: { CheckTrip.date(day: day, hour: hour, start: fixture.start) },
+                          ritual: SilentRitualScheduler())
+            }
+            let bangkok = at(day: 3, from: fixture)
+            bangkok.setMeetingPoint(MeetingPoint(place: "Lumphini Park", detail: "by the lake",
+                                                 localScript: "", setAt: bangkok.now))
+            let phone = at(day: 12, from: bangkok.snapshot)
+            phone.setMeetingPoint(MeetingPoint(place: "Tha Phae Gate", detail: "the coffee cart side",
+                                               localScript: "", setAt: phone.now))
+            let lists = phone.meetingPlacesByStop
+            check("this stop's places come first",
+                  lists.here.map(\.place) == ["Tha Phae Gate"], lists.here.map(\.place).joined(separator: ", "))
+            check("and the rest of the trip after",
+                  lists.earlier.contains { $0.place == "Lumphini Park" }
+                      && !lists.earlier.contains { $0.place == "Tha Phae Gate" },
+                  lists.earlier.map(\.place).joined(separator: ", "))
+            let lumphini = phone.rememberedMeetingPlaces.first { $0.placeKey == "lumphini park" }
+            check("each knows the stop it was agreed in",
+                  lumphini.flatMap(phone.meetingPlaceStop)?.primaryPlace == "Bangkok")
+
+            // The other phone, before anybody forgot anything.
+            let other = at(day: 12, from: phone.snapshot)
+
+            check("tonight's point can't be forgotten",
+                  !phone.canForgetMeetingPlace(phone.meeting) && !phone.forgetMeetingPlace(phone.meeting))
+            let lumphiniPoint = lumphini ?? MeetingPoint(place: "Lumphini Park", detail: "",
+                                                         localScript: "", setAt: .distantPast)
+            check("an earlier one can", phone.forgetMeetingPlace(lumphiniPoint))
+            check("and it leaves the picker",
+                  !phone.rememberedMeetingPlaces.contains { $0.placeKey == "lumphini park" }
+                      && !phone.meetingPlacesByStop.earlier.contains { $0.placeKey == "lumphini park" })
+            check("and the book", !phone.bookMeetingPlaces.contains { $0.placeKey == "lumphini park" })
+            check("as a tombstone, not a removal",
+                  phone.meetingPlaces.contains { $0.placeKey == "lumphini park" })
+
+            // The history unions, so the other phone's copy of the place must
+            // not bring it back.
+            let merged = SyncMerge.merge(local: other.payload, remote: phone.payload, as: .two).payload
+            check("the forget reaches the other phone",
+                  !merged.meetingPlaces.remembered(despite: merged.forgottenMeetingPlaces)
+                      .contains { $0.placeKey == "lumphini park" })
+            let back = SyncMerge.merge(local: phone.payload, remote: other.payload, as: .one).payload
+            check("and the other phone's history doesn't undo it",
+                  !back.meetingPlaces.remembered(despite: back.forgottenMeetingPlaces)
+                      .contains { $0.placeKey == "lumphini park" })
+            var older = phone.forgottenMeetingPlaces
+            older = older.forgetting("lumphini park", at: .distantPast)
+            check("two forgets keep the later",
+                  older == phone.forgottenMeetingPlaces
+                      && ForgottenPlaces().merged(with: phone.forgottenMeetingPlaces) == phone.forgottenMeetingPlaces)
+
+            // Moving the dates moves the forget with the history.
+            let moved = at(day: 12, from: phone.snapshot)
+            moved.setStart(Calendar.trip.date(byAdding: .day, value: 3, to: moved.start) ?? moved.start)
+            check("moving the dates keeps it forgotten",
+                  !moved.rememberedMeetingPlaces.contains { $0.placeKey == "lumphini park" })
+
+            // Agreeing it again brings it back: the newer `setAt` outranks
+            // the forget, so nothing has to clear it.
+            let later = at(day: 14, from: phone.snapshot)
+            later.setMeetingPoint(lumphiniPoint)
+            check("choosing it again brings it back",
+                  later.rememberedMeetingPlaces.contains { $0.placeKey == "lumphini park" })
+
+            let home = at(day: 12, from: phone.snapshot)
+            home.participant = .writer
+            check("home forgets nothing",
+                  !home.forgetMeetingPlace(home.meetingPlaces.first { $0.placeKey == "tha phae gate" } ?? home.meeting))
+
+            // Absent on older saves and older phones: forgot nothing.
+            let encoded = (try? JSONEncoder().encode(phone.snapshot)) ?? Data()
+            if var json = try? JSONSerialization.jsonObject(with: encoded) as? [String: Any] {
+                json.removeValue(forKey: "forgottenMeetingPlaces")
+                let data = (try? JSONSerialization.data(withJSONObject: json)) ?? Data()
+                check("a trip saved before forgetting still opens, forgetting nothing",
+                      TripSnapshot.decode(data)?.forgottenMeetingPlaces.isEmpty == true)
+            }
+            check("the forget survives a round-trip",
+                  TripSnapshot.decode(encoded)?.forgottenMeetingPlaces == phone.forgottenMeetingPlaces)
+            let wire = (try? JSONEncoder().encode(phone.payload)) ?? Data()
+            if var json = try? JSONSerialization.jsonObject(with: wire) as? [String: Any] {
+                json.removeValue(forKey: "forgottenMeetingPlaces")
+                let data = (try? JSONSerialization.data(withJSONObject: json)) ?? Data()
+                let old = try? JSONDecoder().decode(SyncPayload.self, from: data)
+                check("an older phone's payload has no opinion",
+                      old?.forgottenMeetingPlaces.isEmpty == true)
+                if let old {
+                    let kept = SyncMerge.merge(local: phone.payload, remote: old, as: .one).payload
+                    check("and takes no forget away", kept.forgottenMeetingPlaces == phone.forgottenMeetingPlaces)
+                }
+            }
+        }
+
         print("— a position is only as good as its age —")
         do {
             // The composer and `arrive(at:)` read the last fix raw, so a stamp
@@ -6600,8 +6759,8 @@ struct Verify {
             // readable by the other traveller and unconditionally by the zone's
             // owner. Nothing about any letter is here.
             let allowed = ["tripID", "settings", "names", "itinerary", "expenses", "stamps",
-                           "meetingPoint", "meetingPlaces", "settlements", "dayPlans", "showCards",
-                           "letterKeys"]
+                           "meetingPoint", "meetingPlaces", "forgottenMeetingPlaces", "settlements",
+                           "dayPlans", "showCards", "letterKeys"]
             let labels = Mirror(reflecting: SyncPayload.empty()).children.compactMap(\.label)
             check("the payload carries exactly what it is allowed to",
                   labels == allowed, "\(labels)")

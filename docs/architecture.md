@@ -1603,6 +1603,31 @@ trip and returns whether it set anything; the picker's haptic waits on that,
 and the column is a button only under `canAdd && !isObserver`, drawn plain
 otherwise, as the spent column is.
 
+**The history is listed by stop, and a place can be forgotten on both
+phones.** `meetingPlaces` grew for the whole trip and the picker offered all
+of it in one list, Bangkok's gates under Hanoi's, with no way to drop a typo.
+`meetingPlacesByStop` splits it: "Here in {stop}" (the places agreed on a
+night in this stop, tonight's point leading) and "Earlier on the trip", each
+with its city. A place's stop is `meetingPlaceStop`, the stop of the night it
+was set, derived from `setAt`, so `TripShift` already keeps it right.
+
+Forgetting is a tombstone. The merge unions the history, so taking a place
+out of one phone's list would have the other phone's list put it straight
+back on the next round. `forgottenMeetingPlaces` (`ForgottenPlaces`, placeKey
+→ when) rides on the payload beside the history, merges by the later date per
+place, is moved by `setStart`, and defaults to empty in old saves and old
+payloads (no opinion, so it can't un-forget anything). Readers go through
+`rememberedMeetingPlaces`, the picker and the book both: a place is hidden
+while it was forgotten no earlier than it was last agreed, so choosing it
+again brings it back without anything clearing the tombstone. Tonight's
+point can't be forgotten; somebody may be walking to it.
+
+**"Same place as last night?"** While the point is `.earlier` (same stop), the
+picker leads with it and "keep it", which is `confirmMeetingPoint()`, Today's
+"still here". When the point is `.elsewhere` the fields open empty: they used
+to open on the last city's gate. "Dirty" is measured against what the fields
+opened with, so a blank form closes without asking.
+
 ### 3.12 Day plans and show-this cards
 
 **Day plans and show-this cards are editable, and therefore on `SyncPayload`.**
@@ -1956,6 +1981,19 @@ field joins `Letter` (§8.3).
 with letters and the holder's name on one without, though both travellers
 are standing in the same city. It is `cityStamp(forDay:)` everywhere, with the
 name kept only where no stop covers today, rather than the dash.
+
+**The countdown says what is ready, in the last week.** Before departure Today
+had the first stop and the itinerary, and nothing that is useful seven days
+out. `departureLines` adds four rows under "Before you go": Papers (counted,
+and whether the passports have scans: `scanCount(for:)`, so the vault is
+asked, never a flag), the show-this cards, the money (the budget and the
+itinerary's currencies; only with the ledger on) and the second phone
+(`sync.isShared`). Each is worked out, none is a checklist, and each is the
+way to what it describes: Papers and Money switch tab through `\.openTab` (set
+by `MainTabs`, dropped for a tab that's off, a no-op outside the tabs), and
+the second phone pushes the Trip screen. `papersDetail` is static and takes
+counts, so the checks don't need a vault. Further out than a week, on the
+trip, on a closed trip and on the observer's phone it draws nothing.
 
 **`TodayView` pushes through one `navigationDestination(item:)`, not two
 `isPresented:`.** Two of those stacked on one view is the arrangement where the

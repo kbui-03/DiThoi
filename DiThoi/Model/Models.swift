@@ -1690,6 +1690,63 @@ extension Array where Element == MeetingPoint {
     }
 
     func remembering(_ point: MeetingPoint) -> [MeetingPoint] { remembering([point]) }
+
+    /// The history less what was forgotten: a place stays gone until it is
+    /// agreed again after the forget.
+    func remembered(despite forgotten: ForgottenPlaces) -> [MeetingPoint] {
+        filter { !forgotten.hides($0) }
+    }
+}
+
+/// Meeting places somebody asked the picker to forget, by `placeKey`, with
+/// when.
+///
+/// A tombstone rather than a removal, because the history unions: taking a
+/// place out of one phone's list would have the other phone's list put it
+/// straight back on the next round. On the payload for the same reason the
+/// history is, and dated, so `setStart` moves it. Choosing the place again
+/// stamps a newer `setAt`, which outranks the forget, so nothing has to
+/// clear it.
+struct ForgottenPlaces: Codable, Hashable {
+    private(set) var dates: [String: Date] = [:]
+
+    init(_ dates: [String: Date] = [:]) { self.dates = dates }
+
+    init(from decoder: Decoder) throws {
+        dates = try decoder.singleValueContainer().decode([String: Date].self)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.singleValueContainer()
+        try c.encode(dates)
+    }
+
+    var isEmpty: Bool { dates.isEmpty }
+
+    /// Whether a remembered point is hidden: forgotten no earlier than it
+    /// was last agreed.
+    func hides(_ point: MeetingPoint) -> Bool {
+        guard let at = dates[point.placeKey] else { return false }
+        return at >= point.setAt
+    }
+
+    func forgetting(_ placeKey: String, at date: Date) -> ForgottenPlaces {
+        guard !placeKey.isEmpty else { return self }
+        var copy = self
+        copy.dates[placeKey] = Swift.max(date, dates[placeKey] ?? .distantPast)
+        return copy
+    }
+
+    /// The later forget wins per place, so two phones agree however the
+    /// rounds interleave.
+    func merged(with other: ForgottenPlaces) -> ForgottenPlaces {
+        ForgottenPlaces(dates.merging(other.dates) { Swift.max($0, $1) })
+    }
+
+    func shifted(by days: Int) -> ForgottenPlaces {
+        guard days != 0 else { return self }
+        return ForgottenPlaces(dates.mapValues { TripShift.move($0, by: days) })
+    }
 }
 
 // MARK: - Where the trip is up to
@@ -1766,4 +1823,6 @@ enum UsageHint: String, Codable, CaseIterable, Sendable {
     case document
     /// The show-this cards in their editor: tap writes, hold edits or deletes.
     case showCard
+    /// The meeting point picker's remembered places: tap chooses, hold forgets.
+    case meetingPlace
 }
