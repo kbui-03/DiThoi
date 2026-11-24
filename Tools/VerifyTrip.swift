@@ -4737,6 +4737,96 @@ struct Verify {
             check("and still here confirms nothing", blank.meetingStanding == .none)
         }
 
+        print("— Today together names the next hour —")
+        do {
+            // At 6pm the panel still named the 8am breakfast: it was
+            // `orderedItems.first`. Day 12's hours are 07:30, 10:00, 12:00
+            // and 19:00.
+            let fixture = CheckTrip.snapshot()
+            func at(_ hour: Int, _ minute: Int = 0, day: Int = 12) -> TripStore {
+                TripStore(storeKey: nil, snapshot: fixture,
+                          clock: { CheckTrip.date(day: day, hour: hour, minute: minute, start: fixture.start) },
+                          ritual: SilentRitualScheduler())
+            }
+            func reads(_ store: TripStore) -> String {
+                guard let together = store.todayTogether else { return "nil" }
+                return "\(together.item.title) · \(together.timing)"
+            }
+
+            let dawn = at(7)
+            check("before the first hour, the first one is next",
+                  dawn.todayTogether?.item.title == "Breakfast at the corner shophouse"
+                      && dawn.todayTogether?.timing == .next("07:30"), reads(dawn))
+            let breakfast = at(7, 45)
+            check("an hour under way is now",
+                  breakfast.todayTogether?.timing == .now
+                      && breakfast.todayTogether?.item.title == "Breakfast at the corner shophouse",
+                  reads(breakfast))
+            let gap = at(9)
+            check("an hour and a half on, it's the next one",
+                  gap.todayTogether?.item.title == "Buy water guns"
+                      && gap.todayTogether?.timing == .next("10:00"), reads(gap))
+            let noon = at(12, 10)
+            check("at ten past twelve the moat is now",
+                  noon.todayTogether?.item.title == "The moat, anticlockwise"
+                      && noon.todayTogether?.timing == .now, reads(noon))
+            let six = at(18)
+            check("at six it names the evening, not the breakfast",
+                  six.todayTogether?.item.title == "Tha Phae Gate"
+                      && six.todayTogether?.timing == .next("19:00"), reads(six))
+            let late = at(23)
+            check("with every hour behind them it stays on the last",
+                  late.todayTogether?.item.title == "Tha Phae Gate"
+                      && late.todayTogether?.timing == .lastTonight, reads(late))
+
+            let untimed = at(12, day: 30)
+            untimed.addItem(time: "after dark", title: "The lantern street", note: "", toDay: 30)
+            check("a day with no clock times names its first hour, unclaimed",
+                  untimed.todayTogether?.item.title == "The lantern street"
+                      && untimed.todayTogether?.timing == .untimed, reads(untimed))
+            let empty = at(12, day: 31)
+            check("and a day with no hours has nothing", empty.todayTogether == nil)
+        }
+
+        print("— the letter card is the night's —")
+        do {
+            // "A letter opened itself here" showed the newest opened letter on
+            // every day after, pushing the day down for weeks. Letter 4 opened
+            // on day 9 at 17:02.
+            let fixture = CheckTrip.snapshot()
+            func at(day: Int, _ hour: Int) -> TripStore {
+                TripStore(storeKey: nil, snapshot: fixture,
+                          clock: { CheckTrip.date(day: day, hour: hour, start: fixture.start) },
+                          ritual: SilentRitualScheduler())
+            }
+            check("the evening it opened, it's on Today",
+                  at(day: 9, 21).letterOfTheNight?.number == 4)
+            check("at two in the morning it is still that night's",
+                  at(day: 10, 2).letterOfTheNight?.number == 4)
+            check("the morning after, it has gone to the letters row",
+                  at(day: 10, 10).letterOfTheNight == nil && at(day: 10, 10).newestOpenLetter?.number == 4)
+            check("and three days on there is no card", at(day: 12, 12).letterOfTheNight == nil)
+        }
+
+        print("— a closed trip takes no meeting point —")
+        do {
+            // Today opened the picker on a read-only trip and played a
+            // success haptic over a write that went nowhere.
+            let store = TripStore(storeKey: nil, snapshot: CheckTrip.snapshot(),
+                                  ritual: SilentRitualScheduler())
+            let before = store.meeting
+            check("a live trip sets one",
+                  store.setMeetingPoint(MeetingPoint(place: "The bridge", detail: "", localScript: "",
+                                                     setAt: store.now)))
+            store.closeTrip()
+            let refused = store.setMeetingPoint(MeetingPoint(place: "Clock tower", detail: "",
+                                                             localScript: "", setAt: store.now))
+            check("a closed one refuses, and says so",
+                  !refused && store.meeting.place == "The bridge" && before.place != "Clock tower")
+            check("and remembers nothing new",
+                  !store.meetingPlaces.contains { $0.placeKey == "clock tower" })
+        }
+
         print("— a position is only as good as its age —")
         do {
             // The composer and `arrive(at:)` read the last fix raw, so a stamp

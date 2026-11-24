@@ -63,6 +63,19 @@ and move its line into Added / Changed / Fixed under a v1.1 release heading.
   `LSApplicationCategoryType` stays, and the status bar is dark content again,
   on purpose: the app is locked to light paper, and Separated and the crop
   screen flip it themselves.
+- **"Today together" named the first hour, not the next.** At 6pm it still
+  said the 8am breakfast. It names the hour under way ("now", for an hour
+  after it starts), the next one ("next · 19:00"), or the evening's last
+  ("last tonight"), redrawn every minute (`todayTogether`).
+- **The letter card never left.** "A letter opened itself today" shows the
+  newest letter on the night it opened, small hours included
+  (`letterOfTheNight`), then only in the letters row.
+- **The header named the holder instead of the place.** Both phones say the
+  city; the name is left only where no stop covers today.
+- **The meeting point opened for editing on a read-only trip.** The column is
+  a door only where the trip is live, not read-only and not the observer's,
+  and `setMeetingPoint` refuses a closed trip and says so, so the picker's
+  success haptic plays only when the point was kept.
 
 ## [v1.1] — to-do
 
@@ -92,19 +105,6 @@ Items carried over from the v1 known issues say so.
 
 ### Today
 
-- [ ] **Should · "Today together" shows the first hour, not the next.** At
-  6pm it still names the 8am item. Show the next timed item, or the evening's
-  last one once the day is over.
-- [ ] **Should · The letter card never leaves.** "A letter opened itself here"
-  shows the newest opened letter on every day after it opened, pushing
-  "Today together" down for weeks. Show it on the day it opened (or until it
-  has been read), then only in the letters row.
-- [ ] **Should · The header names the holder instead of the place** on a phone
-  with no letters (`lettersVisible ? currentCity : myName`). Both travellers
-  are in the same city; both headers should say it.
-- [ ] **Should · The meeting point opens for editing on a read-only trip**
-  (the button isn't gated on `canAdd`), and saves with a success haptic into a
-  store that persists nothing.
 - [ ] **Nice · A real countdown.** Before departure Today has the first stop
   and the itinerary. Add what is actually useful in the last week, each line a
   link: documents in Papers (and whether the passport has a scan), show-this

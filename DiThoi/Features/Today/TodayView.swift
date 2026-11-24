@@ -262,8 +262,16 @@ struct TodayView: View {
             Mono(dayLabel, size: 10.5, color: Palette.a700)
 
             Spacer()
-            Mono(store.lettersVisible ? store.currentCity : store.myName, size: 10.5)
+            Mono(headerPlace, size: 10.5)
         }
+    }
+
+    /// Where they are, on every phone: both travellers are in the same city.
+    /// It used to be the holder's name on a phone with no letters. The name
+    /// stays only where no stop covers today, rather than the dash.
+    private var headerPlace: String {
+        let city = store.cityStamp(forDay: store.dayNumber)
+        return city.isEmpty ? store.myName : city
     }
 
     private var dayLabel: String {
@@ -376,11 +384,12 @@ struct TodayView: View {
         return "\(store.start.shortDate) · \(country)"
     }
 
-    /// The newest letter that has opened, when one has.
+    /// The newest letter that has opened, on the night it opened. After that
+    /// it is one of "All N" in the row below the day.
     @ViewBuilder
     private var letterCard: some View {
-        if store.lettersVisible, let letter = store.newestOpenLetter {
-            Mono("A letter opened itself here", size: 10)
+        if store.lettersVisible, let letter = store.letterOfTheNight {
+            Mono("A letter opened itself today", size: 10)
                 .padding(.bottom, 9)
 
             Button {
@@ -514,17 +523,39 @@ struct TodayView: View {
         return days <= 1 ? "Home again" : "Home \(days) days"
     }
 
-    @ViewBuilder
+    private var together: (item: PlanItem, timing: TripStore.TogetherTiming)? { store.todayTogether }
+
+    /// "now", "next · 19:00", "last tonight". Nothing for a day whose hours
+    /// have no clock time, where there is no "next" to claim.
+    private var togetherTimingText: String? {
+        switch together?.timing {
+        case .now: "now"
+        case .next(let time): "next · \(time)"
+        case .lastTonight: "last tonight"
+        case .untimed, nil: nil
+        }
+    }
+
+    /// Redrawn every minute: the store republishes when the date turns, not
+    /// when 19:00 does, and the panel's hour moves on with the clock.
     private var togetherBlock: some View {
+        TimelineView(.everyMinute) { _ in togetherPanel }
+    }
+
+    @ViewBuilder
+    private var togetherPanel: some View {
         Button { going = .today } label: {
             Panel {
-                Mono("Today together", size: 9.5)
-                // The first hour of the day, not the one at a literal "12:00".
-                // That string match was written against a seeded day plan
-                // whose hours happened to include noon; now the hours are
-                // typed by hand, it would miss almost every time and quietly
-                // fall through to the same `first` anyway.
-                Text(plan?.orderedItems.first?.title ?? "Nothing planned")
+                HStack(alignment: .firstTextBaseline) {
+                    Mono("Today together", size: 9.5)
+                    Spacer(minLength: 8)
+                    if let timing = togetherTimingText {
+                        Mono(timing, size: 9.5, color: Palette.a700)
+                    }
+                }
+                // The hour under way or the next one, not the first: at 6pm
+                // this named the 8am breakfast. The store's, so it's checked.
+                Text(together?.item.title ?? "Nothing planned")
                     .font(Typeface.heading(19, .semibold))
                     .foregroundStyle(Palette.text)
                     .padding(.top, 5)
@@ -590,34 +621,24 @@ struct TodayView: View {
             // `RateStamp` sits outside the spent column's: a button inside a
             // button is one refactor away from swallowing the tap.
             VStack(alignment: .leading, spacing: 0) {
-                Button {
-                    pickingMeetingPoint = true
-                } label: {
-                    VStack(alignment: .leading, spacing: 0) {
-                        Mono("Meeting point", size: 10)
-                        // A trip that hasn't met anywhere yet has an empty place
-                        // and a `.distantPast` stamp, so both halves have to say
-                        // that rather than draw a blank title over a time from
-                        // year one. One from another stop is no answer either:
-                        // it read "Wat Phra Singh · set 08:12" three days and
-                        // one country later.
-                        Text(meetingColumnTitle)
-                            .font(Typeface.heading(17, .semibold))
-                            .foregroundStyle(store.hasCurrentMeetingPoint ? Palette.text : Palette.n600)
-                            .multilineTextAlignment(.leading)
-                            .lineSpacing(1)
-                            .padding(.top, 4)
-                        Aside(text: meetingColumnNote, size: 11.5)
+                // A door only where the meeting point can be changed. On a
+                // read-only or closed trip it opened the picker and "saved"
+                // with a success haptic into a store that keeps nothing.
+                if canSetMeetingPoint {
+                    Button {
+                        pickingMeetingPoint = true
+                    } label: {
+                        meetingColumn.contentShape(Rectangle())
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Changes the meeting point")
+                } else {
+                    meetingColumn
                 }
-                .buttonStyle(.plain)
-                .accessibilityHint("Changes the meeting point")
 
                 // One tap, once a morning: the design's own promise for the
                 // meeting point. Re-stamps it as tonight's.
-                if store.meetingNeedsConfirming, canAdd, !store.isObserver {
+                if store.meetingNeedsConfirming, canSetMeetingPoint {
                     Button { store.confirmMeetingPoint() } label: {
                         Mono("still here", size: 10, trackingRatio: 0.1, color: Palette.a700)
                             .padding(.vertical, 10)
@@ -632,6 +653,30 @@ struct TodayView: View {
             .padding(.leading, store.features.sharedLedger ? Space.s3 : 0)
         }
         .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// The ledger's gate plus the store's own: the observer sets no meeting
+    /// point. `setMeetingPoint` refuses all three anyway; this is the courtesy.
+    private var canSetMeetingPoint: Bool { canAdd && !store.isObserver }
+
+    /// What the column says, without the button around it.
+    private var meetingColumn: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Mono("Meeting point", size: 10)
+            // A trip that hasn't met anywhere yet has an empty place and a
+            // `.distantPast` stamp, so both halves have to say that rather
+            // than draw a blank title over a time from year one. One from
+            // another stop is no answer either: it read "Wat Phra Singh · set
+            // 08:12" three days and one country later.
+            Text(meetingColumnTitle)
+                .font(Typeface.heading(17, .semibold))
+                .foregroundStyle(store.hasCurrentMeetingPoint ? Palette.text : Palette.n600)
+                .multilineTextAlignment(.leading)
+                .lineSpacing(1)
+                .padding(.top, 4)
+            Aside(text: meetingColumnNote, size: 11.5)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var meetingColumnTitle: String {
@@ -1126,9 +1171,11 @@ struct MeetingPointPicker: View {
         }
     }
 
+    /// The haptic says it was kept, so it plays only when the store took it.
     private func save(_ point: MeetingPoint) {
-        store.setMeetingPoint(point)
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        if store.setMeetingPoint(point) {
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        }
         dismiss()
     }
 }

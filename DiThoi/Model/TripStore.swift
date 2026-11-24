@@ -775,6 +775,43 @@ final class TripStore: ObservableObject {
 
     var todayPlan: DayPlan? { plan(forDay: dayNumber) }
 
+    /// Where an hour on "Today together" stands against the clock.
+    enum TogetherTiming: Equatable {
+        /// Started within the last hour, and nothing after it has.
+        case now
+        /// The next one to start, with its time as it was typed.
+        case next(String)
+        /// Every timed hour is behind them; this is the evening's last.
+        case lastTonight
+        /// The day has hours, and none of them has a clock time.
+        case untimed
+    }
+
+    /// How long an hour stays "now" once it has started.
+    static let togetherNowMinutes = 60
+
+    /// The hour "Today together" names: the one under way, or the next one.
+    ///
+    /// It used to be `orderedItems.first`, so at 6pm the panel still named
+    /// the 8am breakfast. Once the last timed hour is behind them it stays on
+    /// that one ("last tonight") rather than going blank: the evening's plan is
+    /// still the evening's. Minutes come from `now` through `Calendar.trip`.
+    var todayTogether: (item: PlanItem, timing: TogetherTiming)? {
+        guard let items = todayPlan?.orderedItems, let first = items.first else { return nil }
+        let timed = items.compactMap { item in item.minutes.map { (item: item, minutes: $0) } }
+        guard !timed.isEmpty else { return (first, .untimed) }
+        let clock = Calendar.trip.dateComponents([.hour, .minute], from: now)
+        let minute = (clock.hour ?? 0) * 60 + (clock.minute ?? 0)
+        func upcoming(_ index: Int) -> (item: PlanItem, timing: TogetherTiming) {
+            let item = timed[index].item
+            return (item, .next(item.time.trimmingCharacters(in: .whitespaces)))
+        }
+        guard let started = timed.lastIndex(where: { $0.minutes <= minute }) else { return upcoming(0) }
+        if minute - timed[started].minutes < Self.togetherNowMinutes { return (timed[started].item, .now) }
+        if started + 1 < timed.count { return upcoming(started + 1) }
+        return (timed[started].item, .lastTonight)
+    }
+
     /// What was written about a day, if anything still is. Every reader goes
     /// through here, which makes it the one place tombstones have to be
     /// filtered — `dayPlans` itself keeps the cleared ones so a clear can win
@@ -2253,6 +2290,20 @@ final class TripStore: ObservableObject {
         letters.filter(\.isOpen).max { ($0.openedOn ?? .distantPast) < ($1.openedOn ?? .distantPast) }
     }
 
+    /// The letter Today shows as a card: the newest one, on the night it
+    /// opened and no longer.
+    ///
+    /// It used to be `newestOpenLetter` on every day after, so a letter that
+    /// opened in week two sat above "Today together" for the rest of the
+    /// trip. Nights are `night(of:)`, so a letter that opened at 23:00 is
+    /// still tonight's at 01:00. Derived from `openedOn`: nothing read-shaped
+    /// is stored (§8.3). After its night it is in the letters row.
+    var letterOfTheNight: Letter? {
+        guard let letter = newestOpenLetter, let opened = letter.openedOn,
+              night(of: opened) == night(of: now) else { return nil }
+        return letter
+    }
+
     /// Opens one letter, by number, at a place.
     ///
     /// The guards carry weight. A stamp whose `unlocksLetter` points at a draft
@@ -3057,8 +3108,13 @@ final class TripStore: ObservableObject {
     /// not: `setBy` is `role`, and in home mode `role` is the traveller being
     /// *written to* — so an observer's write would land on both phones under
     /// one of their names.
-    func setMeetingPoint(_ point: MeetingPoint) {
-        guard !isObserver else { return }
+    ///
+    /// A closed trip takes no new point either: the shelf's reader stores
+    /// persist nothing, and the picker played its success haptic over a write
+    /// that went nowhere. Returns whether the point was set.
+    @discardableResult
+    func setMeetingPoint(_ point: MeetingPoint) -> Bool {
+        guard !isObserver, isLive else { return false }
         var chosen = point
         chosen.setAt = now
         // Trimmed here rather than only at the field, because the place is an
@@ -3067,6 +3123,7 @@ final class TripStore: ObservableObject {
         chosen.place = chosen.place.trimmingCharacters(in: .whitespacesAndNewlines)
         meetingPoint = StampedMeetingPoint(value: chosen, updatedAt: now, setBy: role)
         meetingPlaces = meetingPlaces.remembering(chosen)
+        return true
     }
 
     /// "Still here": the point from an earlier night is tonight's again.

@@ -1595,6 +1595,14 @@ date. With no stop to compare on either side it counts as the same place.
 Readers ask `hasCurrentMeetingPoint`, never `meeting.isSet`, when deciding
 whether there is somewhere to send somebody.
 
+**Only a live trip takes a new point, and the store says whether it did.**
+Today's meeting column opened the picker whatever the trip was, so a
+read-only or closed trip "saved" a point with a success haptic into a store
+that persists nothing. `setMeetingPoint` refuses the observer and a closed
+trip and returns whether it set anything; the picker's haptic waits on that,
+and the column is a button only under `canAdd && !isObserver`, drawn plain
+otherwise, as the spent column is.
+
 ### 3.12 Day plans and show-this cards
 
 **Day plans and show-this cards are editable, and therefore on `SyncPayload`.**
@@ -1929,6 +1937,25 @@ card now sits *above* the panel when a letter has opened, the "All N" row
 (`letterTally`, "3 sealed" with no nought clause) is drawn whenever there are
 letters, and the extra "The whole day" row went with the swap: the panel is
 always the door to the day. The panel also names tonight's lodging, title only.
+
+**The panel names the next hour, and the card is the night's.** "Today
+together" read `orderedItems.first`, so at 6pm it still named the 8am
+breakfast, and the letter card showed `newestOpenLetter` on every day after it
+opened, pushing the day down for weeks. Both are the store's now, so their
+clauses are checked. `todayTogether` is the hour under way (for an hour after
+it starts, and only until the next one starts), else the next ("next · 19:00",
+as typed), else the evening's last ("last tonight"); a day with no clock
+times names its first hour and claims nothing. The store republishes when the
+date turns, not when 19:00 does, so the panel sits in a
+`TimelineView(.everyMinute)`. `letterOfTheNight` is the newest letter while
+`night(of: openedOn)` is tonight's, small hours included; after that it is
+one of "All N" in the row. It is derived from `openedOn`, so no read-shaped
+field joins `Letter` (§8.3).
+
+**The header is the place, on every phone.** It said `currentCity` on a phone
+with letters and the holder's name on one without, though both travellers
+are standing in the same city. It is `cityStamp(forDay:)` everywhere, with the
+name kept only where no stop covers today, rather than the dash.
 
 **`TodayView` pushes through one `navigationDestination(item:)`, not two
 `isPresented:`.** Two of those stacked on one view is the arrangement where the

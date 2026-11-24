@@ -56,7 +56,7 @@ check: `Features/` and `Root/` aren't compiled by the checks.
 ## Before you change anything
 
 ```bash
-./Tools/run-checks.sh          # 1,819 model assertions, macOS, no simulator
+./Tools/run-checks.sh          # 1,834 model assertions, macOS, no simulator
 ./Tools/render-icons.sh        # regenerates the icon set and re-tests actool
 ```
 
@@ -144,6 +144,9 @@ The general lessons behind them are §11; the debt kept on purpose is §7.
 - The observer cannot drop a pin, keep a moment or set a meeting point. The
   guard is in the store; `\.isReadOnly` on their trail tab is the courtesy.
   (§5.3)
+- `setMeetingPoint` also refuses a closed trip and returns whether it landed.
+  Feedback waits on the answer; the picker is a door only where it can land.
+  (§3.11)
 - Names are data in `TripNames`. `Traveller` has no `name`. Read through
   `name(for:)`, `myName`, `otherName`, `label(for:)`; `name(of:)` is the
   `Participant` overload. (§5.3)
@@ -286,6 +289,13 @@ The general lessons behind them are §11; the debt kept on purpose is §7.
   `sharedLedger`, no page row without `nightlyPage`. (§5.1)
 - "Today together" is drawn on every phone. The letter card sits above it, and
   the letters row never waits for a letter to open. (§5.1)
+- "Today together" names `todayTogether`: the hour under way (for an hour),
+  else the next, else the evening's last. Never `orderedItems.first`. It
+  redraws by the minute; the store only republishes when the date turns. (§5.1)
+- The letter card is `letterOfTheNight`: the night it opened, by `night(of:)`,
+  derived from `openedOn`. Nothing read-shaped is stored. (§5.1, §8.3)
+- Today's header is the city (`cityStamp`) on every phone, and the holder's
+  name only where no stop covers today. (§5.1)
 - `meetingLine`, `paceNote` and `letterTally` are the store's, so their
   clauses are checked. No budget is no verdict. (§3.4, §3.11)
 - Push through one `navigationDestination(item:)`, never two stacked
