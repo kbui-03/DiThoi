@@ -15,6 +15,13 @@ final class LocationService: NSObject, ObservableObject {
     @Published private(set) var current: CLLocation?
     @Published private(set) var authorisation: CLAuthorizationStatus
     @Published private(set) var isTracking = false
+    /// How many times Core Location has said it couldn't find the phone.
+    /// A count rather than a flag so a screen can ask "since I asked?": the
+    /// pin row notes it when it asks and compares when it draws.
+    @Published private(set) var failures = 0
+    /// Whether the last word from Core Location was a failure rather than a
+    /// fix. Separated reads it so "Finding you…" can stop.
+    @Published private(set) var hasFailedSinceFix = false
 
     private let manager: CLLocationManager
     /// A one-shot fix asked for before the permission answer came back.
@@ -123,6 +130,22 @@ final class LocationService: NSObject, ObservableObject {
     /// delegate's path, and the checks' way in.
     func record(_ fix: CLLocation) {
         current = fix
+        if hasFailedSinceFix { hasFailedSinceFix = false }
+    }
+
+    /// Core Location's failure, as an answer. The delegate's path, and the
+    /// checks' way in.
+    ///
+    /// It used to be swallowed, so "Finding where you are…" on the meeting
+    /// point picker waited for ever: a one-shot `requestLocation()` that
+    /// can't get a fix says so here and nowhere else. While tracking,
+    /// `locationUnknown` is the system saying "still trying" and is not a
+    /// failure; for a one-shot it is the whole answer.
+    func fail(_ error: Error) {
+        if isTracking, (error as? CLError)?.code == .locationUnknown { return }
+        wantsOneFix = false
+        failures += 1
+        hasFailedSinceFix = true
     }
 
     // MARK: - Distances
@@ -165,8 +188,7 @@ extension LocationService: @preconcurrency CLLocationManagerDelegate {
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        // Nothing to say. The screen falls back to the written directions,
-        // which is what it had before location existed.
+        Task { @MainActor in fail(error) }
     }
 }
 

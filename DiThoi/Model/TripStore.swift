@@ -115,6 +115,12 @@ final class TripStore: ObservableObject {
     /// and the trip has a new last day, which gets the ending once more. This
     /// phone's, like the nudge above, so it never syncs.
     @Published private(set) var endingShownForDays: Int? { didSet { save() } }
+    /// The gestures this phone has used at least once, so the line teaching
+    /// each one ("Tap a line to edit it; hold it to delete") can go. A
+    /// permanent line on a screen used fifty times is one people learn not
+    /// to read. Kept across trips, like `customTags`: it is this person who
+    /// learned it, not this trip. This phone's, so it never syncs.
+    @Published private(set) var hintsLearned: Set<UsageHint> { didSet { save() } }
 
     /// What happened the last time this phone tried to post its sealed letters,
     /// and when it last succeeded.
@@ -269,6 +275,7 @@ final class TripStore: ObservableObject {
             countriesMarkedDone = snapshot.countriesMarkedDone
             budgetNudgeShows = snapshot.budgetNudgeShows
             endingShownForDays = snapshot.endingShownForDays
+            hintsLearned = snapshot.hintsLearned
             dayPlans = snapshot.dayPlans
             documents = snapshot.documents
             showCards = snapshot.showCards
@@ -316,6 +323,7 @@ final class TripStore: ObservableObject {
             countriesMarkedDone = []
             budgetNudgeShows = 0
             endingShownForDays = nil
+            hintsLearned = []
             dayPlans = []
             documents = []
             showCards = []
@@ -1879,6 +1887,53 @@ final class TripStore: ObservableObject {
         return "\(day) — exactly on the burn."
     }
 
+    /// What the last country will cost at the current burn, worked out from
+    /// the ledger rather than written down: Money's panel under the
+    /// categories. Nil whenever there is nothing honest to forecast.
+    ///
+    /// It was computed in `MoneyView`, where the checks can't see it, so its
+    /// clauses were never checked; it lives beside `burnLine` now (§3.4).
+    var moneyForecast: MoneyForecast? {
+        // Every sentence below is a verdict against the budget. With none,
+        // "doesn't fit" was the only one it could reach.
+        guard hasBudget, let last = legs.last else { return nil }
+        let daysUntil = last.startDay - dayNumber
+        // Before departure `dayNumber` clamps to 1, so the burn was the
+        // bookings divided by one day. There is no burn yet.
+        // And with nothing spent on the trip yet the burn is nought, which
+        // projected the whole budget landing intact in the last country.
+        guard daysUntil > 0, !isBeforeDeparture, !bookingsUsedTheBudget,
+              spentOnTripHome > 0 else { return nil }
+
+        // The trip's own burn: the bookings are spent once, not every day.
+        let burnPerDay = spentOnTripHome / Double(dayNumber)
+        let projected = spentHome + burnPerDay * Double(daysUntil)
+        let leftOnArrival = max(budget - projected, 0)
+        let nights = max(last.nights, 1)
+        let perDay = leftOnArrival / Double(nights)
+
+        let arrival = last.segments.first?.title ?? last.country
+        let country = last.country
+
+        // At this burn the money is gone before they land, so the sentence has
+        // to change shape — a per-day figure of zero reads as advice.
+        guard leftOnArrival > 1 else {
+            let over = projected - budget
+            return MoneyForecast(
+                title: "\(country) doesn't fit",
+                body: "At this rate the budget runs out before \(arrival) — about \(homeTextRounded(over)) over, with \(Formatting.spelledCount(nights, "day", spellingUpTo: 0)) still to go.")
+        }
+
+        // "Comfortable" is relative to the budget they set, not a fixed figure.
+        let comfortable = perDay >= pacePerDay
+        let verdict = comfortable
+            ? "above the trip average"
+            : "below the trip average"
+        return MoneyForecast(
+            title: comfortable ? "\(country) is covered" : "\(country) will be tight",
+            body: "At this rate you'll arrive in \(arrival) with \(homeTextRounded(leftOnArrival)) for \(Formatting.spelledCount(nights, "day", spellingUpTo: 0)). That's \(homeTextRounded(perDay))/day — \(verdict).")
+    }
+
     /// Money's line before day 1: "Not yet · 12 days to go." and, with a
     /// budget, what a day is worth once they're there.
     private var notYetLine: String {
@@ -1913,7 +1968,7 @@ final class TripStore: ObservableObject {
         if share < 1 {
             return "About \(Int((share * 100).rounded()))% of a day's budget — \(homeTextRounded(pacePerDay)) is what a day is worth on this trip."
         }
-        return "That's \(String(format: "%.1f", share)) days of budget, at \(homeTextRounded(pacePerDay)) a day."
+        return "That's \(Formatting.decimal(share, places: 1)) days of budget, at \(homeTextRounded(pacePerDay)) a day."
     }
 
     /// Whether Money should offer to set a budget: none set, a traveller's
@@ -1921,6 +1976,16 @@ final class TripStore: ObservableObject {
     /// offered fewer than three times.
     var offersBudgetNudge: Bool {
         !hasBudget && !isObserver && isLive && budgetNudgeShows < 3
+    }
+
+    /// Whether the line teaching a gesture still shows.
+    func showsHint(_ hint: UsageHint) -> Bool { !hintsLearned.contains(hint) }
+
+    /// The gesture was used, so its line can go. Guarded, because
+    /// `@Published` fires on every set and each set is a save.
+    func learned(_ hint: UsageHint) {
+        guard !hintsLearned.contains(hint) else { return }
+        hintsLearned.insert(hint)
     }
 
     /// Counts one showing. Called once per visit to Money, never per draw.
@@ -3802,6 +3867,43 @@ final class TripStore: ObservableObject {
         return id
     }
 
+    // MARK: - The date turning
+
+    /// Redraws everything that reads the clock. Called on resume and on
+    /// `significantTimeChangeNotification` (midnight, a time-zone change).
+    ///
+    /// Every day-shaped value here is computed from `now`, so nothing is
+    /// stale in the store; what was stale is the screens, because nothing
+    /// published when only the date moved. A screen left open across
+    /// midnight kept yesterday's day, and a phone resumed on the last day
+    /// never put the ending up.
+    func dayMayHaveTurned() {
+        objectWillChange.send()
+    }
+
+    // MARK: - "Not yet" on the arrival nudge
+
+    /// The stops Today was told "not yet" about, and the calendar day it was
+    /// said on.
+    ///
+    /// An event for the day, not state: not persisted, not on `TripSnapshot`
+    /// or `SyncPayload`. It lived in `TodayView`'s `@State`, and the tabs
+    /// were rebuilt on every switch, so the nudge came back each time Today
+    /// was opened. Tomorrow it is asked again, because tomorrow they may be
+    /// standing in it.
+    @Published private(set) var arrivalDeferral: (day: Int, stamps: Set<UUID>)?
+
+    func deferArrival(at stamp: UUID) {
+        var stamps = arrivalDeferral.flatMap { $0.day == dayNumber ? $0.stamps : nil } ?? []
+        guard stamps.insert(stamp).inserted else { return }
+        arrivalDeferral = (dayNumber, stamps)
+    }
+
+    func isArrivalDeferred(at stamp: UUID) -> Bool {
+        guard let arrivalDeferral, arrivalDeferral.day == dayNumber else { return false }
+        return arrivalDeferral.stamps.contains(stamp)
+    }
+
     /// The one way from a finished trip to the next one.
     ///
     /// It used to be three: `startNewTrip` (closed the trip, then asked for a
@@ -4313,6 +4415,7 @@ final class TripStore: ObservableObject {
             customTags: customTags, countriesMarkedDone: countriesMarkedDone,
             budgetNudgeShows: budgetNudgeShows,
             endingShownForDays: endingShownForDays,
+            hintsLearned: hintsLearned,
             dayPlans: dayPlans, documents: documents,
             showCards: showCards, sharingRules: sharingRules
         )
@@ -4377,6 +4480,7 @@ final class TripStore: ObservableObject {
         backfill = BackfillOffers()
         budgetNudgeShows = 0
         endingShownForDays = nil
+        hintsLearned = []
         customTags = []
         countriesMarkedDone = []
         closedOn = nil
@@ -4479,6 +4583,8 @@ struct TripSnapshot: Codable {
     var budgetNudgeShows: Int = 0
     /// See `TripStore.endingShownForDays`. This phone's, never on the payload.
     var endingShownForDays: Int? = nil
+    /// See `TripStore.hintsLearned`. This phone's, never on the payload.
+    var hintsLearned: Set<UsageHint> = []
 
     // Content that belongs to *this* trip, and travels with it, so a trip made
     // from scratch opens with its own papers rather than another trip's.
@@ -4622,6 +4728,7 @@ extension TripSnapshot {
         countriesMarkedDone = try c.decodeIfPresent(Set<UUID>.self, forKey: .countriesMarkedDone) ?? []
         budgetNudgeShows = try c.decodeIfPresent(Int.self, forKey: .budgetNudgeShows) ?? 0
         endingShownForDays = try c.decodeIfPresent(Int.self, forKey: .endingShownForDays)
+        hintsLearned = try c.decodeIfPresent(Set<UsageHint>.self, forKey: .hintsLearned) ?? []
         // `bookOrder` was here: an order that set a flag on this phone and
         // reached no printer. A file saved with one still carries the key, and
         // the keyed decoder passes over it.

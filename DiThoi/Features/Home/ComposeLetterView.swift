@@ -225,7 +225,8 @@ struct ComposeLetterView: View {
     }
 
     private func age(of date: Date) -> String {
-        let hours = Int(Date().timeIntervalSince(date) / 3600)
+        // `store.now`, the app's one clock (§6.1): `Date()` here ignored it.
+        let hours = Int(store.now.timeIntervalSince(date) / 3600)
         if hours < 1 { return "less than an hour ago" }
         if hours < 24 { return "\(Formatting.spelledCount(hours, "hour", spellingUpTo: 0)) ago" }
         return "\(Formatting.spelledCount(hours / 24, "day", spellingUpTo: 0)) ago"

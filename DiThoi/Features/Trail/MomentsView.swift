@@ -44,8 +44,9 @@ struct MomentsView: View {
                 Aside(text: "Anything worth keeping that isn't a stamp goes here, and prints in your book, beside the days it happened.",
                       size: 12.5)
             } else {
-                if canMark {
-                    Aside(text: "Tap one to open it; hold it to edit or delete.", size: 11.5)
+                // Until it has been used once; tapping edits, there is no open.
+                if canMark, store.showsHint(.moment) {
+                    Aside(text: "Tap one to edit it; hold it to delete.", size: 11.5)
                         .padding(.bottom, Space.s2)
                 }
                 // Built once per pass and handed down — a derived value read
@@ -66,16 +67,18 @@ struct MomentsView: View {
                     ForEach(group.moments) { moment in
                         Button {
                             editing = moment
+                            store.learned(.moment)
                         } label: {
                             MomentRow(moment: moment, showsPlace: false)
                         }
                         .buttonStyle(.plain)
                         .disabled(!canMark)
                         .modifier(MomentRowMenu(canEdit: canMark,
-                                                onEdit: { editing = moment },
+                                                onEdit: { editing = moment; store.learned(.moment) },
                                                 onDelete: {
                                                     store.deleteMoment(moment.id)
                                                     deleted = moment
+                                                    store.learned(.moment)
                                                 }))
                     }
                 }

@@ -56,6 +56,9 @@ struct DiThoiApp: App {
                             // locked will have been refused — and this is the
                             // first moment it can succeed.
                             store.retryFailedWrite()
+                            // A resumed phone may be on another day than the
+                            // one it was put down on.
+                            store.dayMayHaveTurned()
                             await store.rates.refreshIfNeeded()
                             await catchUp()
                         }

@@ -13,10 +13,10 @@ struct TodayView: View {
     @State private var addingExpense = false
     @State private var going: Destination?
     @Environment(\.arrivalRequest) private var arrivalRequest
-    /// Nudges waved away, by stamp. Not persisted: a relaunch in the same
-    /// street may ask once more, which is a smaller cost than a stamp nobody
-    /// was reminded of.
-    @State private var notNow: Set<UUID> = []
+    @Environment(\.isActiveTab) private var isActiveTab
+    // Nudges waved away are the store's (`deferArrival(at:)`), for the day.
+    // Not persisted: a relaunch in the same street may ask once more, which
+    // is a smaller cost than a stamp nobody was reminded of.
     @State private var remembering: MemoryOpening?
     @State private var finishing = false
 
@@ -89,7 +89,10 @@ struct TodayView: View {
                 FinishTripView()
             }
             // Never a prompt: only a phone that already said yes is asked.
-            .task { if canAdd, !store.isObserver { store.location.requestOnceIfAllowed() } }
+            // Per visit: the tab is kept alive, so `.task` alone ran once.
+            .task(id: isActiveTab) {
+                if isActiveTab, canAdd, !store.isObserver { store.location.requestOnceIfAllowed() }
+            }
         }
     }
 
@@ -296,7 +299,7 @@ struct TodayView: View {
               let fix = store.location.freshFix(at: store.now),
               let near = store.nearNextStop(latitude: fix.coordinate.latitude,
                                             longitude: fix.coordinate.longitude),
-              !notNow.contains(near.id)
+              !store.isArrivalDeferred(at: near.id)
         else { return nil }
         return near
     }
@@ -321,7 +324,7 @@ struct TodayView: View {
                               fillsWidth: typeSize.isAccessibilitySize, horizontalPadding: 18) {
                     arrivalRequest.ask(stamp)
                 }
-                Button { notNow.insert(stamp.id) } label: {
+                Button { store.deferArrival(at: stamp.id) } label: {
                     Mono("not yet", size: 10, trackingRatio: 0.1, color: Palette.n700)
                         .frame(minHeight: 44)
                         .padding(.horizontal, Space.s2)
@@ -807,8 +810,23 @@ struct MeetingPointPicker: View {
     /// How close the fix behind a pin taken on this screen was. `nil` for a
     /// pin that was already saved, which this screen didn't measure.
     @State private var pinAccuracy: Double?
-    /// When "pin" was tapped and no fix had come back yet.
-    @State private var pinningSince: Date?
+    /// "pin" was tapped and no fix has come back yet.
+    @State private var pinning: PinRequest?
+    /// The last ask ended with no fix: Core Location said it couldn't, or
+    /// `pinPatience` went by. Location errors used to be swallowed, so
+    /// "Finding where you are…" waited for ever.
+    @State private var pinGaveUp = false
+
+    /// Twenty seconds: a cold start outdoors, with room. Core Location's own
+    /// failure ends the wait sooner.
+    private static let pinPatience: Duration = .seconds(20)
+
+    private struct PinRequest: Equatable {
+        let id = UUID()
+        /// `LocationService.failures` when this ask went out, so a failure
+        /// from an earlier ask isn't read as this one's.
+        let failuresBefore: Int
+    }
 
     private struct Pin: Equatable {
         var latitude: Double
@@ -895,7 +913,8 @@ struct MeetingPointPicker: View {
         script = known?.localScript ?? ""
         pin = known.flatMap(Pin.init)
         pinAccuracy = nil
-        pinningSince = nil
+        pinning = nil
+        pinGaveUp = false
     }
 
     /// A fix from the last minute is where they are standing now.
@@ -910,14 +929,22 @@ struct MeetingPointPicker: View {
         }
         // Asks for permission here and only here: the tap is the act that
         // needs a position, the same rule as keeping a moment.
-        pinningSince = Date()
+        pinGaveUp = false
+        pinning = PinRequest(failuresBefore: store.location.failures)
         store.location.requestOnce()
+    }
+
+    private func giveUpPinning() {
+        guard pinning != nil else { return }
+        pinning = nil
+        pinGaveUp = true
     }
 
     private func take(_ fix: CLLocation) {
         pin = Pin(fix)
         pinAccuracy = fix.horizontalAccuracy >= 0 ? fix.horizontalAccuracy : nil
-        pinningSince = nil
+        pinning = nil
+        pinGaveUp = false
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
@@ -942,11 +969,17 @@ struct MeetingPointPicker: View {
                     UIApplication.shared.open(url)
                 }
             }
-        } else if pinningSince != nil {
+        } else if pinning != nil {
             pinPanel(title: "Finding where you are…",
                      note: "Stay where the gate is for a moment",
                      action: "cancel") {
-                pinningSince = nil
+                pinning = nil
+            }
+        } else if pinGaveUp {
+            pinPanel(title: "Couldn't find you",
+                     note: "Indoors, or no signal. The place saves without a pin.",
+                     action: "try again") {
+                pinHere()
             }
         } else {
             pinPanel(title: "Pin where I'm standing",
@@ -1077,8 +1110,19 @@ struct MeetingPointPicker: View {
         // The fix comes back on its own time, after the permission prompt if
         // there was one.
         .onChange(of: store.location.current) { _, fix in
-            guard pinningSince != nil, let fix, Self.isFresh(fix) else { return }
+            guard pinning != nil, let fix, Self.isFresh(fix) else { return }
             take(fix)
+        }
+        // Or doesn't come back at all.
+        .onChange(of: store.location.failures) { _, failures in
+            guard let pinning, failures > pinning.failuresBefore else { return }
+            giveUpPinning()
+        }
+        .task(id: pinning?.id) {
+            guard let asked = pinning?.id else { return }
+            try? await Task.sleep(for: Self.pinPatience)
+            guard !Task.isCancelled, pinning?.id == asked else { return }
+            giveUpPinning()
         }
     }
 

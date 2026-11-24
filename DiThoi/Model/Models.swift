@@ -1746,3 +1746,24 @@ extension Date {
     /// "04 APR"
     var stampDate: String { text("dd MMM").uppercased() }
 }
+
+/// Money's forecast for the last country: a mono title and a sentence.
+/// See `TripStore.moneyForecast`.
+struct MoneyForecast: Equatable, Sendable {
+    let title: String
+    let body: String
+}
+
+/// A gesture a screen teaches in a line under its list, until it has been
+/// used once (`TripStore.hintsLearned`). Persisted: the raw values are on
+/// disk, so never rename a case.
+enum UsageHint: String, Codable, CaseIterable, Sendable {
+    /// Money's recent lines and the whole ledger: tap edits, hold deletes.
+    case ledgerLine
+    /// The trail's moments and the full list: tap edits, hold deletes.
+    case moment
+    /// Papers' documents: tap opens, hold edits or deletes.
+    case document
+    /// The show-this cards in their editor: tap writes, hold edits or deletes.
+    case showCard
+}

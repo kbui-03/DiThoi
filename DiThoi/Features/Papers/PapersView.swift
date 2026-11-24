@@ -171,6 +171,7 @@ struct PapersView: View {
                     ForEach(Array(store.documents.enumerated()), id: \.element.id) { index, document in
                         NavigationLink {
                             DocumentDetailView(documentID: document.id, index: index)
+                                .onAppear { store.learned(.document) }
                         } label: {
                             DetailRow(title: document.title, subtitle: document.subtitle,
                                       showsRule: index < store.documents.count - 1) {
@@ -185,13 +186,17 @@ struct PapersView: View {
                         // and a small grey word deeper in.
                         .contextMenu {
                             if canEditDocuments {
-                                Button("Edit") { editingDocument = document }
-                                Button("Delete", role: .destructive) { deletingDocument = document }
+                                Button("Edit") { editingDocument = document; store.learned(.document) }
+                                Button("Delete", role: .destructive) {
+                                    deletingDocument = document
+                                    store.learned(.document)
+                                }
                             }
                         }
                     }
 
-                    if canEditDocuments {
+                    // Until it has been used once (`hintsLearned`).
+                    if canEditDocuments, store.showsHint(.document) {
                         Aside(text: "Tap a document to open it; hold it to edit or delete.",
                               size: 11.5)
                             .padding(.top, Space.s2)

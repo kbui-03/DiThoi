@@ -7,6 +7,7 @@ struct MoneyView: View {
     /// needs a navigation container; pushed, it would be a second one.
     var embedsNavigation: Bool = true
     @Environment(\.isReadOnly) private var isReadOnly
+    @Environment(\.isActiveTab) private var isActiveTab
     @State private var addingExpense = false
     @State private var settling = false
     @State private var editingExpense: Expense?
@@ -78,7 +79,7 @@ struct MoneyView: View {
 
                 categories
 
-                if let warning = forecast {
+                if let warning = store.moneyForecast {
                     Panel(border: Palette.a300, fill: Palette.a100) {
                         Mono(warning.title, size: 9.5, color: Palette.a700)
                         Text(warning.body)
@@ -115,8 +116,8 @@ struct MoneyView: View {
 
                 ForEach(recentExpenses) { expense in
                     LedgerLine(expense: expense,
-                               onEdit: { editingExpense = expense },
-                               onDelete: { remove(expense) })
+                               onEdit: { editingExpense = expense; store.learned(.ledgerLine) },
+                               onDelete: { remove(expense); store.learned(.ledgerLine) })
                 }
 
                 // Everything older than the newest few, which used to be
@@ -126,7 +127,7 @@ struct MoneyView: View {
                         destination = .ledger
                     } label: {
                         HStack {
-                            Text("The whole ledger · \(store.ledger.count) \(store.ledger.count == 1 ? "line" : "lines")")
+                            Text("The whole ledger · \(Formatting.spelledCount(store.ledger.count, "line", spellingUpTo: 0))")
                                 .font(Typeface.heading(15, .semibold))
                                 .foregroundStyle(Palette.a700)
                             Spacer()
@@ -140,11 +141,15 @@ struct MoneyView: View {
                     .buttonStyle(.plain)
                 }
 
-                Aside(text: isReadOnly || !store.isLive
-                      ? "This trip is closed, so the ledger is as they left it."
-                      : "Tap a line to edit it; hold it to delete.",
-                      size: 11.5)
-                    .padding(.top, Space.s2)
+                // The closed trip's sentence always; the gesture's until it
+                // has been used once (`hintsLearned`).
+                if isReadOnly || !store.isLive {
+                    Aside(text: "This trip is closed, so the ledger is as they left it.", size: 11.5)
+                        .padding(.top, Space.s2)
+                } else if !store.ledger.isEmpty, store.showsHint(.ledgerLine) {
+                    Aside(text: "Tap a line to edit it; hold it to delete.", size: 11.5)
+                        .padding(.top, Space.s2)
+                }
             }
 
             if let undoable {
@@ -161,18 +166,19 @@ struct MoneyView: View {
             }
         }
         .gentleAnimation(.easeInOut(duration: 0.2), value: undoable)
-        // The window belongs to the screen, not to the app. Without this the
-        // task outlives the view: leaving the tab and coming back rebuilds the
-        // state, and the orphan wakes ten seconds later to clear a `@State`
-        // nothing reads. Clearing `undoable` too, because an undo offer that
-        // survives leaving the screen is an offer about a line you can no
-        // longer see.
+        // The window belongs to the screen, not to the app. The tabs are kept
+        // alive now, so a tab change no longer ends it: the offer is still
+        // there for the rest of its seconds when Money is opened again. Going
+        // *into* the ledger does end it, because an undo offer under a pushed
+        // screen is an offer about a line you can no longer see.
         .onDisappear {
             undoTimer?.cancel()
             undoTimer = nil
             undoable = nil
         }
-        .onAppear {
+        // Once per visit, and a kept tab doesn't appear again (§5.1).
+        .onChange(of: isActiveTab, initial: true) { _, active in
+            guard active else { return }
             showsBudgetNudge = store.offersBudgetNudge && !isReadOnly
             if showsBudgetNudge { store.noteBudgetNudgeShown() }
         }
@@ -302,48 +308,6 @@ struct MoneyView: View {
             }
             if !isLast { Rule() }
         }
-    }
-
-    /// What the last country will cost at the current burn, worked out from
-    /// the ledger rather than written down.
-    private var forecast: (title: String, body: String)? {
-        // Every sentence below is a verdict against the budget. With none,
-        // "doesn't fit" was the only one it could reach.
-        guard store.hasBudget, let last = store.legs.last else { return nil }
-        let daysUntil = last.startDay - store.dayNumber
-        // Before departure `dayNumber` clamps to 1, so the burn was the
-        // bookings divided by one day. There is no burn yet.
-        // And with nothing spent on the trip yet the burn is nought, which
-        // projected the whole budget landing intact in the last country.
-        guard daysUntil > 0, !store.isBeforeDeparture, !store.bookingsUsedTheBudget,
-              store.spentOnTripHome > 0 else { return nil }
-
-        // The trip's own burn: the bookings are spent once, not every day.
-        let burnPerDay = store.spentOnTripHome / Double(store.dayNumber)
-        let projected = store.spentHome + burnPerDay * Double(daysUntil)
-        let leftOnArrival = max(store.budget - projected, 0)
-        let nights = max(last.nights, 1)
-        let perDay = leftOnArrival / Double(nights)
-
-        let arrival = last.segments.first?.title ?? last.country
-        let country = last.country
-
-        // At this burn the money is gone before they land, so the sentence has
-        // to change shape — a per-day figure of zero reads as advice.
-        guard leftOnArrival > 1 else {
-            let over = projected - store.budget
-            return ("\(country) doesn't fit",
-                    "At this rate the budget runs out before \(arrival) — about \(store.homeTextRounded(over)) over, with \(Formatting.spelledCount(nights, "day", spellingUpTo: 0)) still to go.")
-        }
-
-        // "Comfortable" is relative to the budget they set, not a fixed figure.
-        let comfortable = perDay >= store.pacePerDay
-        let title = comfortable ? "\(country) is covered" : "\(country) will be tight"
-        let verdict = comfortable
-            ? "above the trip average"
-            : "below the trip average"
-        let body = "At this rate you'll arrive in \(arrival) with \(store.homeTextRounded(leftOnArrival)) for \(Formatting.spelledCount(nights, "day", spellingUpTo: 0)). That's \(store.homeTextRounded(perDay))/day — \(verdict)."
-        return (title, body)
     }
 
     private var balanceHeadline: String {

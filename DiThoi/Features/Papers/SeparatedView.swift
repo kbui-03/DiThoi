@@ -250,6 +250,14 @@ struct SeparatedView: View {
                     "Without location this screen still works — it just can't tell you how far.")
         }
         guard let distance = store.distanceToMeetingPoint else {
+            // Core Location said it can't, and there is no fix to fall back
+            // on: say so rather than "Finding you…" for ever. It keeps
+            // tracking, so a fix that comes later still lands.
+            if store.location.hasFailedSinceFix {
+                return ("Can't find you",
+                        "Use the written directions",
+                        "No signal here. It keeps trying while this screen is open.")
+            }
             return ("Finding you", "…",
                     "Only while this screen is open.")
         }
