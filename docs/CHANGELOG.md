@@ -35,6 +35,34 @@ and move its line into Added / Changed / Fixed under a v1.1 release heading.
   when it opens.
 - **Papers' "never uploaded" line covered too much.** It sits under Documents
   now, the only part of Papers it is true of.
+- **Switching tabs threw each tab away.** The five tabs (and home mode's
+  three) are built on first visit and kept, so a pushed screen, the scroll
+  position and Money's undo survive a tab change. What happens per visit (the
+  budget nudge's count, "you are here") reads `isActiveTab`. Today's "not yet"
+  on the arrival nudge is the store's, for the day.
+- **Nothing happened at midnight or on resume.** The store republishes on
+  `.active` and on `significantTimeChangeNotification` (`dayMayHaveTurned()`),
+  and the ending and Separated are re-checked when they change, so a phone
+  resumed on the last day gets the ending without a cold launch.
+- **Location errors were swallowed.** `LocationService` counts failures. The
+  meeting point picker gives up after a failure or 20 seconds ("Couldn't find
+  you · try again"), and Separated says "Can't find you" instead of "Finding
+  you…" for ever.
+- **Helper copy never went away.** "Tap a line to edit it; hold it to delete"
+  and its siblings on the trail, Papers and the show-this cards show until the
+  gesture is used once, on this phone (`hintsLearned`), and not again on the
+  next trip. The trail's says "edit", not "open".
+- **Rule drift in `Features/`.** "The whole ledger · N lines" goes through
+  `spelledCount`, `budgetComparison` through `Formatting.decimal`, Money's
+  forecast is the store's (`moneyForecast`) with its clauses checked, and the
+  letter composer reads `store.now`.
+- **The docs had drifted.** CLAUDE.md's `Root/` lists the files that exist,
+  README's decisions say about forty currencies, and the 1.0 entry's count is
+  marked as the first commit's.
+- **PR #11 stripped `DiThoi-Info.plist`.** Its comments are back,
+  `LSApplicationCategoryType` stays, and the status bar is dark content again,
+  on purpose: the app is locked to light paper, and Separated and the crop
+  screen flip it themselves.
 
 ## [v1.1] — to-do
 
@@ -52,50 +80,15 @@ Items carried over from the v1 known issues say so.
   the travellers.** The observer's half of the product, and the pairing that
   makes two phones one trip, work only on one phone. Everything else on this
   list is smaller than this. (expansion §2.0; needs the paid membership.)
-- [ ] **Should · Switching tabs throws each tab away.** `MainTabs` swaps views
-  in a `switch`, so a pushed screen (the ledger, the itinerary, a document),
-  the scroll position, Money's undo banner and Today's "not yet" on the
-  arrival nudge are all lost on every tab change. The nudge comes back every
-  time Today is opened. Keep the five tabs alive (an `opacity`/`hidden` stack,
-  or `TabView` with the custom bar) and move "not yet" into the store as an
-  event for the day.
-- [ ] **Should · Nothing happens at midnight or on resume.** The ending cover
-  and Separated are only checked in `MainTabs.onAppear`, so a phone resumed
-  (not relaunched) on the last day never shows the ending until a cold launch.
-  Nothing republishes the store when the date turns, so a screen left open
-  across midnight keeps yesterday. Re-check both, and nudge
-  `objectWillChange`, on `.active` and on `significantTimeChangeNotification`.
-- [ ] **Should · Location errors are swallowed.** `didFailWithError` is empty,
-  so "Finding where you are…" on the meeting point picker waits for ever when
-  no fix comes. Give `LocationService` a failed state and the picker a timeout,
-  the way Separated's "Finding you…" was fixed.
-- [ ] **Should · Helper copy that never goes away.** "Tap a line to edit it;
-  hold it to delete" (Money), "Tap one to open it; hold it to edit or delete"
-  (Trail, Papers) are permanent lines on screens used fifty times. Show each
-  until it has been used once, then drop it. The Trail's version is also
-  wrong: tapping a moment *edits* it, there is no separate "open".
-- [ ] **Should · Rule drift in `Features/`, where the checks can't see it.**
-  "The whole ledger · N lines" is a hand-written ternary (`spelledCount`);
-  `budgetComparison` uses `String(format: "%.1f")` (`Formatting.decimal`);
-  Money's forecast verdict is computed in the view, so its clauses are
-  unchecked (move it to the store beside `burnLine`); `ComposeLetterView`
-  reads `Date()` instead of `store.now`.
 - [ ] **Should · The screenshots have gaps.** The sample-trip era shots (Lynn
   and Emmie, the phase-1 set, the print order and handoff) were deleted on
   7 November 2026, and `10-trail.png` re-shot; Today is the `v11-` set. Nothing
   current shows onboarding (who, names, writing to, first stop, the trip),
   the print file, the book reader at AX size or the ending at AX size, and the
   October shots still read "synced just now". Re-shoot every route
-  (CLAUDE.md, §6.3).
-- [ ] **Should · The docs have drifted.** CLAUDE.md lists `MainTabs`,
-  `HomeTabs` and `ClassicalTabBar` as files in `Root/` (they live in
-  `RootView.swift`); README's decisions still say six currencies; this file's
-  1.0 entry says 1,304 assertions where README says 1,745.
-- [ ] **Should · An uncommitted Xcode edit stripped `DiThoi-Info.plist`.** The
-  working tree drops every comment explaining `DiThoiCloudKitEnabled`,
-  `CKSharingSupported` and the URL scheme (the file says "edit it by hand"),
-  and sets `UIStatusBarStyle` to an empty string. Restore the comments, keep
-  the new `LSApplicationCategoryType`, and decide the status bar on purpose.
+  (CLAUDE.md, §6.3). The Everywhere fixes added screens no shot has: the pin
+  row's "Couldn't find you", Separated's "Can't find you", and Money, the
+  trail and Papers with their helper lines gone.
 
 ### Today
 
@@ -520,8 +513,9 @@ team.
   blanks every screen. "Mark a moment" goes through App Intents instead.
 
 ### Checks
-- `./Tools/run-checks.sh`: 1,304 model assertions, all passing on macOS without
-  a simulator.
+- `./Tools/run-checks.sh`: 1,304 model assertions at the first commit, all
+  passing on macOS without a simulator. The count today is in
+  [README.md](README.md#checking-it).
 
 ## Known issues
 

@@ -218,7 +218,7 @@ built app rather than the setting:
 
 What is built, what has never run and what is known to be wrong are in
 [CHANGELOG.md](CHANGELOG.md). From the repository root, the model checks run
-without a simulator — 1,792 assertions over the trip maths, the date shifting,
+without a simulator — 1,819 assertions over the trip maths, the date shifting,
 rates, settlement, letter gating and sealing, the book's arithmetic and type
 fitting, the shelf, the vault's key handling, and two stores converging through
 one loopback box:
@@ -251,10 +251,11 @@ The full list of routes and seeding flags is in [`CLAUDE.md`](../CLAUDE.md).
   one — either traveller, or the observer at home — is the *first* question
   onboarding asks, which is what makes home mode reachable at all.
 - **Money defaults to euros.** The prototype is dollar-denominated; two Dutch
-  passports are not. A trip can be held in EUR, GBP or USD and spent in those
-  plus THB, VND and KRW — the six the app can get a rate for. That list is a
-  known limitation (see [CHANGELOG.md](CHANGELOG.md)). The budget starts at
-  nothing and is asked for in onboarding.
+  passports are not. About forty currencies are built in, one for every
+  country the country card knows, each with a built-in rate behind the live
+  one. Pickers show the likely and home currencies first and the rest by name
+  behind "another…"; the home currency can be any of them. The budget starts
+  at nothing and is asked for in onboarding.
 - **"Now" is the real device date**, not a pinned day. A new trip departs today
   until the travellers say otherwise.
 - **Light appearance only.** The dark screens (stamp, separated, lock) are

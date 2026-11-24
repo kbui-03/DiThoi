@@ -1110,6 +1110,19 @@ typed stamp's position — which syncs and never changes again — could be anot
 town's. Both go through it now. `record(_:)` is the delegate's way in, and the
 checks'.
 
+**A failure is an answer.** `didFailWithError` was empty, so a one-shot
+`requestLocation()` that could get no fix said so nowhere, and "Finding where
+you are…" on the meeting point picker waited for ever. `fail(_:)` is the
+delegate's path and the checks': it counts `failures` and sets
+`hasFailedSinceFix`, which the next `record(_:)` clears. While tracking,
+`CLError.locationUnknown` is Core Location saying "still trying" and is not a
+failure; for a one-shot it is the whole answer. The picker notes `failures`
+when it asks and gives up on a later failure or after `pinPatience` (20 s),
+whichever is first, with "Couldn't find you · try again". The count, not a
+date, is what makes "since I asked" answerable without a second clock.
+Separated keeps tracking and says "Can't find you · Use the written
+directions" while it has no fix.
+
 ### 3.8 The itinerary
 
 Day offsets and `reflow()` are §3.1. The rest is how a stop is named, found and
@@ -1966,6 +1979,26 @@ with no tab, and "Tonight's entry · Write" with nightly pages off. `figures`
 draws the spent column only with `features.sharedLedger`, and the meeting point
 takes the row; `tonight` (and the spine in it) only with `features.nightlyPage`.
 
+**The tabs are kept alive.** `MainTabs` swapped its five views in a `switch`, so
+every tab change threw away the pushed screen (the ledger, the itinerary, a
+document), the scroll position and Money's undo, and Today's "not yet" on the
+arrival nudge came back each time Today opened. Each tab is now built the first
+time it is chosen and then kept (`KeptTab`: opacity, hit testing and
+accessibility follow the selection); `HomeTabs` does the same. A kept tab
+doesn't appear again, so anything that happens *per visit* reads
+`\.isActiveTab` instead of `onAppear` or a bare `.task`: Money's budget nudge
+count, and the "you are here" fix Today and the trail ask for. "Not yet" is a
+store event for the calendar day (`deferArrival(at:)`, `isArrivalDeferred(at:)`),
+like `justShelved`: never persisted, never on the payload, asked again tomorrow.
+
+**Helper lines go once they've been used.** "Tap a line to edit it; hold it to
+delete" and its siblings on the trail, Papers and the show-this cards were
+permanent lines on screens used fifty times. Each shows until its gesture has
+been used once: `hintsLearned`, a set of `UsageHint` on the snapshot, this
+phone's, never on the payload, and carried through `beginNextTrip` like
+`customTags`, because it is the person who learned it. `resetTrip()` clears it.
+The trail's line said "open"; tapping a moment edits it.
+
 ### 5.2 What the lock is in front of, and why it is a rule
 
 `AppLock` gates two screens, not the tab they live on. Papers itself is
@@ -2672,6 +2705,16 @@ tab's rows, Today's row ("Last night's page · Thu 30" in the small hours) and t
 widget's link all read it, and only tonight's page teaches the clock. The date
 on Today and the reminder's schedule stay on the calendar day: at 00:30 the page
 is last night's, and this evening still gets its prompt.
+
+**The date turning republishes the store.** Every day-shaped value is computed
+from `now`, so nothing in the store goes stale at midnight; the screens did,
+because nothing published when only the date moved. A screen left open across
+midnight kept yesterday, and the ending and Separated were checked only in
+`MainTabs.onAppear`, so a phone resumed on the last day never showed the ending
+until a cold launch. `dayMayHaveTurned()` sends `objectWillChange` on `.active`
+and on `significantTimeChangeNotification`, and `MainTabs` presents due covers
+on `onChange(of: endingDue)` and `onChange(of: isSeparated)` as well as on
+appear. `endingDue` still makes it once.
 
 ### 8.2 The book (`Model/Book.swift`, `Features/Book/`)
 
